@@ -1,12 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Banknote, FileCheck2, Landmark, Layers } from '../lib/icons';
+import { Banknote, FileCheck2, Landmark, Layers, House, Car, Chart, Money } from '../lib/icons';
 import { api } from '@credit-core/api-client';
-import { CaseStatus, STATUS_LABEL } from '@credit-core/shared';
+import { CaseStatus, ProductType, PRODUCT_LABEL, STATUS_LABEL } from '@credit-core/shared';
 import { Card, Skeleton, StatusBadge } from '../components/primitives';
 import { useTheme } from '../lib/theme';
 import { formatMoney } from '../lib/cn';
+
+const MONTH_SHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+const monthLabel = (mk: string) => { const [, m] = mk.split('-'); return MONTH_SHORT[Number(m) - 1] ?? mk; };
+const productHex: Record<ProductType, string> = { [ProductType.REAL_ESTATE]: '#0369a1', [ProductType.AUTO]: '#d97706' };
 
 const hexFor: Record<CaseStatus, string> = {
   [CaseStatus.DRAFT]: '#94a3b8',
@@ -75,6 +79,34 @@ export function AnalyticsPage() {
         <StatCard icon={Banknote} label="Jami summa" value={formatMoney(data.totalAmount)} tone="bg-navy-800" />
         <StatCard icon={Landmark} label="Jami KATM" value={formatMoney(data.totalKatm)} tone="bg-warning-600" />
       </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard icon={Chart} label="Jarayonda" value={String(data.activeCount)} tone="bg-violet-600" />
+        <StatCard icon={Money} label="O‘rtacha summa" value={formatMoney(data.avgAmount)} tone="bg-brand-700" />
+        <StatCard icon={FileCheck2} label="Tasdiqlash ulushi" value={`${Math.round(data.approvalRate * 100)}%`} tone="bg-success-600" />
+        <StatCard icon={Landmark} label="Jami garov qiymati" value={formatMoney(data.totalCollateralValue)} tone="bg-navy-800" />
+      </div>
+
+      <Card>
+        <h2 className="mb-4 font-semibold">Oylik dinamika (6 oy)</h2>
+        <div className="h-60">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data.byMonth.map((m) => ({ name: monthLabel(m.month), count: m.count, amount: m.amount }))} margin={{ left: -18, top: 6 }}>
+              <defs>
+                <linearGradient id="monthGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 11, fill: tick }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: tick }} />
+              <Tooltip content={<ChartTip />} cursor={{ stroke: grid }} />
+              <Area type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#monthGrad)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
@@ -155,6 +187,29 @@ export function AnalyticsPage() {
         ) : (
           <p className="text-sm text-slate-400">Ma'lumot yo‘q</p>
         )}
+      </Card>
+
+      <Card>
+        <h2 className="mb-4 font-semibold">Mahsulot bo‘yicha</h2>
+        <div className="space-y-3">
+          {data.byProduct.map((p) => {
+            const pct = data.totalCases ? Math.round((p.count / data.totalCases) * 100) : 0;
+            return (
+              <div key={p.product}>
+                <div className="mb-1 flex items-center gap-2 text-sm">
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-white ${p.product === ProductType.AUTO ? 'bg-warning-600' : 'bg-brand-700'}`}>
+                    {p.product === ProductType.AUTO ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
+                  </span>
+                  <span className="font-medium">{PRODUCT_LABEL[p.product]}</span>
+                  <span className="ml-auto text-muted">{p.count} ta · {formatMoney(p.amount)}</span>
+                </div>
+                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: productHex[p.product] }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </Card>
 
       <Card className="overflow-hidden p-0">

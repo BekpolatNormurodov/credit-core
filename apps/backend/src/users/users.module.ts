@@ -94,7 +94,7 @@ class UsersController {
     const data: Record<string, unknown> = {
       fullName: dto.fullName,
       role: dto.role,
-      branchId: dto.branchId,
+      branchId: dto.branchId === undefined ? undefined : dto.branchId || null,
       isActive: dto.isActive,
     };
     if (dto.password) {

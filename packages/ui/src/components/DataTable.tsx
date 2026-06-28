@@ -56,7 +56,8 @@ export function DataTable<T extends { id?: string }>({
           {q && <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500 dark:bg-white/10 dark:text-slate-300">{filtered.length}</span>}
         </div>
       )}
-      <div className="overflow-x-auto">
+      {/* Desktop / tablet: real table */}
+      <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
           <thead className="border-b border-hairline bg-slate-50/80 text-xs uppercase tracking-wide text-muted dark:border-white/10 dark:bg-white/5">
             <tr>
@@ -88,6 +89,29 @@ export function DataTable<T extends { id?: string }>({
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile: stacked cards (first column is the title, rest are label/value rows) */}
+      <div className="divide-y divide-slate-100 sm:hidden dark:divide-white/5">
+        {slice.length === 0 && <p className="px-4 py-12 text-center text-slate-400">{empty}</p>}
+        {slice.map((row, i) => {
+          const [first, ...rest] = columns;
+          const cell = (c: Column<T>) => (c.render ? c.render(row) : String((row as any)[c.key] ?? '—'));
+          return (
+            <div key={row.id ?? i} onClick={onRowClick ? () => onRowClick(row) : undefined}
+              className={cn('space-y-2 p-4', onRowClick && 'cursor-pointer active:bg-slate-50 dark:active:bg-white/5')}>
+              <div className="font-medium text-ink dark:text-slate-100">{cell(first)}</div>
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                {rest.map((c) => (
+                  <div key={c.key} className="flex items-center justify-between gap-2 border-b border-slate-50 pb-1 last:border-0 dark:border-white/5">
+                    <dt className="shrink-0 text-xs uppercase tracking-wide text-muted">{c.header}</dt>
+                    <dd className="min-w-0 truncate text-right text-ink dark:text-slate-200">{cell(c)}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          );
+        })}
       </div>
       {filtered.length > pageSize && (
         <div className="flex items-center justify-between border-t border-hairline px-4 py-3 text-sm dark:border-white/10">

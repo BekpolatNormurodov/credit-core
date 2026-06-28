@@ -130,10 +130,16 @@ export interface NotificationItem {
 export interface StatsResponse {
   byStatus: { status: CaseStatus; count: number }[];
   byBranch: { branch: string; count: number }[];
+  byProduct: { product: ProductType; count: number; amount: number }[];
+  byMonth: { month: string; count: number; amount: number }[];
   totalCases: number;
   totalAmount: number;
   totalKatm: number;
+  totalCollateralValue: number;
+  avgAmount: number;
+  approvalRate: number; // finalized / total, 0..1
   finalizedCount: number;
+  activeCount: number; // in-progress (not finalized/rejected)
   recent: CreditCaseListItem[];
 }
 

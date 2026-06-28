@@ -125,6 +125,10 @@ export const api = {
     const { data } = await http.post('/users', payload);
     return data;
   },
+  async updateUser(id: string, payload: { fullName?: string; role?: Role; branchId?: string; isActive?: boolean; password?: string }) {
+    const { data } = await http.put(`/users/${id}`, payload);
+    return data;
+  },
   async uploadUserAvatar(id: string, file: File) {
     const fd = new FormData();
     fd.append('file', file);
