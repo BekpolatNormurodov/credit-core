@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/PC/AppData/Local/Temp/claude/C--Users-PC-Desktop-credit-core/555fd488-3402-46af-964d-4c3d1cabe1a0/scratchpad/**)",
+      "Bash(rm -rf xl)",
+      "Bash(unzip -o -q \"/c/Users/PC/Downloads/TADJIYEV ATABEK JANGIROVICH.xlsx\" -d xl)"
+    ]
+  }
+}

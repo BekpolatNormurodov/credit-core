@@ -1,0 +1,64 @@
+/**
+ * Enums use the const-object + union pattern (same as Prisma's generated
+ * enums) so the backend's Prisma enum values and these are mutually
+ * assignable without casts. Each name is both a value and a type.
+ */
+
+/** User roles — also drives which web app a user may log into. */
+export const Role = {
+  OPERATOR: 'OPERATOR',
+  MODERATOR: 'MODERATOR',
+  DIRECTOR: 'DIRECTOR',
+  ADMIN: 'ADMIN',
+} as const;
+export type Role = (typeof Role)[keyof typeof Role];
+
+/** Collateral product type. Foundation phase implements REAL_ESTATE fully. */
+export const ProductType = {
+  REAL_ESTATE: 'REAL_ESTATE',
+  AUTO: 'AUTO',
+} as const;
+export type ProductType = (typeof ProductType)[keyof typeof ProductType];
+
+/**
+ * Workflow status of a credit case.
+ * Drawing flow: Operator → Moderator → [Zam optional] → Director → Admin.
+ */
+export const CaseStatus = {
+  DRAFT: 'DRAFT', // operator is filling in
+  MODERATION: 'MODERATION', // submitted, waiting for moderator
+  DIRECTOR_REVIEW: 'DIRECTOR_REVIEW', // moderator approved, waiting for director
+  ADMIN_FINALIZE: 'ADMIN_FINALIZE', // director approved + final docs uploaded, waiting for admin
+  FINALIZED: 'FINALIZED', // admin finalized (KATM price + PDF + Excel) → done
+  REJECTED: 'REJECTED', // returned/rejected terminally
+} as const;
+export type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus];
+
+/** Decision recorded on each workflow transition. */
+export const WorkflowDecision = {
+  SUBMIT: 'SUBMIT',
+  APPROVE: 'APPROVE',
+  RETURN: 'RETURN',
+  FINALIZE: 'FINALIZE',
+} as const;
+export type WorkflowDecision = (typeof WorkflowDecision)[keyof typeof WorkflowDecision];
+
+/** Uploaded / generated document categories (from the hand-drawn doc list). */
+export const DocumentType = {
+  NOTARY: 'NOTARY', // notarius (×3)
+  SCAN: 'SCAN', // scanner upload
+  COLLATERAL_PHOTO: 'COLLATERAL_PHOTO', // zalog rasm
+  TECH_PASSPORT: 'TECH_PASSPORT', // tex passport
+  DIRECTOR_FINAL: 'DIRECTOR_FINAL', // 1–2 final docs the director uploads
+  GENERATED_PDF: 'GENERATED_PDF', // PDF produced by the system
+  OTHER: 'OTHER',
+} as const;
+export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
+
+/** KATM report kinds — placeholder for the future integration (2–3 reports). */
+export const KatmReportType = {
+  CREDIT_HISTORY: 'CREDIT_HISTORY',
+  SCORING: 'SCORING',
+  PLEDGE_REGISTRY: 'PLEDGE_REGISTRY',
+} as const;
+export type KatmReportType = (typeof KatmReportType)[keyof typeof KatmReportType];
