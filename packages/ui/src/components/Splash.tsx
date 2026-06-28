@@ -5,7 +5,7 @@ export function Splash({ title, subtitle }: { title: string; subtitle: string })
   const reduce = useReducedMotion();
   const from = (v: Record<string, number>) => (reduce ? { opacity: 1 } : v);
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900 text-white">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-navy-800 via-brand-700 to-navy-900 text-white">
       <motion.div
         initial={from({ scale: 0.6, opacity: 0, rotate: -8 })}
         animate={{ scale: 1, opacity: 1, rotate: 0 }}

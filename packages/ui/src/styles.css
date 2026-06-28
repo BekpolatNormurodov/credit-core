@@ -14,7 +14,14 @@ body,
 
 body {
   @apply bg-canvas text-ink antialiased;
-  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Headings use Fira Code (skill: data/technical/precise mood). */
+h1,
+h2,
+h3 {
+  font-family: theme('fontFamily.heading');
+  letter-spacing: -0.01em;
 }
 
 /* Tabular figures for money/data so columns don't shift (number-tabular). */

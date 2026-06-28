@@ -15,9 +15,9 @@ export function Button({
   loading?: boolean;
 }) {
   const variants: Record<string, string> = {
-    primary: 'bg-brand-800 text-white hover:bg-brand-900 active:bg-brand-900 shadow-soft focus-visible:ring-brand-300',
+    primary: 'bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900 shadow-soft focus-visible:ring-brand-300',
     secondary: 'bg-white text-ink border border-hairline hover:bg-slate-50 active:bg-slate-100 focus-visible:ring-brand-200',
-    accent: 'bg-gold-500 text-white hover:bg-gold-600 focus-visible:ring-gold-400',
+    accent: 'bg-navy-800 text-white hover:bg-navy-700 focus-visible:ring-navy-700/40',
     danger: 'bg-danger-600 text-white hover:bg-danger-700 focus-visible:ring-danger-600/40',
     ghost: 'text-muted hover:bg-slate-100 active:bg-slate-200 focus-visible:ring-brand-200',
   };

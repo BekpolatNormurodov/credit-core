@@ -28,7 +28,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-slate-50">
       <aside className="hidden w-64 flex-col border-r border-slate-200 bg-white p-5 md:flex">
         <div className="mb-8 flex items-center gap-2.5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy-800 text-white">
             <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
