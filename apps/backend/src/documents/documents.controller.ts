@@ -37,6 +37,7 @@ export class DocumentsController {
     @Query('caseId') caseId: string,
     @Query('type') type: DocumentType,
     @CurrentUser() user: RequestUser,
+    @Query('collateralId') collateralId?: string,
   ) {
     if (!file) throw new BadRequestException('Fayl yuborilmadi');
     if (!caseId) throw new BadRequestException('caseId kerak');
@@ -45,6 +46,7 @@ export class DocumentsController {
     return this.prisma.document.create({
       data: {
         caseId,
+        collateralId: collateralId || null,
         type: docType as DocumentType,
         fileName: stored.fileName,
         storagePath: stored.storagePath,

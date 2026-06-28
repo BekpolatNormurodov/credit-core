@@ -36,7 +36,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, ref
 
 function navFor(role: Role, t: (k: string) => string): NavItem[] {
   const base: NavItem[] = [{ to: '/', label: t('nav.applications'), icon: LayoutGrid }];
-  if (role === Role.OPERATOR) base.push({ to: '/?new=1', label: t('nav.new'), icon: FilePlus2 });
+  if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/?new=1', label: t('nav.new'), icon: FilePlus2 });
   base.push({ to: '/calculator', label: t('nav.calculator'), icon: Calculator });
   base.push({ to: '/chats', label: t('nav.chats'), icon: Messages, badgeKey: 'unread' });
   base.push({ to: '/analytics', label: t('nav.monitoring'), icon: BarChart3 });
@@ -68,8 +68,8 @@ function Shell({ role, title }: { role: Role; title: string }) {
     <AppShell title={title} nav={navFor(role, t)}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        {role === Role.OPERATOR && <Route path="/cases/new" element={<Navigate to="/?new=1" replace />} />}
-        {role === Role.OPERATOR && <Route path="/cases/:id/edit" element={<CaseForm />} />}
+        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/new" element={<Navigate to="/?new=1" replace />} />}
+        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/:id/edit" element={<CaseForm />} />}
         <Route path="/cases/:id" element={<CaseView />} />
         <Route path="/calculator" element={<CreditCalculator />} />
         <Route path="/chats" element={<ChatsPage />} />

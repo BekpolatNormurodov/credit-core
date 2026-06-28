@@ -125,6 +125,12 @@ export const api = {
     const { data } = await http.post('/users', payload);
     return data;
   },
+  async uploadUserAvatar(id: string, file: File) {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await http.post(`/users/${id}/avatar`, fd);
+    return data;
+  },
 
   // ── Chat / messages ──
   async messages(caseId: string): Promise<MessageDto[]> {
@@ -162,6 +168,12 @@ export async function viewDocument(id: string, fileName: string) {
   const url = `${apiBaseUrl}/api/documents/${id}/download?inline=1&token=${encodeURIComponent(token ?? '')}`;
   const w = window.open(url, '_blank', 'noopener,noreferrer');
   if (!w) downloadBlob(await api.downloadDocument(id), fileName);
+}
+
+/** Tokenized avatar URL usable directly as an <img src>. */
+export function userAvatarUrl(id: string): string {
+  const token = getToken();
+  return `${apiBaseUrl}/api/users/${id}/avatar?token=${encodeURIComponent(token ?? '')}`;
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

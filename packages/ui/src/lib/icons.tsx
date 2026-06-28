@@ -63,6 +63,7 @@ export const User = make(Iso.User);
 export const Warning = make(Iso.Warning2 ?? Iso.Danger);
 export const Lock = make(Iso.Lock1 ?? Iso.Lock);
 export const Phone = make(Iso.Call);
+export const Copy = make(Iso.Copy);
 
 // Aliases matching prior (lucide) names so call sites need no JSX changes.
 export const CheckCircle2 = Check;

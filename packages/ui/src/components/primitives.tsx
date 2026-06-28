@@ -109,12 +109,12 @@ export function Skeleton({ className }: { className?: string }) {
 }
 
 const statusStyles: Record<CaseStatus, string> = {
-  [CaseStatus.DRAFT]: 'bg-slate-100 text-slate-700 ring-slate-200',
-  [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-700 ring-warning-100',
-  [CaseStatus.DIRECTOR_REVIEW]: 'bg-violet-50 text-violet-700 ring-violet-100',
-  [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-50 text-brand-800 ring-brand-100',
-  [CaseStatus.FINALIZED]: 'bg-success-50 text-success-700 ring-success-100',
-  [CaseStatus.REJECTED]: 'bg-danger-50 text-danger-700 ring-danger-100',
+  [CaseStatus.DRAFT]: 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10',
+  [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-700 ring-warning-100 dark:bg-warning-600/15 dark:text-warning-400 dark:ring-warning-600/20',
+  [CaseStatus.DIRECTOR_REVIEW]: 'bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-600/15 dark:text-violet-300 dark:ring-violet-600/20',
+  [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-50 text-brand-800 ring-brand-100 dark:bg-brand-600/15 dark:text-brand-300 dark:ring-brand-600/20',
+  [CaseStatus.FINALIZED]: 'bg-success-50 text-success-700 ring-success-100 dark:bg-success-600/15 dark:text-success-400 dark:ring-success-600/20',
+  [CaseStatus.REJECTED]: 'bg-danger-50 text-danger-700 ring-danger-100 dark:bg-danger-600/15 dark:text-danger-400 dark:ring-danger-600/20',
 };
 
 export function StatusBadge({ status }: { status: CaseStatus }) {

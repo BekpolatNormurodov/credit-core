@@ -1,4 +1,24 @@
-import { Body, Controller, Get, Module, Post, Put, Param, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Module,
+  NotFoundException,
+  Post,
+  Put,
+  Param,
+  Query,
+  Res,
+  UnauthorizedException,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { ConfigService } from '@nestjs/config';
+import { JwtModule, JwtService } from '@nestjs/jwt';
+import type { Response } from 'express';
 import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '@credit-core/shared';
@@ -6,6 +26,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { StorageService } from '../documents/storage.service';
 
 class CreateUserDto {
   @IsString() @MinLength(1) fullName!: string;
@@ -23,10 +44,14 @@ class UpdateUserDto {
   @IsOptional() @IsString() @MinLength(4) password?: string;
 }
 
+// Admin-only controller, so returning the plaintext credential here is intentional
+// (internal credential-distribution tool). Never expose this select to other roles.
 const userSelect = {
   id: true,
   fullName: true,
   login: true,
+  plainPassword: true,
+  avatarPath: true,
   role: true,
   branchId: true,
   isActive: true,
@@ -37,7 +62,11 @@ const userSelect = {
 @Roles(Role.ADMIN)
 @Controller('users')
 class UsersController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+    private readonly jwt: JwtService,
+  ) {}
 
   @Get()
   list() {
@@ -54,6 +83,7 @@ class UsersController {
         role: dto.role,
         branchId: dto.branchId ?? null,
         passwordHash,
+        plainPassword: dto.password,
       },
       select: userSelect,
     });
@@ -67,10 +97,42 @@ class UsersController {
       branchId: dto.branchId,
       isActive: dto.isActive,
     };
-    if (dto.password) data.passwordHash = await bcrypt.hash(dto.password, 10);
+    if (dto.password) {
+      data.passwordHash = await bcrypt.hash(dto.password, 10);
+      data.plainPassword = dto.password;
+    }
     return this.prisma.user.update({ where: { id }, data, select: userSelect });
+  }
+
+  @Post(':id/avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(@Param('id') id: string, @UploadedFile() file?: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Rasm yuborilmadi');
+    const stored = await this.storage.save(file.buffer, file.originalname, file.mimetype, `avatars/${id}`);
+    return this.prisma.user.update({ where: { id }, data: { avatarPath: stored.storagePath }, select: userSelect });
+  }
+
+  /** Serves a user's avatar image; token via header or `?token=` (for <img src>). */
+  @Get(':id/avatar')
+  async getAvatar(@Param('id') id: string, @Res() res: Response, @Query('token') token?: string) {
+    const header = (res.req.headers['authorization'] as string | undefined)?.replace(/^Bearer\s+/i, '');
+    const raw = header || token;
+    if (!raw) throw new UnauthorizedException();
+    try { this.jwt.verify(raw); } catch { throw new UnauthorizedException(); }
+    const user = await this.prisma.user.findUnique({ where: { id }, select: { avatarPath: true } });
+    if (!user?.avatarPath) throw new NotFoundException('Avatar yo‘q');
+    res.setHeader('Cache-Control', 'private, max-age=60');
+    this.storage.stream(user.avatarPath).pipe(res);
   }
 }
 
-@Module({ controllers: [UsersController] })
+@Module({
+  imports: [
+    JwtModule.registerAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({ secret: config.get<string>('JWT_SECRET') ?? 'dev-secret' }),
+    }),
+  ],
+  controllers: [UsersController],
+})
 export class UsersModule {}

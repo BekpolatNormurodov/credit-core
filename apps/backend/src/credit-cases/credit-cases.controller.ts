@@ -23,14 +23,14 @@ export class CreditCasesController {
   }
 
   @UseGuards(RolesGuard)
-  @Roles(Role.OPERATOR)
+  @Roles(Role.OPERATOR, Role.ADMIN)
   @Post()
   create(@CurrentUser() user: RequestUser, @Body() dto: UpsertCaseDto) {
     return this.service.createCase(user, dto);
   }
 
   @UseGuards(RolesGuard)
-  @Roles(Role.OPERATOR)
+  @Roles(Role.OPERATOR, Role.ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: UpsertCaseDto) {
     return this.service.updateCase(id, user, dto);

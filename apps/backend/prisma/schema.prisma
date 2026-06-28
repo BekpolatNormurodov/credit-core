@@ -62,6 +62,8 @@ model User {
   fullName     String
   login        String   @unique
   passwordHash String
+  plainPassword String? // admin-visible credential (internal tool — see note)
+  avatarPath   String?
   role         Role
   branch       Branch?  @relation(fields: [branchId], references: [id])
   branchId     String?
@@ -198,6 +200,7 @@ model Document {
   id          String       @id @default(cuid())
   case        CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
   caseId      String
+  collateralId String?     // optional: ties a photo/doc to a specific collateral
   type        DocumentType
   fileName    String
   storagePath String

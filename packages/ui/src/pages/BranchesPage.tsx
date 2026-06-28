@@ -4,9 +4,17 @@ import { Building, Plus } from '../lib/icons';
 import { api } from '@credit-core/api-client';
 import type { BranchDto } from '@credit-core/shared';
 import { Button, Field, Input } from '../components/primitives';
+import { Select } from '../components/forms';
 import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { DataTable, type Column } from '../components/DataTable';
+
+// O'zbekiston 14 hududi (12 viloyat + Qoraqalpog'iston + Toshkent sh.)
+const REGIONS = [
+  'Toshkent shahri', 'Toshkent viloyati', 'Andijon', 'Buxoro', "Farg'ona", 'Jizzax',
+  'Xorazm', 'Namangan', 'Navoiy', 'Qashqadaryo', 'Samarqand', 'Sirdaryo',
+  'Surxondaryo', "Qoraqalpog'iston Respublikasi",
+];
 
 const empty = { name: '', symbol: '', region: '' };
 
@@ -65,7 +73,10 @@ export function BranchesPage() {
           <Field label="Nomi" required><Input value={b.name} onChange={(e) => setB({ ...b, name: e.target.value })} placeholder="Toshkent filiali" autoFocus /></Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Simvol" required hint="qisqa kod, masalan TK"><Input value={b.symbol} onChange={(e) => setB({ ...b, symbol: e.target.value.toUpperCase() })} placeholder="TK" /></Field>
-            <Field label="Hudud"><Input value={b.region} onChange={(e) => setB({ ...b, region: e.target.value })} /></Field>
+            <Field label="Hudud">
+              <Select<string> value={b.region} onChange={(v) => setB({ ...b, region: v })} placeholder="— hududni tanlang —"
+                options={REGIONS.map((r) => ({ value: r, label: r }))} />
+            </Field>
           </div>
         </div>
       </Modal>

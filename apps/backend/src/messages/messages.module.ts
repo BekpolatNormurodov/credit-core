@@ -52,7 +52,11 @@ class MessagesController {
   @Get('messages/feed')
   async feed(@CurrentUser() user: RequestUser) {
     const msgs = await this.prisma.message.findMany({
-      where: { senderId: { not: user.id } },
+      where: {
+        senderId: { not: user.id },
+        // Directed messages are private — only the targeted role sees them.
+        OR: [{ toRole: null }, { toRole: user.role as Role }],
+      },
       include: { sender: true, case: { select: { number: true } }, document: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
@@ -75,7 +79,10 @@ class MessagesController {
   @Get('messages/unread')
   async unread(@CurrentUser() user: RequestUser) {
     const msgs = await this.prisma.message.findMany({
-      where: { senderId: { not: user.id } },
+      where: {
+        senderId: { not: user.id },
+        OR: [{ toRole: null }, { toRole: user.role as Role }],
+      },
       select: { id: true, readBy: true, caseId: true },
     });
     const count = msgs.filter((m) => !(m.readBy ?? '').split(',').includes(user.id)).length;
@@ -85,7 +92,11 @@ class MessagesController {
   @Get('cases/:id/messages')
   async list(@Param('id') caseId: string, @CurrentUser() user: RequestUser): Promise<MessageDto[]> {
     const messages = await this.prisma.message.findMany({
-      where: { caseId },
+      where: {
+        caseId,
+        // A directed message is visible only to its sender and the targeted role.
+        OR: [{ toRole: null }, { toRole: user.role as Role }, { senderId: user.id }],
+      },
       include: msgInclude,
       orderBy: { createdAt: 'asc' },
     });

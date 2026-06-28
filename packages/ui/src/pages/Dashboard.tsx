@@ -26,7 +26,8 @@ export function Dashboard() {
   const nav = useNavigate();
   const [params, setParams] = useSearchParams();
   const isOperator = user?.role === Role.OPERATOR;
-  const newOpen = isOperator && params.get('new') === '1';
+  const canCreate = user?.role === Role.OPERATOR || user?.role === Role.ADMIN;
+  const newOpen = canCreate && params.get('new') === '1';
   const openNew = () => setParams({ new: '1' });
   const closeNew = () => setParams({});
   const { data: cases, isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => api.cases(false) });
@@ -58,12 +59,12 @@ export function Dashboard() {
           <h1 className="text-2xl font-bold">Arizalar</h1>
           <p className="text-sm text-muted">{isOperator ? 'Sizning kredit arizalaringiz' : 'Navbatingizdagi arizalar'}</p>
         </div>
-        {isOperator && (
+        {canCreate && (
           <Button onClick={openNew}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
         )}
       </div>
 
-      {isOperator && <NewCaseModal open={newOpen} onClose={closeNew} />}
+      {canCreate && <NewCaseModal open={newOpen} onClose={closeNew} />}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats ? (
