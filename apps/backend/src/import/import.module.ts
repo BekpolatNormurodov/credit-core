@@ -16,7 +16,7 @@ import { Roles } from '../auth/roles.decorator';
 import { parseRealEstateWorkbook } from './excel-parse.util';
 
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(Role.OPERATOR)
+@Roles(Role.OPERATOR, Role.ADMIN)
 @Controller('import')
 class ImportController {
   constructor(private readonly prisma: PrismaService) {}

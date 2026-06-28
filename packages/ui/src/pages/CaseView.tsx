@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CheckCircle2, Download, FileDown, FileText, Pencil, RotateCcw, Send, Flag, Upload, Eye, House, Car,
+  CheckCircle2, Download, FileDown, FileText, Pencil, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip,
 } from '../lib/icons';
 import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import { CaseChat } from '../components/CaseChat';
@@ -14,6 +14,7 @@ import { useAuth } from '../lib/auth';
 import { Button, Card, Field, Input, StatusBadge } from '../components/primitives';
 import { Select, MoneyInput } from '../components/forms';
 import { CaseTimeline } from '../components/CaseTimeline';
+import { useToast } from '../components/Toast';
 import { formatMoney } from '../lib/cn';
 
 const uploadTypes: DocumentType[] = [
@@ -82,15 +83,16 @@ export function CaseView() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <Detail c={c} />
+          <Detail c={c} canUpload={canUpload} />
 
           <Card>
-            <h2 className="mb-3 font-semibold">Hujjatlar</h2>
-            {c.documents.length === 0 && <p className="text-sm text-slate-400">Hujjatlar yo‘q</p>}
-
+            <h2 className="mb-1 font-semibold">Umumiy hujjatlar</h2>
+            <p className="mb-3 text-xs text-muted">Garovga bog‘lanmagan hujjatlar (garov hujjatlari yuqorida har bir garov ostida).</p>
             {(() => {
-              const images = c.documents.filter((d) => (d.mimeType ?? '').startsWith('image/'));
-              const files = c.documents.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+              const general = c.documents.filter((d) => !d.collateralId);
+              const images = general.filter((d) => (d.mimeType ?? '').startsWith('image/'));
+              const files = general.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+              if (general.length === 0 && !canUpload) return <p className="text-sm text-slate-400">Hujjatlar yo‘q</p>;
               return (
                 <div className="space-y-3">
                   {images.length > 0 && (
@@ -190,7 +192,7 @@ export function CaseView() {
   );
 }
 
-function Detail({ c }: { c: CreditCaseDto }) {
+function Detail({ c, canUpload }: { c: CreditCaseDto; canUpload: boolean }) {
   const totalCollateral = c.collaterals.reduce((s, x) => s + (x.agreedValue ?? 0), 0);
   const base: [string, string][] = [
     ['Qarz oluvchi', c.borrower?.fullName ?? '—'],
@@ -272,11 +274,113 @@ function Detail({ c }: { c: CreditCaseDto }) {
               {col.owners?.length ? (
                 <p className="mt-2 text-xs text-slate-500">Egalar: {col.owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}</p>
               ) : null}
+              {col.id && (
+                <CollateralDocs
+                  caseId={c.id}
+                  collateralId={col.id}
+                  docs={c.documents.filter((d) => d.collateralId === col.id)}
+                  canUpload={canUpload}
+                />
+              )}
             </div>
           );
         })}
       </div>
     </Card>
+  );
+}
+
+const COLLATERAL_DOC_TYPES: DocumentType[] = [
+  DocumentType.COLLATERAL_PHOTO, DocumentType.TECH_PASSPORT, DocumentType.NOTARY, DocumentType.SCAN, DocumentType.OTHER,
+];
+
+function CollateralDocs({
+  caseId, collateralId, docs, canUpload,
+}: { caseId: string; collateralId: string; docs: CreditCaseDto['documents']; canUpload: boolean }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [docType, setDocType] = useState<DocumentType>(DocumentType.COLLATERAL_PHOTO);
+
+  const reset = () => { setFile(null); setTitle(''); setDescription(''); setDocType(DocumentType.COLLATERAL_PHOTO); setOpen(false); };
+  const upload = useMutation({
+    mutationFn: () => api.uploadDocument(caseId, docType, file!, { collateralId, title: title || undefined, description: description || undefined }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', caseId] }); toast.success('Hujjat biriktirildi', title || file?.name); reset(); },
+    onError: () => toast.error('Xatolik', 'Hujjat yuklanmadi'),
+  });
+
+  const images = docs.filter((d) => (d.mimeType ?? '').startsWith('image/'));
+  const files = docs.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+
+  return (
+    <div className="mt-3 border-t border-hairline pt-3 dark:border-white/10">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Garov hujjatlari ({docs.length})</p>
+        {canUpload && !open && (
+          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-600/15">
+            <Upload className="h-3.5 w-3.5" /> Hujjat biriktirish
+          </button>
+        )}
+      </div>
+
+      {docs.length === 0 && !open && <p className="text-xs text-slate-400">Hali hujjat biriktirilmagan</p>}
+
+      {images.length > 0 && (
+        <div className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {images.map((d) => (
+            <button key={d.id} onClick={() => viewDocument(d.id, d.fileName)}
+              className="group relative aspect-square overflow-hidden rounded-lg border border-hairline dark:border-white/10" title={[d.title, d.fileName].filter(Boolean).join(' · ')}>
+              <img src={documentInlineUrl(d.id)} alt={d.fileName} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+              {d.title && <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">{d.title}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {files.length > 0 && (
+        <ul className="mb-2 space-y-1.5">
+          {files.map((d) => (
+            <li key={d.id} className="flex items-start justify-between gap-2 rounded-lg border border-hairline px-2.5 py-1.5 dark:border-white/10">
+              <div className="flex min-w-0 items-start gap-2 text-sm">
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{d.title || DOCUMENT_LABEL[d.type]} <span className="font-normal text-slate-400">· {d.fileName}</span></p>
+                  {d.description && <p className="text-xs text-slate-500">{d.description}</p>}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <button onClick={() => viewDocument(d.id, d.fileName)} className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10" title="Ko‘rish"><Eye className="h-4 w-4" /></button>
+                <button onClick={async () => downloadBlob(await api.downloadDocument(d.id), d.fileName)} className="rounded-lg p-1 text-brand-600 transition hover:bg-brand-50 dark:hover:bg-brand-600/15" title="Yuklab olish"><Download className="h-4 w-4" /></button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {open && (
+        <div className="space-y-2 rounded-xl border border-dashed border-hairline bg-slate-50/60 p-3 dark:border-white/15 dark:bg-white/5">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="Hujjat nomi"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="masalan: Kadastr ko‘chirmasi" /></Field>
+            <Field label="Turi">
+              <Select<DocumentType> value={docType} onChange={setDocType} options={COLLATERAL_DOC_TYPES.map((t) => ({ value: t, label: DOCUMENT_LABEL[t] }))} />
+            </Field>
+          </div>
+          <Field label="Izoh (ixtiyoriy)"><Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Qo‘shimcha tavsif…" /></Field>
+          <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}><Paperclip className="h-4 w-4" /> {file ? 'Faylni almashtirish' : 'Fayl tanlash'}</Button>
+            {file && <span className="truncate text-xs text-muted">{file.name}</span>}
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant="ghost" onClick={reset}>Bekor</Button>
+              <Button disabled={!file} loading={upload.isPending} onClick={() => upload.mutate()}><Upload className="h-4 w-4" /> Biriktirish</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

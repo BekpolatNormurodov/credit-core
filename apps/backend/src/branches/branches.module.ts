@@ -22,8 +22,24 @@ class BranchesController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  list() {
-    return this.prisma.branch.findMany({ orderBy: { name: 'asc' }, include: branchInclude });
+  async list() {
+    const [branches, sums] = await Promise.all([
+      this.prisma.branch.findMany({
+        orderBy: { name: 'asc' },
+        include: { ...branchInclude, _count: { select: { cases: true } } },
+      }),
+      this.prisma.creditCase.groupBy({ by: ['branchId'], _sum: { amount: true } }),
+    ]);
+    const sumByBranch = new Map(sums.map((s) => [s.branchId, s._sum.amount ? Number(s._sum.amount) : 0]));
+    return branches.map((b) => ({
+      id: b.id,
+      name: b.name,
+      symbol: b.symbol,
+      region: b.region,
+      moderators: b.moderators,
+      caseCount: b._count.cases,
+      totalAmount: sumByBranch.get(b.id) ?? 0,
+    }));
   }
 
   @UseGuards(RolesGuard)

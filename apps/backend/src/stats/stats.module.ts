@@ -1,4 +1,4 @@
-import { Controller, Get, Module, UseGuards } from '@nestjs/common';
+import { Controller, Get, Module, Query, UseGuards } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CaseStatus, ProductType, Role, StatsResponse } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,8 +20,23 @@ class StatsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  async stats(@CurrentUser() user: RequestUser): Promise<StatsResponse> {
+  async stats(
+    @CurrentUser() user: RequestUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('branchId') branchId?: string,
+  ): Promise<StatsResponse> {
     const where = await scopeFor(this.prisma, user);
+    if (from || to) {
+      where.createdAt = {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(to) } : {}),
+      };
+    }
+    // Branch filter — general roles (admin/director) can drill into one branch.
+    if (branchId && (user.role === Role.ADMIN || user.role === Role.DIRECTOR)) {
+      where.branchId = branchId;
+    }
 
     const [byStatusRaw, all, branches, collaterals] = await Promise.all([
       this.prisma.creditCase.groupBy({ by: ['status'], where, _count: { _all: true } }),

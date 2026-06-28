@@ -17,6 +17,12 @@ export class CreditCasesController {
     return this.service.list(user, inbox === '1' || inbox === 'true');
   }
 
+  // Must precede the ':id' route so '/cases/search' isn't captured as an id.
+  @Get('search')
+  search(@CurrentUser() user: RequestUser, @Query('q') q?: string) {
+    return this.service.search(user, q ?? '');
+  }
+
   @Get(':id')
   getOne(@Param('id') id: string) {
     return this.service.getOne(id);

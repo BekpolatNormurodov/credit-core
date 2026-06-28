@@ -7,6 +7,8 @@ export interface AuthUser {
   role: Role;
   branchId: string | null;
   branch?: BranchDto | null;
+  phone?: string | null;
+  hasAvatar?: boolean;
 }
 
 export interface LoginResponse {
@@ -25,6 +27,8 @@ export interface BranchDto {
   symbol: string;
   region: string | null;
   moderators?: BranchModeratorDto[];
+  caseCount?: number;
+  totalAmount?: number;
 }
 
 export interface CollateralOwnerDto {
@@ -93,6 +97,9 @@ export interface DocumentDto {
   id: string;
   type: DocumentType;
   fileName: string;
+  collateralId?: string | null;
+  title?: string | null;
+  description?: string | null;
   isGenerated: boolean;
   uploadedAt: string;
   uploadedByName: string | null;
@@ -115,7 +122,10 @@ export interface MessageDto {
   senderRole: Role;
   text: string | null;
   toRole: Role | null;
+  toUserId: string | null;
+  toUserName: string | null;
   document: DocumentDto | null;
+  documents: DocumentDto[];
   mine: boolean;
   createdAt: string;
 }

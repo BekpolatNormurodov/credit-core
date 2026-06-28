@@ -89,10 +89,13 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
       relation: g.relation,
     })),
     collaterals: c.collaterals.map(toCollateral),
-    documents: c.documents.map((d) => ({
+    documents: c.documents.filter((d) => d.type !== 'CHAT').map((d) => ({
       id: d.id,
       type: d.type,
       fileName: d.fileName,
+      collateralId: d.collateralId ?? null,
+      title: d.title ?? null,
+      description: d.description ?? null,
       isGenerated: d.isGenerated,
       uploadedAt: d.createdAt.toISOString(),
       uploadedByName: d.uploadedBy?.fullName ?? null,

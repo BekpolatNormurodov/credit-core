@@ -68,6 +68,16 @@ export const api = {
     const { data } = await http.get<AuthUser>('/auth/me');
     return data;
   },
+  async updateProfile(payload: { fullName?: string; phone?: string }): Promise<AuthUser> {
+    const { data } = await http.put<AuthUser>('/auth/me', payload);
+    return data;
+  },
+  async uploadMyAvatar(file: File): Promise<AuthUser> {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await http.post<AuthUser>('/auth/me/avatar', fd);
+    return data;
+  },
   async branches(): Promise<BranchDto[]> {
     const { data } = await http.get<BranchDto[]>('/branches');
     return data;
@@ -78,6 +88,10 @@ export const api = {
   },
   async case(id: string): Promise<CreditCaseDto> {
     const { data } = await http.get<CreditCaseDto>(`/cases/${id}`);
+    return data;
+  },
+  async searchCases(q: string): Promise<CreditCaseListItem[]> {
+    const { data } = await http.get<CreditCaseListItem[]>('/cases/search', { params: { q } });
     return data;
   },
   async createCase(payload: UpsertCasePayload): Promise<CreditCaseDto> {
@@ -102,10 +116,19 @@ export const api = {
     const { data } = await http.post<ImportParseResult>('/import/real-estate/parse', fd);
     return data;
   },
-  async uploadDocument(caseId: string, type: string, file: File) {
+  async uploadDocument(
+    caseId: string,
+    type: string,
+    file: File,
+    opts?: { collateralId?: string; title?: string; description?: string },
+  ) {
     const fd = new FormData();
     fd.append('file', file);
-    await http.post('/documents/upload', fd, { params: { caseId, type } });
+    if (opts?.title) fd.append('title', opts.title);
+    if (opts?.description) fd.append('description', opts.description);
+    await http.post('/documents/upload', fd, {
+      params: { caseId, type, collateralId: opts?.collateralId || undefined },
+    });
   },
   async katmStatus() {
     const { data } = await http.get('/katm/status');
@@ -130,8 +153,10 @@ export const api = {
   },
 
   // ── Analytics / monitoring ──
-  async stats(): Promise<StatsResponse> {
-    const { data } = await http.get<StatsResponse>('/stats');
+  async stats(range?: { from?: string; to?: string; branchId?: string }): Promise<StatsResponse> {
+    const { data } = await http.get<StatsResponse>('/stats', {
+      params: { from: range?.from, to: range?.to, branchId: range?.branchId || undefined },
+    });
     return data;
   },
 
@@ -168,11 +193,12 @@ export const api = {
     const { data } = await http.get<MessageDto[]>(`/cases/${caseId}/messages`);
     return data;
   },
-  async sendMessage(caseId: string, payload: { text?: string; toRole?: Role; file?: File }) {
+  async sendMessage(caseId: string, payload: { text?: string; toRole?: Role; toUserId?: string; files?: File[] }) {
     const fd = new FormData();
     if (payload.text) fd.append('text', payload.text);
     if (payload.toRole) fd.append('toRole', payload.toRole);
-    if (payload.file) fd.append('file', payload.file);
+    if (payload.toUserId) fd.append('toUserId', payload.toUserId);
+    (payload.files ?? []).slice(0, 3).forEach((f) => fd.append('files', f));
     await http.post(`/cases/${caseId}/messages`, fd);
   },
   async unreadCount(): Promise<number> {

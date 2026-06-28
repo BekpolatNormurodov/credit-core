@@ -1,13 +1,35 @@
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Banknote, FileCheck2, Landmark, Layers, House, Car, Chart, Money } from '../lib/icons';
 import { api } from '@credit-core/api-client';
-import { CaseStatus, ProductType, PRODUCT_LABEL, STATUS_LABEL } from '@credit-core/shared';
+import { CaseStatus, ProductType, PRODUCT_LABEL, STATUS_LABEL, Role } from '@credit-core/shared';
 import { Card, Skeleton, StatusBadge } from '../components/primitives';
+import { DatePicker, Select } from '../components/forms';
+import { useAuth } from '../lib/auth';
 import { MetricCard, WidgetCard } from '../components/widgets';
 import { useTheme } from '../lib/theme';
-import { formatMoney } from '../lib/cn';
+import { cn, formatMoney } from '../lib/cn';
+
+type RangeKey = 'all' | 'week' | 'month' | 'prev' | 'custom';
+const RANGE_PRESETS: { key: RangeKey; label: string }[] = [
+  { key: 'all', label: 'Hammasi' },
+  { key: 'week', label: '7 kun' },
+  { key: 'month', label: 'Shu oy' },
+  { key: 'prev', label: "O'tgan oy" },
+  { key: 'custom', label: 'Oraliq' },
+];
+
+function computeRange(key: RangeKey, custom: { from: string | null; to: string | null }): { from?: string; to?: string } | undefined {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  if (key === 'week') { const f = new Date(now); f.setDate(f.getDate() - 7); return { from: f.toISOString() }; }
+  if (key === 'month') return { from: new Date(y, m, 1).toISOString() };
+  if (key === 'prev') return { from: new Date(y, m - 1, 1).toISOString(), to: new Date(y, m, 0, 23, 59, 59).toISOString() };
+  if (key === 'custom') return { from: custom.from ?? undefined, to: custom.to ?? undefined };
+  return undefined;
+}
 
 const MONTH_SHORT = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
 const monthLabel = (mk: string) => { const [, m] = mk.split('-'); return MONTH_SHORT[Number(m) - 1] ?? mk; };
@@ -34,27 +56,78 @@ function ChartTip({ active, payload }: any) {
 
 export function AnalyticsPage() {
   const { theme } = useTheme();
-  const { data, isLoading } = useQuery({ queryKey: ['stats'], queryFn: () => api.stats() });
+  const { user } = useAuth();
+  const canFilterBranch = user?.role === Role.ADMIN || user?.role === Role.DIRECTOR;
+  const [rangeKey, setRangeKey] = useState<RangeKey>('all');
+  const [custom, setCustom] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
+  const [branchId, setBranchId] = useState('');
+  const range = useMemo(() => ({ ...computeRange(rangeKey, custom), branchId: branchId || undefined }), [rangeKey, custom, branchId]);
+  const { data: branches } = useQuery({ queryKey: ['branches'], queryFn: () => api.branches(), enabled: canFilterBranch });
+  const { data, isLoading } = useQuery({ queryKey: ['stats', rangeKey, custom.from, custom.to, branchId], queryFn: () => api.stats(range) });
   const grid = theme === 'dark' ? 'rgba(255,255,255,.08)' : '#e2e8f0';
   const tick = theme === 'dark' ? '#94a3b8' : '#64748b';
+
+  const filterBar = (
+    <div className="flex flex-wrap items-center gap-2">
+      {canFilterBranch && (
+        <div className="w-52">
+          <Select<string>
+            value={branchId}
+            onChange={setBranchId}
+            searchable
+            placeholder="Barcha filiallar"
+            options={[
+              { value: '', label: 'Barcha filiallar' },
+              ...(branches ?? []).map((b) => ({ value: b.id, label: b.region ? `${b.name} · ${b.region}` : b.name })),
+            ]}
+          />
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1 rounded-xl border border-hairline bg-surface p-1 dark:border-white/10 dark:bg-navy-800">
+        {RANGE_PRESETS.map((p) => (
+          <button key={p.key} onClick={() => setRangeKey(p.key)}
+            className={cn('rounded-lg px-3 py-1.5 text-sm font-medium transition',
+              rangeKey === p.key ? 'bg-brand-600 text-white shadow-soft' : 'text-muted hover:bg-slate-100 dark:hover:bg-white/5')}>
+            {p.label}
+          </button>
+        ))}
+      </div>
+      {rangeKey === 'custom' && (
+        <div className="flex items-center gap-2">
+          <div className="w-40"><DatePicker value={custom.from} onChange={(v) => setCustom((c) => ({ ...c, from: v }))} placeholder="dan" /></div>
+          <span className="text-muted">—</span>
+          <div className="w-40"><DatePicker value={custom.to} onChange={(v) => setCustom((c) => ({ ...c, to: v }))} placeholder="gacha" /></div>
+        </div>
+      )}
+    </div>
+  );
 
   if (isLoading || !data) {
     return (
       <div className="space-y-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold">Monitoring va tahlil</h1>
+            <p className="text-sm text-muted">Ishlar bo‘yicha umumiy ko‘rsatkichlar</p>
+          </div>
+          {filterBar}
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[132px] rounded-2xl" />)}</div>
         <div className="grid gap-6 lg:grid-cols-2">{[0, 1].map((i) => <Skeleton key={i} className="h-72 rounded-2xl" />)}</div>
       </div>
     );
   }
 
-  const statusData = data.byStatus.map((s) => ({ name: STATUS_LABEL[s.status], count: s.count, status: s.status }));
   const pieData = data.byStatus.filter((s) => s.count > 0).map((s) => ({ name: STATUS_LABEL[s.status], value: s.count, status: s.status }));
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Monitoring va tahlil</h1>
-        <p className="text-sm text-muted">Ishlar bo‘yicha umumiy ko‘rsatkichlar</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Monitoring va tahlil</h1>
+          <p className="text-sm text-muted">Ishlar bo‘yicha umumiy ko‘rsatkichlar</p>
+        </div>
+        {filterBar}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -91,30 +164,8 @@ export function AnalyticsPage() {
         </div>
       </WidgetCard>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <WidgetCard title="Holat bo‘yicha taqsimot" className="lg:col-span-3">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={statusData} margin={{ left: -18, top: 6 }}>
-                <defs>
-                  <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#0369a1" stopOpacity={0.85} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: tick }} interval={0} angle={-18} textAnchor="end" height={52} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: tick }} />
-                <Tooltip content={<ChartTip />} cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,.04)' : '#f1f5f9' }} />
-                <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={48}>
-                  {statusData.map((s) => <Cell key={s.status} fill={hexFor[s.status]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </WidgetCard>
-
-        <WidgetCard title="Holatlar ulushi" className="lg:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <WidgetCard title="Holatlar ulushi">
           {data.totalCases ? (
             <div className="relative h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -143,31 +194,31 @@ export function AnalyticsPage() {
             ))}
           </div>
         </WidgetCard>
-      </div>
 
-      <WidgetCard title="Filial bo‘yicha hajm">
-        {data.byBranch.length ? (
-          <div className="h-56">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data.byBranch.map((b) => ({ name: b.branch, count: b.count }))} margin={{ left: -18, top: 6 }}>
-                <defs>
-                  <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: tick }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: tick }} />
-                <Tooltip content={<ChartTip />} cursor={{ stroke: grid }} />
-                <Area type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#areaGrad)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400">Ma'lumot yo‘q</p>
-        )}
-      </WidgetCard>
+        <WidgetCard title="Filial bo‘yicha hajm">
+          {data.byBranch.length ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={data.byBranch.map((b) => ({ name: b.branch, count: b.count }))} margin={{ left: -18, top: 6 }}>
+                  <defs>
+                    <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: tick }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: tick }} />
+                  <Tooltip content={<ChartTip />} cursor={{ stroke: grid }} />
+                  <Area type="monotone" dataKey="count" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#areaGrad)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Ma'lumot yo‘q</p>
+          )}
+        </WidgetCard>
+      </div>
 
       <WidgetCard title="Mahsulot bo‘yicha">
         <div className="space-y-3">

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   NotFoundException,
@@ -38,6 +39,8 @@ export class DocumentsController {
     @Query('type') type: DocumentType,
     @CurrentUser() user: RequestUser,
     @Query('collateralId') collateralId?: string,
+    @Body('title') title?: string,
+    @Body('description') description?: string,
   ) {
     if (!file) throw new BadRequestException('Fayl yuborilmadi');
     if (!caseId) throw new BadRequestException('caseId kerak');
@@ -47,6 +50,8 @@ export class DocumentsController {
       data: {
         caseId,
         collateralId: collateralId || null,
+        title: title || null,
+        description: description || null,
         type: docType as DocumentType,
         fileName: stored.fileName,
         storagePath: stored.storagePath,

@@ -71,6 +71,7 @@ export const Ruler = make(Iso.Ruler ?? Iso.Maximize3);
 export const Percent = make(Iso.PercentageSquare ?? Iso.Chart);
 export const Clock = make(Iso.Clock);
 export const Tag = make(Iso.Tag);
+export const Camera = make(Iso.Camera);
 export const People = make(Iso.People ?? Iso.User);
 export const Palette = make(Iso.Colorfilter ?? Iso.Brush);
 

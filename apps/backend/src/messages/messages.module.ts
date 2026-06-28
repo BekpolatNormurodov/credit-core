@@ -6,18 +6,52 @@ import {
   Param,
   Post,
   Query,
-  UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { Prisma } from '@prisma/client';
 import { DocumentType, MessageDto, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { StorageService } from '../documents/storage.service';
 
-const msgInclude = { sender: true, document: { include: { uploadedBy: true } } } as const;
+const msgInclude = {
+  sender: true,
+  document: { include: { uploadedBy: true } },
+  attachments: { include: { uploadedBy: true } },
+} as const;
+
+/**
+ * A message is visible to: its sender, the user it was directed to (toUserId),
+ * everyone (toUserId & toRole both null), or the targeted role (toRole).
+ * Directed messages (to a user or role) stay private to those parties.
+ */
+function visibleTo(user: RequestUser): Prisma.MessageWhereInput {
+  return {
+    OR: [
+      { senderId: user.id },
+      { toUserId: user.id },
+      { AND: [{ toUserId: null }, { toRole: null }] },
+      { AND: [{ toUserId: null }, { toRole: user.role as Role }] },
+    ],
+  };
+}
+
+function docDto(d: any) {
+  return {
+    id: d.id,
+    type: d.type,
+    fileName: d.fileName,
+    isGenerated: d.isGenerated,
+    uploadedAt: d.createdAt.toISOString(),
+    uploadedByName: d.uploadedBy?.fullName ?? null,
+    mimeType: d.mimeType ?? null,
+    url: `/api/documents/${d.id}/download`,
+  };
+}
 
 @UseGuards(JwtAuthGuard)
 @Controller()
@@ -52,12 +86,8 @@ class MessagesController {
   @Get('messages/feed')
   async feed(@CurrentUser() user: RequestUser) {
     const msgs = await this.prisma.message.findMany({
-      where: {
-        senderId: { not: user.id },
-        // Directed messages are private — only the targeted role sees them.
-        OR: [{ toRole: null }, { toRole: user.role as Role }],
-      },
-      include: { sender: true, case: { select: { number: true } }, document: true },
+      where: { AND: [{ senderId: { not: user.id } }, visibleTo(user)] },
+      include: { sender: true, case: { select: { number: true } }, document: true, attachments: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -69,7 +99,7 @@ class MessagesController {
       senderRole: m.sender.role,
       text: m.text,
       toRole: m.toRole,
-      hasFile: !!m.documentId,
+      hasFile: !!m.documentId || m.attachments.length > 0,
       read: (m.readBy ?? '').split(',').includes(user.id),
       createdAt: m.createdAt.toISOString(),
     }));
@@ -79,10 +109,7 @@ class MessagesController {
   @Get('messages/unread')
   async unread(@CurrentUser() user: RequestUser) {
     const msgs = await this.prisma.message.findMany({
-      where: {
-        senderId: { not: user.id },
-        OR: [{ toRole: null }, { toRole: user.role as Role }],
-      },
+      where: { AND: [{ senderId: { not: user.id } }, visibleTo(user)] },
       select: { id: true, readBy: true, caseId: true },
     });
     const count = msgs.filter((m) => !(m.readBy ?? '').split(',').includes(user.id)).length;
@@ -92,14 +119,17 @@ class MessagesController {
   @Get('cases/:id/messages')
   async list(@Param('id') caseId: string, @CurrentUser() user: RequestUser): Promise<MessageDto[]> {
     const messages = await this.prisma.message.findMany({
-      where: {
-        caseId,
-        // A directed message is visible only to its sender and the targeted role.
-        OR: [{ toRole: null }, { toRole: user.role as Role }, { senderId: user.id }],
-      },
+      where: { AND: [{ caseId }, visibleTo(user)] },
       include: msgInclude,
       orderBy: { createdAt: 'asc' },
     });
+
+    // Resolve directed-to user names (toUserId has no relation, look up in bulk).
+    const targetIds = [...new Set(messages.map((m) => m.toUserId).filter(Boolean) as string[])];
+    const targets = targetIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: targetIds } }, select: { id: true, fullName: true } })
+      : [];
+    const nameById = new Map(targets.map((t) => [t.id, t.fullName]));
 
     // Mark unread (not mine) as read by me.
     const toMark = messages.filter(
@@ -116,65 +146,65 @@ class MessagesController {
       );
     }
 
-    return messages.map((m) => ({
-      id: m.id,
-      caseId: m.caseId,
-      senderId: m.senderId,
-      senderName: m.sender.fullName,
-      senderRole: m.sender.role,
-      text: m.text,
-      toRole: m.toRole,
-      mine: m.senderId === user.id,
-      document: m.document
-        ? {
-            id: m.document.id,
-            type: m.document.type,
-            fileName: m.document.fileName,
-            isGenerated: m.document.isGenerated,
-            uploadedAt: m.document.createdAt.toISOString(),
-            uploadedByName: m.document.uploadedBy?.fullName ?? null,
-            mimeType: m.document.mimeType,
-            url: `/api/documents/${m.document.id}/download`,
-          }
-        : null,
-      createdAt: m.createdAt.toISOString(),
-    }));
+    return messages.map((m) => {
+      const docs = [...(m.document ? [m.document] : []), ...m.attachments];
+      return {
+        id: m.id,
+        caseId: m.caseId,
+        senderId: m.senderId,
+        senderName: m.sender.fullName,
+        senderRole: m.sender.role,
+        text: m.text,
+        toRole: m.toRole,
+        toUserId: m.toUserId,
+        toUserName: m.toUserId ? nameById.get(m.toUserId) ?? null : null,
+        mine: m.senderId === user.id,
+        document: m.document ? docDto(m.document) : null,
+        documents: docs.map(docDto),
+        createdAt: m.createdAt.toISOString(),
+      };
+    });
   }
 
   @Post('cases/:id/messages')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FilesInterceptor('files', 3))
   async send(
     @Param('id') caseId: string,
     @CurrentUser() user: RequestUser,
     @Body('text') text: string | undefined,
     @Body('toRole') toRole: string | undefined,
-    @UploadedFile() file?: Express.Multer.File,
+    @Body('toUserId') toUserId: string | undefined,
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    let documentId: string | undefined;
-    if (file) {
-      const stored = await this.storage.save(file.buffer, file.originalname, file.mimetype, `${caseId}/chat`);
-      const doc = await this.prisma.document.create({
-        data: {
-          caseId,
-          type: DocumentType.CHAT,
-          fileName: stored.fileName,
-          storagePath: stored.storagePath,
-          mimeType: stored.mimeType,
-          uploadedById: user.id,
-        },
-      });
-      documentId = doc.id;
-    }
     const created = await this.prisma.message.create({
       data: {
         caseId,
         senderId: user.id,
         text: text || null,
         toRole: toRole ? (toRole as Role) : null,
-        documentId,
+        toUserId: toUserId || null,
         readBy: user.id,
       },
     });
+
+    if (files?.length) {
+      await Promise.all(
+        files.map(async (file) => {
+          const stored = await this.storage.save(file.buffer, file.originalname, file.mimetype, `${caseId}/chat`);
+          await this.prisma.document.create({
+            data: {
+              caseId,
+              messageId: created.id,
+              type: DocumentType.CHAT,
+              fileName: stored.fileName,
+              storagePath: stored.storagePath,
+              mimeType: stored.mimeType,
+              uploadedById: user.id,
+            },
+          });
+        }),
+      );
+    }
     return { id: created.id };
   }
 }

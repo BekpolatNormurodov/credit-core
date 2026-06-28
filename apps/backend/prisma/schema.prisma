@@ -67,6 +67,7 @@ model User {
   passwordHash String
   plainPassword String? // admin-visible credential (internal tool — see note)
   avatarPath   String?
+  phone        String?
   role         Role
   branch       Branch?  @relation(fields: [branchId], references: [id])
   branchId     String?
@@ -206,6 +207,8 @@ model Document {
   case        CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
   caseId      String
   collateralId String?     // optional: ties a photo/doc to a specific collateral
+  title       String?      // human label given on upload (per-collateral docs)
+  description String?      @db.Text // optional longer note
   type        DocumentType
   fileName    String
   storagePath String
@@ -213,10 +216,15 @@ model Document {
   isGenerated Boolean      @default(false)
   uploadedBy  User?        @relation(fields: [uploadedById], references: [id])
   uploadedById String?
-  message     Message?
+  // Legacy single-attachment back-relation (Message.documentId).
+  message     Message?     @relation("MessageDoc")
+  // Multi-attachment: a chat message can carry several files.
+  attachedTo  Message?     @relation("MessageAttachments", fields: [messageId], references: [id], onDelete: SetNull)
+  messageId   String?
   createdAt   DateTime     @default(now())
 
   @@index([caseId])
+  @@index([messageId])
 }
 
 model Message {
@@ -227,8 +235,10 @@ model Message {
   senderId   String
   text       String?    @db.Text
   toRole     Role?
-  document   Document?  @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  toUserId   String?    // directed to a single user (private to them + sender)
+  document   Document?  @relation("MessageDoc", fields: [documentId], references: [id], onDelete: SetNull)
   documentId String?    @unique
+  attachments Document[] @relation("MessageAttachments")
   readBy     String?    @db.Text // comma-separated userIds who have read it
   createdAt  DateTime   @default(now())
 

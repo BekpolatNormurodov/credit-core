@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, LogIn } from '../lib/icons';
+import { LogIn } from '../lib/icons';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { getErrorMessage } from '@credit-core/api-client';
 import { useAuth } from '../lib/auth';
 import { Button, Input, Field, PasswordInput } from './primitives';
 import { LangSwitch, ThemeSwitch } from './Switches';
+import { LogoMark } from './Logo';
 
 export function LoginPage({ role, title }: { role: Role; title: string }) {
   const { login } = useAuth();
@@ -47,9 +48,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
         >
           {/* Mobile logo (panel hidden on small screens) */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-navy-800 text-white dark:bg-brand-600">
-              <ShieldCheck className="h-6 w-6" />
-            </div>
+            <LogoMark className="h-12 w-12" />
             <div>
               <h1 className="text-xl font-bold text-ink dark:text-white">{title}</h1>
               <p className="text-sm text-muted dark:text-slate-400">{ROLE_LABEL[role]} portali</p>
@@ -100,9 +99,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
         <div className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-brand-700/20 blur-3xl" />
 
         <div className="relative z-10 max-w-sm px-10 text-center text-white">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500/90 shadow-soft">
-            <ShieldCheck className="h-8 w-8" />
-          </div>
+          <LogoMark className="mx-auto mb-6 h-16 w-16 shadow-soft" />
           <h1 className="text-2xl font-bold">{title}</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-400">
             Garov kreditlari uchun yagona boshqaruv tizimi. Arizalar, moderatsiya,

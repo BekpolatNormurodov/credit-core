@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building, Plus, Hashtag, Location, People, Pencil } from '../lib/icons';
+import { Building, Plus, Hashtag, Location, People, Pencil, Layers, Banknote } from '../lib/icons';
 import { api } from '@credit-core/api-client';
 import { Role, type BranchDto } from '@credit-core/shared';
 import { Button, Field, Input } from '../components/primitives';
 import { Select, MultiSelect } from '../components/forms';
+import { MetricCard } from '../components/widgets';
 import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { DataTable, type Column } from '../components/DataTable';
+import { formatMoney } from '../lib/cn';
 
 // O'zbekiston 14 hududi (12 viloyat + Qoraqalpog'iston + Toshkent sh.)
 const REGIONS = [
@@ -55,6 +57,8 @@ export function BranchesPage() {
     { key: 'name', header: 'Filial', render: (x) => <span className="font-medium">{x.name}</span> },
     { key: 'symbol', header: 'Simvol', render: (x) => <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-600/15 dark:text-brand-300">{x.symbol}</span> },
     { key: 'region', header: 'Hudud', render: (x) => x.region ?? '—' },
+    { key: 'caseCount', header: 'Arizalar', align: 'right', render: (x) => <span className="nums font-medium">{x.caseCount ?? 0}</span> },
+    { key: 'totalAmount', header: 'Summa', align: 'right', render: (x) => <span className="nums">{formatMoney(x.totalAmount ?? 0)}</span> },
     { key: 'moderators', header: 'Moderatorlar', render: (x) => (
       x.moderators?.length ? (
         <span className="flex flex-wrap gap-1">
@@ -78,6 +82,13 @@ export function BranchesPage() {
           <p className="text-sm text-muted">Filiallar va ularga biriktirilgan moderatorlar</p>
         </div>
         <Button onClick={openCreate}><Plus className="h-4 w-4" /> Yangi filial</Button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard icon={Building} label="Jami filial" value={String((branches ?? []).length)} tone="brand" />
+        <MetricCard icon={People} label="Moderatorlar" value={String(new Set((branches ?? []).flatMap((b) => (b.moderators ?? []).map((m) => m.id))).size)} tone="success" />
+        <MetricCard icon={Layers} label="Jami ariza" value={String((branches ?? []).reduce((s, b) => s + (b.caseCount ?? 0), 0))} tone="warning" />
+        <MetricCard icon={Banknote} label="Jami summa" value={formatMoney((branches ?? []).reduce((s, b) => s + (b.totalAmount ?? 0), 0))} tone="danger" />
       </div>
 
       <DataTable columns={columns} rows={branches ?? []} searchable searchFields={['name', 'symbol', 'region']} empty="Filial yo‘q" />

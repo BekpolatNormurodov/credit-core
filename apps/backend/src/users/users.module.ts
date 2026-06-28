@@ -125,8 +125,21 @@ class UsersController {
     const stored = await this.storage.save(file.buffer, file.originalname, file.mimetype, `avatars/${id}`);
     return this.prisma.user.update({ where: { id }, data: { avatarPath: stored.storagePath }, select: userSelect });
   }
+}
 
-  /** Serves a user's avatar image; token via header or `?token=` (for <img src>). */
+/**
+ * Avatar serving — separate controller with NO class-level guards so an
+ * <img src="...?token="> request (which can't send an Authorization header)
+ * is authenticated by the query token instead of being blocked by JwtAuthGuard.
+ */
+@Controller('users')
+class UserAvatarController {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+    private readonly jwt: JwtService,
+  ) {}
+
   @Get(':id/avatar')
   async getAvatar(@Param('id') id: string, @Res() res: Response, @Query('token') token?: string) {
     const header = (res.req.headers['authorization'] as string | undefined)?.replace(/^Bearer\s+/i, '');
@@ -135,6 +148,9 @@ class UsersController {
     try { this.jwt.verify(raw); } catch { throw new UnauthorizedException(); }
     const user = await this.prisma.user.findUnique({ where: { id }, select: { avatarPath: true } });
     if (!user?.avatarPath) throw new NotFoundException('Avatar yo‘q');
+    const ext = user.avatarPath.split('.').pop()?.toLowerCase();
+    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'gif' ? 'image/gif' : 'image/jpeg';
+    res.setHeader('Content-Type', mime);
     res.setHeader('Cache-Control', 'private, max-age=60');
     this.storage.stream(user.avatarPath).pipe(res);
   }
@@ -147,6 +163,6 @@ class UsersController {
       useFactory: (config: ConfigService) => ({ secret: config.get<string>('JWT_SECRET') ?? 'dev-secret' }),
     }),
   ],
-  controllers: [UsersController],
+  controllers: [UserAvatarController, UsersController],
 })
 export class UsersModule {}

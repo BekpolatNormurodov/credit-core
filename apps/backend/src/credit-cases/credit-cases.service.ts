@@ -142,6 +142,55 @@ export class CreditCasesService {
     return cases.map(toListItem);
   }
 
+  /** Role-scoped visibility base (no mineOnly status narrowing). */
+  private async scopeWhere(user: RequestUser): Promise<Prisma.CreditCaseWhereInput> {
+    if (user.role === Role.OPERATOR) return { createdById: user.id };
+    if (user.role === Role.MODERATOR) {
+      const assigned = await this.prisma.branch.findMany({
+        where: { moderators: { some: { id: user.id } } },
+        select: { id: true },
+      });
+      return {
+        branchId: { in: assigned.map((b) => b.id) },
+        status: { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] },
+      };
+    }
+    if (user.role === Role.DIRECTOR) {
+      return { status: { in: [CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] } };
+    }
+    return {}; // ADMIN — all
+  }
+
+  /** Global search across number, borrower, guarantor, operator and branch. */
+  async search(user: RequestUser, q: string): Promise<ReturnType<typeof toListItem>[]> {
+    const term = q.trim();
+    if (term.length < 2) return [];
+    const scope = await this.scopeWhere(user);
+    const cases = await this.prisma.creditCase.findMany({
+      where: {
+        AND: [
+          scope,
+          {
+            OR: [
+              { number: { contains: term } },
+              { borrower: { fullName: { contains: term } } },
+              { borrower: { passportNumber: { contains: term } } },
+              { borrower: { pinfl: { contains: term } } },
+              { guarantors: { some: { fullName: { contains: term } } } },
+              { createdBy: { fullName: { contains: term } } },
+              { branch: { name: { contains: term } } },
+              { branch: { symbol: { contains: term } } },
+            ],
+          },
+        ],
+      },
+      include: { branch: true, borrower: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 8,
+    });
+    return cases.map(toListItem);
+  }
+
   async getOne(id: string) {
     const c = await this.prisma.creditCase.findUnique({ where: { id }, include: caseInclude });
     if (!c) throw new NotFoundException('Ariza topilmadi');

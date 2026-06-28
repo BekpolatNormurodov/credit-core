@@ -8,6 +8,7 @@ import { Select } from '../components/forms';
 import { Modal, ConfirmDialog } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { DataTable, type Column } from '../components/DataTable';
+import { useAuth } from '../lib/auth';
 
 const ROLES: Role[] = [Role.OPERATOR, Role.MODERATOR, Role.DIRECTOR, Role.ADMIN];
 const roleTone: Record<Role, string> = {
@@ -52,14 +53,17 @@ const emptyForm: FormState = { fullName: '', login: '', password: '', role: Role
 export function UsersPage() {
   const qc = useQueryClient();
   const toast = useToast();
+  const { user: me } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [modal, setModal] = useState<null | { mode: 'create' } | { mode: 'edit'; id: string }>(null);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [blockTarget, setBlockTarget] = useState<UserRow | null>(null);
 
-  const { data: users } = useQuery({ queryKey: ['users'], queryFn: () => api.users() as Promise<UserRow[]> });
+  const { data: allUsers } = useQuery({ queryKey: ['users'], queryFn: () => api.users() as Promise<UserRow[]> });
   const { data: branches } = useQuery({ queryKey: ['branches'], queryFn: () => api.branches() });
+  // Admin o'zini ro'yxatda ko'rmasin (o'zini bloklash/tahrirlash chalkashligini oldini oladi).
+  const users = allUsers?.filter((u) => u.id !== me?.id);
 
   const close = () => { setModal(null); setForm(emptyForm); setAvatar(null); };
   const refresh = () => qc.invalidateQueries({ queryKey: ['users'] });

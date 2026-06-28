@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { ShieldCheck } from '../lib/icons';
+import { LogoMark } from './Logo';
 
 export function Splash({ title, subtitle }: { title: string; subtitle: string }) {
   const reduce = useReducedMotion();
@@ -19,7 +19,7 @@ export function Splash({ title, subtitle }: { title: string; subtitle: string })
         transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 140, damping: 14 }}
         className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white/15 backdrop-blur"
       >
-        <ShieldCheck className="h-12 w-12" />
+        <LogoMark className="h-14 w-14" />
       </motion.div>
       <motion.h1
         initial={{ y: 16, opacity: 0 }}
