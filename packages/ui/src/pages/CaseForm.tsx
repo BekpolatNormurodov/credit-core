@@ -6,6 +6,8 @@ import { api } from '@credit-core/api-client';
 import { ProductType, type CollateralDto, type GuarantorDto, type UpsertCasePayload } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';
 import { MoneyInput, DatePicker } from '../components/forms';
+import { Modal } from '../components/Modal';
+import { useToast } from '../components/Toast';
 import { cn, formatMoney } from '../lib/cn';
 
 const num = (v: string): number | null => (v === '' ? null : Number(v));
@@ -24,12 +26,10 @@ const emptyForm: UpsertCasePayload = {
   collaterals: [newCollateral(ProductType.REAL_ESTATE)],
 };
 
-export function CaseForm() {
-  const { id } = useParams();
+/** Shared form state + handlers used by both the edit page and the new-application modal. */
+export function useCaseForm(id?: string) {
   const editing = Boolean(id);
-  const nav = useNavigate();
   const qc = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<UpsertCasePayload>(emptyForm);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -50,19 +50,13 @@ export function CaseForm() {
     },
   });
 
-  const setB = (patch: Partial<typeof form.borrower>) => setForm({ ...form, borrower: { ...form.borrower, ...patch } });
-  const setCol = (i: number, patch: Partial<CollateralDto>) => {
-    const collaterals = form.collaterals.map((c, idx) => (idx === i ? { ...c, ...patch } : c));
-    setForm({ ...form, collaterals });
-  };
-  const addCol = (type: ProductType) => setForm({ ...form, collaterals: [...form.collaterals, newCollateral(type)] });
-  const removeCol = (i: number) => setForm({ ...form, collaterals: form.collaterals.filter((_, idx) => idx !== i) });
-
-  const addGuarantor = () => setForm({ ...form, guarantors: [...form.guarantors, { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, phone: null, relation: null }] });
-  const setG = (i: number, patch: Partial<GuarantorDto>) => setForm({ ...form, guarantors: form.guarantors.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) });
-  const removeG = (i: number) => setForm({ ...form, guarantors: form.guarantors.filter((_, idx) => idx !== i) });
-
-  const totalCollateral = form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
+  const setB = (patch: Partial<UpsertCasePayload['borrower']>) => setForm((f) => ({ ...f, borrower: { ...f.borrower, ...patch } }));
+  const setCol = (i: number, patch: Partial<CollateralDto>) => setForm((f) => ({ ...f, collaterals: f.collaterals.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) }));
+  const addCol = (type: ProductType) => setForm((f) => ({ ...f, collaterals: [...f.collaterals, newCollateral(type)] }));
+  const removeCol = (i: number) => setForm((f) => ({ ...f, collaterals: f.collaterals.filter((_, idx) => idx !== i) }));
+  const addGuarantor = () => setForm((f) => ({ ...f, guarantors: [...f.guarantors, { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, phone: null, relation: null }] }));
+  const setG = (i: number, patch: Partial<GuarantorDto>) => setForm((f) => ({ ...f, guarantors: f.guarantors.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) }));
+  const removeG = (i: number) => setForm((f) => ({ ...f, guarantors: f.guarantors.filter((_, idx) => idx !== i) }));
 
   const onImport = async (file: File) => {
     const parsed = await api.parseExcel(file);
@@ -75,40 +69,47 @@ export function CaseForm() {
     setWarnings(parsed.warnings);
   };
 
-  const onSave = async () => {
+  const valid = Boolean(
+    form.borrower.fullName && form.collaterals.length > 0 &&
+    form.collaterals.every((c) => (c.type === ProductType.AUTO ? c.model || c.stateNumber : c.address)),
+  );
+
+  const save = async () => {
     setSaving(true);
     try {
       const saved = editing ? await api.updateCase(id!, form) : await api.createCase(form);
       qc.invalidateQueries({ queryKey: ['cases'] });
-      nav(`/cases/${saved.id}`);
+      qc.invalidateQueries({ queryKey: ['stats'] });
+      return saved;
     } finally {
       setSaving(false);
     }
   };
 
-  const valid = form.borrower.fullName && form.collaterals.length > 0 &&
-    form.collaterals.every((c) => (c.type === ProductType.AUTO ? c.model || c.stateNumber : c.address));
+  return { editing, form, setForm, setB, setCol, addCol, removeCol, addGuarantor, setG, removeG, onImport, warnings, valid, saving, save };
+}
+
+type FormApi = ReturnType<typeof useCaseForm>;
+
+/** Presentational form body (no page chrome) — reused in page and modal. */
+export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImport?: boolean }) {
+  const { form, setForm, setB, setCol, addCol, removeCol, addGuarantor, setG, removeG, onImport, warnings } = f;
+  const fileRef = useRef<HTMLInputElement>(null);
+  const totalCollateral = form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{editing ? 'Arizani tahrirlash' : 'Yangi ariza'}</h1>
-          <p className="text-sm text-muted">Qarz oluvchi va garov(lar) — uy-joy va/yoki avtotransport</p>
-        </div>
-        <div className="flex gap-2">
+      {showImport && (
+        <div className="flex justify-end">
           <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={(e) => e.target.files?.[0] && onImport(e.target.files[0])} />
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>
             <FileSpreadsheet className="h-4 w-4" /> Excel'dan to'ldirish
           </Button>
-          <Button onClick={onSave} loading={saving} disabled={!valid}>
-            {!saving && <Save className="h-4 w-4" />} Saqlash
-          </Button>
         </div>
-      </div>
+      )}
 
       {warnings.length > 0 && (
-        <Card className="border-warning-100 bg-warning-50">
+        <Card className="border-warning-100 bg-warning-50 dark:bg-warning-600/10">
           <p className="text-sm font-medium text-warning-700">Importdan ogohlantirishlar:</p>
           <ul className="mt-1 list-disc pl-5 text-sm text-warning-700">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
         </Card>
@@ -117,11 +118,11 @@ export function CaseForm() {
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="space-y-4 lg:col-span-1">
           <h2 className="font-semibold">Kredit</h2>
-          <Field label="Summa"><MoneyInput value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} /></Field>
-          <Field label="Muddat (oy)"><Input type="number" value={form.termMonths ?? ''} onChange={(e) => setForm({ ...form, termMonths: num(e.target.value) })} /></Field>
-          <div className="rounded-xl bg-brand-50 p-3 text-sm">
+          <Field label="Summa"><MoneyInput value={form.amount} onChange={(v) => setForm((s) => ({ ...s, amount: v }))} /></Field>
+          <Field label="Muddat (oy)"><Input type="number" value={form.termMonths ?? ''} onChange={(e) => setForm((s) => ({ ...s, termMonths: num(e.target.value) }))} /></Field>
+          <div className="rounded-xl bg-brand-50 p-3 text-sm dark:bg-brand-600/10">
             <p className="text-muted">Jami garov qiymati</p>
-            <p className="nums text-lg font-bold text-brand-800">{formatMoney(totalCollateral)}</p>
+            <p className="nums text-lg font-bold text-brand-800 dark:text-brand-300">{formatMoney(totalCollateral)}</p>
           </div>
         </Card>
 
@@ -145,7 +146,7 @@ export function CaseForm() {
         </div>
         {form.guarantors.length === 0 && <p className="text-sm text-muted">Kafil biriktirilmagan (ixtiyoriy, bir nechta bo'lishi mumkin)</p>}
         {form.guarantors.map((g, i) => (
-          <div key={i} className="grid gap-3 rounded-xl border border-slate-100 p-3 sm:grid-cols-5">
+          <div key={i} className="grid gap-3 rounded-xl border border-slate-100 p-3 dark:border-white/10 sm:grid-cols-5">
             <Input placeholder="F.I.O" value={g.fullName} onChange={(e) => setG(i, { fullName: e.target.value })} />
             <Input placeholder="PINFL" value={g.pinfl ?? ''} onChange={(e) => setG(i, { pinfl: e.target.value })} />
             <Input placeholder="Pasport" value={g.passportNumber ?? ''} onChange={(e) => setG(i, { passportNumber: e.target.value })} />
@@ -170,6 +171,70 @@ export function CaseForm() {
         <CollateralCard key={i} index={i} c={c} onChange={(p) => setCol(i, p)} onRemove={() => removeCol(i)} canRemove={form.collaterals.length > 1} />
       ))}
     </div>
+  );
+}
+
+/** Full-page editor (used by the /cases/:id/edit route). */
+export function CaseForm() {
+  const { id } = useParams();
+  const nav = useNavigate();
+  const toast = useToast();
+  const f = useCaseForm(id);
+
+  const onSave = async () => {
+    const saved = await f.save();
+    toast.success(f.editing ? 'Ariza yangilandi' : 'Ariza yaratildi', saved.number);
+    nav(`/cases/${saved.id}`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">{f.editing ? 'Arizani tahrirlash' : 'Yangi ariza'}</h1>
+          <p className="text-sm text-muted">Qarz oluvchi va garov(lar) — uy-joy va/yoki avtotransport</p>
+        </div>
+        <Button onClick={onSave} loading={f.saving} disabled={!f.valid}>
+          {!f.saving && <Save className="h-4 w-4" />} Saqlash
+        </Button>
+      </div>
+      <CaseFormFields f={f} />
+    </div>
+  );
+}
+
+/** New-application modal (operator dashboard). */
+export function NewCaseModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  // Lazy import to keep Modal in the same chunk
+  const f = useCaseForm(undefined);
+  const nav = useNavigate();
+  const toast = useToast();
+
+  const onSave = async () => {
+    const saved = await f.save();
+    toast.success('Ariza yaratildi', saved.number);
+    onClose();
+    nav(`/cases/${saved.id}`);
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="full"
+      title="Yangi ariza"
+      description="Qarz oluvchi va garov(lar) — uy-joy va/yoki avtotransport"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>Bekor qilish</Button>
+          <Button onClick={onSave} loading={f.saving} disabled={!f.valid}>
+            {!f.saving && <Save className="h-4 w-4" />} Saqlash
+          </Button>
+        </>
+      }
+    >
+      <CaseFormFields f={f} />
+    </Modal>
   );
 }
 
@@ -218,7 +283,7 @@ function CollateralCard({ index, c, onChange, onRemove, canRemove }: {
         </div>
       )}
 
-      <div className="grid gap-4 border-t border-slate-100 pt-4 sm:grid-cols-2">
+      <div className="grid gap-4 border-t border-slate-100 pt-4 dark:border-white/10 sm:grid-cols-2">
         <Field label="Kelishilgan garov qiymati"><MoneyInput value={c.agreedValue ?? null} onChange={(v) => onChange({ agreedValue: v })} /></Field>
         <Field label="Qiymat (prописью)"><Input value={c.agreedValueWords ?? ''} onChange={(e) => onChange({ agreedValueWords: e.target.value })} /></Field>
       </div>
@@ -231,7 +296,7 @@ function CollateralCard({ index, c, onChange, onRemove, canRemove }: {
           </Button>
         </div>
         {c.owners.map((o, idx) => (
-          <div key={idx} className="grid gap-2 rounded-xl border border-slate-100 p-2 sm:grid-cols-4">
+          <div key={idx} className="grid gap-2 rounded-xl border border-slate-100 p-2 dark:border-white/10 sm:grid-cols-4">
             <Input placeholder="F.I.O" value={o.fullName} onChange={(e) => { const owners = [...c.owners]; owners[idx] = { ...o, fullName: e.target.value }; setOwners(owners); }} />
             <Input placeholder="Pasport" value={o.passportNumber ?? ''} onChange={(e) => { const owners = [...c.owners]; owners[idx] = { ...o, passportNumber: e.target.value }; setOwners(owners); }} />
             <Input placeholder="Ulush %" type="number" value={o.sharePercent ?? ''} onChange={(e) => { const owners = [...c.owners]; owners[idx] = { ...o, sharePercent: num(e.target.value) }; setOwners(owners); }} />

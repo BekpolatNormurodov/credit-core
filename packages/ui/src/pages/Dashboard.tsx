@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FilePlus2, House, Car, Layers, FileCheck2, Banknote } from '../lib/icons';
 import { api } from '@credit-core/api-client';
 import { ProductType, PRODUCT_LABEL, Role, type CreditCaseListItem } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Skeleton, StatusBadge } from '../components/primitives';
 import { DataTable, type Column } from '../components/DataTable';
+import { NewCaseModal } from './CaseForm';
 import { formatMoney } from '../lib/cn';
 
 function Kpi({ icon: Icon, label, value, tone }: { icon: any; label: string; value: string; tone: string }) {
@@ -23,7 +24,11 @@ function Kpi({ icon: Icon, label, value, tone }: { icon: any; label: string; val
 export function Dashboard() {
   const { user } = useAuth();
   const nav = useNavigate();
+  const [params, setParams] = useSearchParams();
   const isOperator = user?.role === Role.OPERATOR;
+  const newOpen = isOperator && params.get('new') === '1';
+  const openNew = () => setParams({ new: '1' });
+  const closeNew = () => setParams({});
   const { data: cases, isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => api.cases(false) });
   const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: () => api.stats() });
 
@@ -54,9 +59,11 @@ export function Dashboard() {
           <p className="text-sm text-muted">{isOperator ? 'Sizning kredit arizalaringiz' : 'Navbatingizdagi arizalar'}</p>
         </div>
         {isOperator && (
-          <Button onClick={() => nav('/cases/new')}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
+          <Button onClick={openNew}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
         )}
       </div>
+
+      {isOperator && <NewCaseModal open={newOpen} onClose={closeNew} />}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats ? (

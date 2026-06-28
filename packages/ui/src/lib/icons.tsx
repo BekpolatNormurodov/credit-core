@@ -58,6 +58,10 @@ export const Calendar = make(Iso.Calendar);
 export const Sun = make(Iso.Sun1);
 export const Moon = make(Iso.Moon);
 export const Globe = make(Iso.Global);
+export const User = make(Iso.User);
+export const Warning = make(Iso.Warning2 ?? Iso.Danger);
+export const Lock = make(Iso.Lock1 ?? Iso.Lock);
+export const Phone = make(Iso.Call);
 
 // Aliases matching prior (lucide) names so call sites need no JSX changes.
 export const CheckCircle2 = Check;

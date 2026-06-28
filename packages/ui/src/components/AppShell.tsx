@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth';
 import { useTheme } from '../lib/theme';
 import { useI18n } from '../lib/i18n';
 import { cn } from '../lib/cn';
+import { ConfirmDialog } from './Modal';
 
 export interface NavItem {
   to: string;
@@ -22,6 +23,7 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
   const { lang, setLang } = useI18n();
   const location = useLocation();
   const [open, setOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
 
   const { data: unread } = useQuery({ queryKey: ['unread'], queryFn: () => api.unreadCount(), refetchInterval: 20_000 });
 
@@ -56,7 +58,7 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
 
   const sidebar = (
     <div className="flex h-full flex-col bg-navy-900 p-4 text-white">
-      <div className="mb-7 flex items-center gap-2.5 px-1">
+      <div className="mb-6 flex shrink-0 items-center gap-2.5 px-1">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/90">
           <ShieldCheck className="h-5 w-5" />
         </div>
@@ -65,11 +67,16 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
           <p className="text-xs text-slate-400">{user ? ROLE_LABEL[user.role] : ''}</p>
         </div>
       </div>
-      {navList}
-      <div className="mt-auto rounded-xl bg-white/5 p-3">
-        <p className="truncate text-sm font-medium">{user?.fullName}</p>
-        <p className="truncate text-xs text-slate-400">{user?.branch?.name ?? 'Markaziy apparat'}</p>
-        <button onClick={logout} className="mt-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">
+      <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">{navList}</div>
+      <div className="mt-3 shrink-0 rounded-xl bg-white/5 p-3">
+        <Link to="/profile" onClick={() => setOpen(false)} className="flex items-center gap-2.5 rounded-lg p-1 transition hover:bg-white/5">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold">{(user?.fullName ?? '?').slice(0, 1).toUpperCase()}</span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-medium">{user?.fullName}</span>
+            <span className="block truncate text-xs text-slate-400">{user?.branch?.name ?? 'Markaziy apparat'}</span>
+          </span>
+        </Link>
+        <button onClick={() => { setOpen(false); setConfirmLogout(true); }} className="mt-2 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white">
           <LogOut className="h-4 w-4" /> Chiqish
         </button>
       </div>
@@ -78,7 +85,7 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
 
   return (
     <div className="flex min-h-screen bg-canvas">
-      <aside className="hidden w-64 shrink-0 md:block">{sidebar}</aside>
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 md:block">{sidebar}</aside>
 
       {open && (
         <div className="fixed inset-0 z-40 md:hidden">
@@ -105,17 +112,26 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
               <Bell className="h-5 w-5" />
               {!!unread && unread > 0 && <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-600 px-1 text-[10px] font-semibold text-white">{unread > 99 ? '99+' : unread}</span>}
             </Link>
-            <div className="hidden items-center gap-2 sm:flex">
+            <Link to="/profile" className="hidden items-center gap-2 rounded-full py-1 pl-1 pr-2 transition hover:bg-slate-100 sm:flex dark:hover:bg-white/10">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-800 text-xs font-semibold text-white dark:bg-brand-600">
-                {(user?.fullName ?? '?').slice(0, 1)}
+                {(user?.fullName ?? '?').slice(0, 1).toUpperCase()}
               </div>
               <span className="text-sm text-slate-600 dark:text-slate-300">{user?.fullName}</span>
-            </div>
+            </Link>
           </div>
         </header>
 
         <div className="mx-auto w-full max-w-7xl flex-1 p-4 md:p-8">{children}</div>
       </main>
+
+      <ConfirmDialog
+        open={confirmLogout}
+        onClose={() => setConfirmLogout(false)}
+        onConfirm={logout}
+        title="Tizimdan chiqasizmi?"
+        message="Joriy sessiya yakunlanadi va qaytadan login qilishingiz kerak bo'ladi."
+        confirmLabel="Chiqish"
+      />
     </div>
   );
 }

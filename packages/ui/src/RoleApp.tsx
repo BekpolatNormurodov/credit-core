@@ -16,6 +16,7 @@ import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
 import { I18nProvider, useI18n } from './lib/i18n';
+import { ToastProvider } from './components/Toast';
 import { Splash } from './components/Splash';
 import { LoginPage } from './components/LoginPage';
 import { AppShell, type NavItem } from './components/AppShell';
@@ -29,12 +30,13 @@ import { CreditCalculator } from './pages/CreditCalculator';
 import { ChatsPage } from './pages/ChatsPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { UsersPage } from './pages/UsersPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
 function navFor(role: Role, t: (k: string) => string): NavItem[] {
   const base: NavItem[] = [{ to: '/', label: t('nav.applications'), icon: LayoutGrid }];
-  if (role === Role.OPERATOR) base.push({ to: '/cases/new', label: t('nav.new'), icon: FilePlus2 });
+  if (role === Role.OPERATOR) base.push({ to: '/?new=1', label: t('nav.new'), icon: FilePlus2 });
   base.push({ to: '/calculator', label: t('nav.calculator'), icon: Calculator });
   base.push({ to: '/chats', label: t('nav.chats'), icon: Messages, badgeKey: 'unread' });
   base.push({ to: '/analytics', label: t('nav.monitoring'), icon: BarChart3 });
@@ -66,13 +68,14 @@ function Shell({ role, title }: { role: Role; title: string }) {
     <AppShell title={title} nav={navFor(role, t)}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        {role === Role.OPERATOR && <Route path="/cases/new" element={<CaseForm />} />}
+        {role === Role.OPERATOR && <Route path="/cases/new" element={<Navigate to="/?new=1" replace />} />}
         {role === Role.OPERATOR && <Route path="/cases/:id/edit" element={<CaseForm />} />}
         <Route path="/cases/:id" element={<CaseView />} />
         <Route path="/calculator" element={<CreditCalculator />} />
         <Route path="/chats" element={<ChatsPage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         {role === Role.ADMIN && <Route path="/branches" element={<BranchesPage />} />}
         {role === Role.ADMIN && <Route path="/users" element={<UsersPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -103,13 +106,15 @@ export function RoleApp({ role, title }: { role: Role; title: string }) {
   return (
     <ThemeProvider>
       <I18nProvider>
-        <QueryClientProvider client={queryClient}>
-          <AuthProvider>
-            <BrowserRouter>
-              <Gate role={role} title={title} />
-            </BrowserRouter>
-          </AuthProvider>
-        </QueryClientProvider>
+        <ToastProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+              <BrowserRouter>
+                <Gate role={role} title={title} />
+              </BrowserRouter>
+            </AuthProvider>
+          </QueryClientProvider>
+        </ToastProvider>
       </I18nProvider>
     </ThemeProvider>
   );
