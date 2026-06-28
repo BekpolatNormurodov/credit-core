@@ -34,3 +34,7 @@ Thumbs.db
 
 # vite
 .vite/
+
+# python (skill CLI)
+__pycache__/
+*.pyc
