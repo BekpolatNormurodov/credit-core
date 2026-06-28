@@ -176,6 +176,12 @@ export function userAvatarUrl(id: string): string {
   return `${apiBaseUrl}/api/users/${id}/avatar?token=${encodeURIComponent(token ?? '')}`;
 }
 
+/** Tokenized inline document URL usable directly as an <img src>. */
+export function documentInlineUrl(id: string): string {
+  const token = getToken();
+  return `${apiBaseUrl}/api/documents/${id}/download?inline=1&token=${encodeURIComponent(token ?? '')}`;
+}
+
 export function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

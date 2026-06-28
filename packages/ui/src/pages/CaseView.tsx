@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   CheckCircle2, Download, FileDown, FileText, Pencil, RotateCcw, Send, Flag, Upload, Eye, House, Car,
 } from '../lib/icons';
-import { api, downloadBlob, viewDocument } from '@credit-core/api-client';
+import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import { CaseChat } from '../components/CaseChat';
 import {
   CaseStatus, DocumentType, DOCUMENT_LABEL, PRODUCT_LABEL, Role,
@@ -87,33 +87,53 @@ export function CaseView() {
           <Card>
             <h2 className="mb-3 font-semibold">Hujjatlar</h2>
             {c.documents.length === 0 && <p className="text-sm text-slate-400">Hujjatlar yo‘q</p>}
-            <ul className="space-y-2">
-              {c.documents.map((d) => (
-                <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 px-3 py-2">
-                  <div className="flex min-w-0 items-center gap-2.5 text-sm">
-                    <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-                    <div className="min-w-0">
-                      <p className="truncate font-medium">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-slate-400">· {d.fileName}</span></p>
-                      <p className="text-xs text-slate-400">
-                        {new Date(d.uploadedAt).toLocaleString('ru-RU')}
-                        {d.uploadedByName ? ` · ${d.uploadedByName}` : ''}
-                      </p>
+
+            {(() => {
+              const images = c.documents.filter((d) => (d.mimeType ?? '').startsWith('image/'));
+              const files = c.documents.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+              return (
+                <div className="space-y-3">
+                  {images.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                      {images.map((d) => (
+                        <button key={d.id} onClick={() => viewDocument(d.id, d.fileName)}
+                          className="group relative aspect-square overflow-hidden rounded-xl border border-hairline dark:border-white/10" title={`${DOCUMENT_LABEL[d.type]} · ${d.fileName}`}>
+                          <img src={documentInlineUrl(d.id)} alt={d.fileName} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+                          <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-0.5 text-[10px] text-white">{DOCUMENT_LABEL[d.type]}</span>
+                        </button>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button onClick={() => viewDocument(d.id, d.fileName)} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" title="Ko‘rish">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button onClick={async () => downloadBlob(await api.downloadDocument(d.id), d.fileName)} className="rounded-lg p-1.5 text-brand-600 hover:bg-brand-50" title="Yuklab olish">
-                      <Download className="h-4 w-4" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  )}
+                  <ul className="space-y-2">
+                    {files.map((d) => (
+                      <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-hairline px-3 py-2 dark:border-white/10">
+                        <div className="flex min-w-0 items-center gap-2.5 text-sm">
+                          <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-slate-400">· {d.fileName}</span></p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(d.uploadedAt).toLocaleString('ru-RU')}
+                              {d.uploadedByName ? ` · ${d.uploadedByName}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button onClick={() => viewDocument(d.id, d.fileName)} className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10" title="Ko‘rish">
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button onClick={async () => downloadBlob(await api.downloadDocument(d.id), d.fileName)} className="rounded-lg p-1.5 text-brand-600 transition hover:bg-brand-50 dark:hover:bg-brand-600/15" title="Yuklab olish">
+                            <Download className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
 
             {canUpload && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-hairline pt-4 dark:border-white/10">
                 <div className="w-52">
                   <Select<DocumentType> value={uploadType} onChange={(v) => setUploadType(v)}
                     options={currentUploadTypes.map((t) => ({ value: t, label: DOCUMENT_LABEL[t] }))} />
@@ -190,18 +210,18 @@ function Detail({ c }: { c: CreditCaseDto }) {
           {base.map(([k, v]) => (
             <div key={k}>
               <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
-              <dd className="nums text-sm font-medium text-ink">{v}</dd>
+              <dd className="nums text-sm font-medium text-ink dark:text-slate-200">{v}</dd>
             </div>
           ))}
         </dl>
       </div>
 
       {c.guarantors.length > 0 && (
-        <div className="border-t border-slate-100 pt-4">
+        <div className="border-t border-hairline pt-4 dark:border-white/10">
           <h2 className="mb-2 font-semibold">Kafillar ({c.guarantors.length})</h2>
           <div className="space-y-1.5">
             {c.guarantors.map((g, i) => (
-              <div key={g.id ?? i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-slate-50 px-3 py-2 text-sm">
+              <div key={g.id ?? i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-white/5">
                 <span className="font-medium">{g.fullName}</span>
                 {g.relation && <span className="text-muted">· {g.relation}</span>}
                 {g.passportNumber && <span className="nums text-muted">· {g.passportNumber}</span>}
@@ -212,7 +232,7 @@ function Detail({ c }: { c: CreditCaseDto }) {
         </div>
       )}
 
-      <div className="space-y-3 border-t border-slate-100 pt-4">
+      <div className="space-y-3 border-t border-hairline pt-4 dark:border-white/10">
         <h2 className="font-semibold">Garovlar ({c.collaterals.length})</h2>
         {c.collaterals.map((col, i) => {
           const isAuto = col.type === 'AUTO';
@@ -234,7 +254,7 @@ function Detail({ c }: { c: CreditCaseDto }) {
                 ['Garov qiymati', formatMoney(col.agreedValue)],
               ];
           return (
-            <div key={col.id ?? i} className="rounded-xl border border-slate-100 p-4">
+            <div key={col.id ?? i} className="rounded-xl border border-hairline p-4 dark:border-white/10">
               <div className="mb-2 flex items-center gap-2">
                 <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-white ${isAuto ? 'bg-warning-600' : 'bg-brand-700'}`}>
                   {isAuto ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
@@ -245,7 +265,7 @@ function Detail({ c }: { c: CreditCaseDto }) {
                 {rows.map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
-                    <dd className="nums text-sm font-medium text-ink">{v}</dd>
+                    <dd className="nums text-sm font-medium text-ink dark:text-slate-200">{v}</dd>
                   </div>
                 ))}
               </dl>
