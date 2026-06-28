@@ -26,6 +26,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
+import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { StorageService } from '../documents/storage.service';
 
 class CreateUserDto {
@@ -90,7 +91,20 @@ class UsersController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+  async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @CurrentUser() actor: RequestUser) {
+    // Lockout guards: don't let an admin block themselves or the last active admin.
+    const deactivating = dto.isActive === false;
+    const demoting = dto.role !== undefined && dto.role !== Role.ADMIN;
+    if (deactivating || demoting) {
+      const target = await this.prisma.user.findUnique({ where: { id }, select: { role: true, isActive: true } });
+      if (!target) throw new NotFoundException('Foydalanuvchi topilmadi');
+      if (deactivating && id === actor.id) throw new BadRequestException('O‘zingizni bloklay olmaysiz');
+      if (target.role === Role.ADMIN && (deactivating || demoting)) {
+        const activeAdmins = await this.prisma.user.count({ where: { role: Role.ADMIN, isActive: true } });
+        if (activeAdmins <= 1) throw new BadRequestException('Oxirgi faol adminni bloklab yoki rolini o‘zgartirib bo‘lmaydi');
+      }
+    }
+
     const data: Record<string, unknown> = {
       fullName: dto.fullName,
       role: dto.role,
