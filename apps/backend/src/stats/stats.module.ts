@@ -5,9 +5,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 
-function scopeFor(user: RequestUser): Prisma.CreditCaseWhereInput {
+async function scopeFor(prisma: PrismaService, user: RequestUser): Promise<Prisma.CreditCaseWhereInput> {
   if (user.role === Role.OPERATOR) return { createdById: user.id };
-  if (user.role === Role.MODERATOR && user.branchId) return { branchId: user.branchId };
+  if (user.role === Role.MODERATOR) {
+    const assigned = await prisma.branch.findMany({ where: { moderators: { some: { id: user.id } } }, select: { id: true } });
+    return { branchId: { in: assigned.map((b) => b.id) } };
+  }
   return {};
 }
 
@@ -18,7 +21,7 @@ class StatsController {
 
   @Get()
   async stats(@CurrentUser() user: RequestUser): Promise<StatsResponse> {
-    const where = scopeFor(user);
+    const where = await scopeFor(this.prisma, user);
 
     const [byStatusRaw, all, branches, collaterals] = await Promise.all([
       this.prisma.creditCase.groupBy({ by: ['status'], where, _count: { _all: true } }),

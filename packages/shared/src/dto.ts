@@ -14,11 +14,17 @@ export interface LoginResponse {
   user: AuthUser;
 }
 
+export interface BranchModeratorDto {
+  id: string;
+  fullName: string;
+}
+
 export interface BranchDto {
   id: string;
   name: string;
   symbol: string;
   region: string | null;
+  moderators?: BranchModeratorDto[];
 }
 
 export interface CollateralOwnerDto {

@@ -8,7 +8,8 @@ import {
 import { api } from '@credit-core/api-client';
 import { ProductType, type CollateralDto, type GuarantorDto, type UpsertCasePayload } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';
-import { MoneyInput, DatePicker, PhoneInput, PassportInput, digitsOnly } from '../components/forms';
+import { MoneyInput, DatePicker, PhoneInput, PassportInput, PlateInput, Select, digitsOnly } from '../components/forms';
+import { CAR_MODELS } from '../lib/cars';
 import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { cn, formatMoney } from '../lib/cn';
@@ -274,8 +275,11 @@ function CollateralCard({ index, c, onChange, onRemove, canRemove }: {
 
       {isAuto ? (
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Model (markasi)" required icon={Car}><Input value={c.model ?? ''} onChange={(e) => onChange({ model: e.target.value })} placeholder="CHEVROLET MONZA" /></Field>
-          <Field label="Davlat raqami" icon={Hashtag}><Input value={c.stateNumber ?? ''} onChange={(e) => onChange({ stateNumber: e.target.value })} placeholder="10O011OD" /></Field>
+          <Field label="Model (markasi)" required icon={Car}>
+            <Select<string> value={c.model ?? ''} onChange={(v) => onChange({ model: v })} searchable placeholder="— mashinani tanlang —"
+              options={CAR_MODELS.map((m) => ({ value: m, label: m }))} />
+          </Field>
+          <Field label="Davlat raqami" icon={Hashtag}><PlateInput value={c.stateNumber ?? null} onChange={(v) => onChange({ stateNumber: v })} /></Field>
           <Field label="Tex passport (AAS №)" icon={IdCard}><Input value={c.techPassportNo ?? ''} onChange={(e) => onChange({ techPassportNo: e.target.value })} /></Field>
           <Field label="Kuzov turi" icon={Car}><Input value={c.bodyType ?? ''} onChange={(e) => onChange({ bodyType: e.target.value })} placeholder="YENGIL SEDAN" /></Field>
           <Field label="Kuzov №" icon={Hashtag}><Input value={c.bodyNo ?? ''} onChange={(e) => onChange({ bodyNo: e.target.value })} /></Field>

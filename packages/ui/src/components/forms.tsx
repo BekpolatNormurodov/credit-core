@@ -136,33 +136,119 @@ export function digitsOnly(raw: string, max: number): string {
   return (raw ?? '').replace(/\D/g, '').slice(0, max);
 }
 
+/**
+ * O'zbekiston davlat raqami maskasi.
+ *  - shaxsiy:    01 A 123 BC  (hudud + harf + 3 raqam + 2 harf)
+ *  - tijorat:    01 123 ABC   (hudud + 3 raqam + 3 harf)
+ */
+export function formatPlate(raw: string): string {
+  const v = (raw ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  const region = v.slice(0, 2);
+  const rest = v.slice(2);
+  if (!region) return '';
+  if (!rest) return region;
+  if (/^[A-Z]/.test(rest)) {
+    return [region, rest.slice(0, 1), rest.slice(1, 4), rest.slice(4, 6)].filter(Boolean).join(' ');
+  }
+  return [region, rest.slice(0, 3), rest.slice(3, 6)].filter(Boolean).join(' ');
+}
+
+export function PlateInput({
+  value, onChange, placeholder = '01 A 123 BC',
+}: { value: string | null; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <Input
+      value={value ?? ''}
+      placeholder={placeholder}
+      maxLength={12}
+      autoCapitalize="characters"
+      onChange={(e) => onChange(formatPlate(e.target.value))}
+    />
+  );
+}
+
 export interface Option<T extends string> { value: T; label: string; icon?: React.ComponentType<{ className?: string }> }
 
 /** Custom styled dropdown (replaces the unstyled native <select>); portal-based menu. */
 export function Select<T extends string>({
-  value, onChange, options, placeholder = 'Tanlang',
-}: { value: T | ''; onChange: (v: T) => void; options: Option<T>[]; placeholder?: string }) {
+  value, onChange, options, placeholder = 'Tanlang', searchable = false,
+}: { value: T | ''; onChange: (v: T) => void; options: Option<T>[]; placeholder?: string; searchable?: boolean }) {
   const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
   const btnRef = useRef<HTMLButtonElement>(null);
   const sel = options.find((o) => o.value === value);
+  // Preserve arbitrary values (e.g. imported/edited free text) that aren't in the list.
+  const display = sel ? sel.label : value ? String(value) : '';
+  const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options;
+  const close = () => { setOpen(false); setQ(''); };
   return (
     <>
       <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} className={cn(fieldBase, 'justify-between text-left')}>
-        <span className={cn('flex items-center gap-2 truncate', !sel && 'text-slate-400')}>
+        <span className={cn('flex items-center gap-2 truncate', !display && 'text-slate-400')}>
           {sel?.icon && <sel.icon className="h-4 w-4" />}
-          {sel ? sel.label : placeholder}
+          {display || placeholder}
         </span>
         <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition', open && 'rotate-180')} />
       </button>
-      <Popover anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
+      <Popover anchorRef={btnRef} open={open} onClose={close}>
+        {searchable && (
+          <div className="mb-1 border-b border-hairline px-2 pb-1.5 dark:border-white/10">
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Qidirish…"
+              className="w-full bg-transparent px-1 py-1.5 text-sm outline-none placeholder:text-slate-400 dark:text-slate-100" />
+          </div>
+        )}
         <div className="max-h-60 overflow-auto">
-          {options.map((o) => (
-            <button key={o.value} type="button" onClick={() => { onChange(o.value); setOpen(false); }}
+          {filtered.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">Topilmadi</p>}
+          {filtered.map((o) => (
+            <button key={o.value} type="button" onClick={() => { onChange(o.value); close(); }}
               className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-brand-50 dark:hover:bg-white/5', o.value === value && 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/15 dark:text-brand-300')}>
               {o.icon && <o.icon className="h-4 w-4" />}
               {o.label}
             </button>
           ))}
+        </div>
+      </Popover>
+    </>
+  );
+}
+
+/** Multi-select with checkboxes + chips (portal menu). */
+export function MultiSelect<T extends string>({
+  value, onChange, options, placeholder = 'Tanlang', empty = 'Variant yo‘q',
+}: { value: T[]; onChange: (v: T[]) => void; options: Option<T>[]; placeholder?: string; empty?: string }) {
+  const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const toggle = (v: T) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
+  const selected = options.filter((o) => value.includes(o.value));
+  return (
+    <>
+      <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} className={cn(fieldBase, 'min-h-[42px] justify-between text-left')}>
+        <span className="flex flex-wrap items-center gap-1.5">
+          {selected.length === 0 && <span className="text-slate-400">{placeholder}</span>}
+          {selected.map((o) => (
+            <span key={o.value} className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-600/15 dark:text-brand-300">
+              {o.label}
+              <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); toggle(o.value); }} className="text-brand-500 hover:text-danger-600">✕</span>
+            </span>
+          ))}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition', open && 'rotate-180')} />
+      </button>
+      <Popover anchorRef={btnRef} open={open} onClose={() => setOpen(false)}>
+        <div className="max-h-60 overflow-auto">
+          {options.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">{empty}</p>}
+          {options.map((o) => {
+            const on = value.includes(o.value);
+            return (
+              <button key={o.value} type="button" onClick={() => toggle(o.value)}
+                className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-brand-50 dark:hover:bg-white/5', on && 'font-medium text-brand-700 dark:text-brand-300')}>
+                <span className={cn('flex h-4 w-4 shrink-0 items-center justify-center rounded border', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-hairline dark:border-white/20')}>
+                  {on && <span className="text-[10px] leading-none">✓</span>}
+                </span>
+                {o.label}
+              </button>
+            );
+          })}
         </div>
       </Popover>
     </>

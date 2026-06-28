@@ -120,7 +120,12 @@ export class CreditCasesService {
       where.status = mineOnly
         ? CaseStatus.MODERATION
         : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
-      if (user.branchId) where.branchId = user.branchId;
+      // A moderator only sees cases from the branches assigned to them.
+      const assigned = await this.prisma.branch.findMany({
+        where: { moderators: { some: { id: user.id } } },
+        select: { id: true },
+      });
+      where.branchId = { in: assigned.map((b) => b.id) };
     } else if (user.role === Role.DIRECTOR) {
       where.status = mineOnly
         ? CaseStatus.DIRECTOR_REVIEW

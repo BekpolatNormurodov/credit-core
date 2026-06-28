@@ -136,8 +136,12 @@ export const api = {
   },
 
   // ── Admin: branches & users ──
-  async createBranch(payload: { name: string; symbol: string; region?: string }): Promise<BranchDto> {
+  async createBranch(payload: { name: string; symbol: string; region?: string; moderatorIds?: string[] }): Promise<BranchDto> {
     const { data } = await http.post<BranchDto>('/branches', payload);
+    return data;
+  },
+  async updateBranch(id: string, payload: { name: string; symbol: string; region?: string; moderatorIds?: string[] }): Promise<BranchDto> {
+    const { data } = await http.put<BranchDto>(`/branches/${id}`, payload);
     return data;
   },
   async users(): Promise<any[]> {

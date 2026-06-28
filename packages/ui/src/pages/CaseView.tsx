@@ -142,7 +142,7 @@ export function CaseView() {
                 <Button variant="secondary" onClick={() => fileRef.current?.click()}>
                   <Upload className="h-4 w-4" /> Hujjat yuklash
                 </Button>
-                {isDirectorReview && <span className="text-xs text-amber-600">Tasdiqlash uchun yakuniy hujjat shart</span>}
+                {isDirectorReview && <span className="text-xs text-warning-600 dark:text-warning-400">Tasdiqlash uchun yakuniy hujjat shart</span>}
               </div>
             )}
           </Card>
@@ -312,7 +312,7 @@ function KatmInputs() {
     <Card className="space-y-3 border-dashed">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold">KATM hisobotlari</h2>
-        <span className="rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700">Qo‘lda · tez kunda avto</span>
+        <span className="rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-600/15 dark:text-warning-400">Qo‘lda · tez kunda avto</span>
       </div>
       <p className="text-xs text-slate-500">PINFL bo‘yicha 2–3 hisobot qiymatini kiriting (integratsiya tayyor bo‘lguncha).</p>
       <Field label="Kredit tarixi">

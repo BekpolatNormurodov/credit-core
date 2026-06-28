@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Put, Param, UseGuards } from '@nestjs/common';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
 import { Module } from '@nestjs/common';
 import { Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,7 +11,10 @@ class UpsertBranchDto {
   @IsString() @MinLength(1) name!: string;
   @IsString() @MinLength(1) symbol!: string;
   @IsOptional() @IsString() region?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) moderatorIds?: string[];
 }
+
+const branchInclude = { moderators: { select: { id: true, fullName: true }, orderBy: { fullName: 'asc' as const } } };
 
 @UseGuards(JwtAuthGuard)
 @Controller('branches')
@@ -20,21 +23,31 @@ class BranchesController {
 
   @Get()
   list() {
-    return this.prisma.branch.findMany({ orderBy: { name: 'asc' } });
+    return this.prisma.branch.findMany({ orderBy: { name: 'asc' }, include: branchInclude });
   }
 
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Post()
   create(@Body() dto: UpsertBranchDto) {
-    return this.prisma.branch.create({ data: dto });
+    const { moderatorIds, ...rest } = dto;
+    return this.prisma.branch.create({
+      data: { ...rest, moderators: moderatorIds?.length ? { connect: moderatorIds.map((id) => ({ id })) } : undefined },
+      include: branchInclude,
+    });
   }
 
   @UseGuards(RolesGuard)
   @Roles(Role.ADMIN)
   @Put(':id')
   update(@Param('id') id: string, @Body() dto: UpsertBranchDto) {
-    return this.prisma.branch.update({ where: { id }, data: dto });
+    const { moderatorIds, ...rest } = dto;
+    return this.prisma.branch.update({
+      where: { id },
+      // `set` replaces the full moderator list when moderatorIds is provided.
+      data: { ...rest, moderators: moderatorIds ? { set: moderatorIds.map((mid) => ({ id: mid })) } : undefined },
+      include: branchInclude,
+    });
   }
 }
 

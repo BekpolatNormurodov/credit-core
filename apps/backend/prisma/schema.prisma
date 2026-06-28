@@ -52,6 +52,9 @@ model Branch {
   symbol    String   @unique // filial id symbol, e.g. "BR"
   region    String?
   users     User[]
+  // Moderators responsible for this branch (many-to-many; a branch may have
+  // several moderators and a moderator may cover several branches).
+  moderators User[]  @relation("BranchModerators")
   cases     CreditCase[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -67,6 +70,8 @@ model User {
   role         Role
   branch       Branch?  @relation(fields: [branchId], references: [id])
   branchId     String?
+  // Branches this moderator is responsible for (m-n, see Branch.moderators).
+  moderatedBranches Branch[] @relation("BranchModerators")
   isActive     Boolean  @default(true)
   createdCases CreditCase[] @relation("CaseCreatedBy")
   documents    Document[]

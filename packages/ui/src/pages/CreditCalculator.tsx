@@ -81,7 +81,7 @@ export function CreditCalculator() {
             <div className="flex gap-2">
               {(['annuity', 'diff'] as const).map((m) => (
                 <button key={m} onClick={() => setMethod(m)}
-                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium ${method === m ? 'border-brand-500 bg-brand-50 text-brand-700' : 'border-hairline text-slate-600'}`}>
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${method === m ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-600/15 dark:text-brand-300' : 'border-hairline text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5'}`}>
                   {m === 'annuity' ? 'Annuitet' : 'Differensial'}
                 </button>
               ))}
@@ -91,9 +91,9 @@ export function CreditCalculator() {
 
         <Card className="lg:col-span-2">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label={method === 'annuity' ? 'Oylik to‘lov' : '1-oy to‘lovi'} value={formatMoney(Math.round(firstPay))} tone="text-brand-800" />
-            <Stat label="Jami ustama (foiz)" value={formatMoney(Math.round(totalInterest))} tone="text-warning-700" />
-            <Stat label="Jami to‘lov" value={formatMoney(Math.round(totalPay))} tone="text-ink" />
+            <Stat label={method === 'annuity' ? 'Oylik to‘lov' : '1-oy to‘lovi'} value={formatMoney(Math.round(firstPay))} tone="text-brand-700 dark:text-brand-300" />
+            <Stat label="Jami ustama (foiz)" value={formatMoney(Math.round(totalInterest))} tone="text-warning-700 dark:text-warning-400" />
+            <Stat label="Jami to‘lov" value={formatMoney(Math.round(totalPay))} tone="text-ink dark:text-white" />
           </div>
           <div className="mt-4 h-52">
             <ResponsiveContainer width="100%" height="100%">
@@ -116,7 +116,7 @@ export function CreditCalculator() {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3">
+    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
       <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
       <p className={`nums text-lg font-bold ${tone}`}>{value}</p>
     </div>
