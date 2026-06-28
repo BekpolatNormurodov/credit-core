@@ -18,6 +18,8 @@ const num = (v: string): number | null => (v === '' ? null : Number(v));
 
 // A document staged in the form before the case exists; uploaded right after save.
 export type StagedDoc = { localId: string; file: File; type: DocumentType; title: string };
+// Same, but bound to a collateral by its index (resolved to the real id after save).
+export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
 let docSeq = 0;
 
 const emptyBorrower = { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, birthDate: null, address: null, phone: null };
@@ -42,6 +44,7 @@ export function useCaseForm(id?: string) {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [docs, setDocs] = useState<StagedDoc[]>([]);
+  const [colDocs, setColDocs] = useState<StagedColDoc[]>([]);
 
   const addDocs = (files: FileList | File[] | null, type: DocumentType) => {
     if (!files) return;
@@ -55,6 +58,23 @@ export function useCaseForm(id?: string) {
   };
   const removeDoc = (localId: string) => setDocs((prev) => prev.filter((d) => d.localId !== localId));
   const setDocTitle = (localId: string, title: string) => setDocs((prev) => prev.map((d) => (d.localId === localId ? { ...d, title } : d)));
+
+  // Per-collateral staged attachments (image/file + name + free text), bound by collateral index.
+  const addColDocs = (colIndex: number, files: FileList | File[] | null) => {
+    if (!files) return;
+    const list = Array.from(files).map((file) => ({
+      localId: `c${docSeq++}`,
+      colIndex,
+      file,
+      type: file.type.startsWith('image/') ? DocumentType.COLLATERAL_PHOTO : DocumentType.OTHER,
+      title: '',
+      description: '',
+    }));
+    setColDocs((prev) => [...prev, ...list]);
+  };
+  const removeColDoc = (localId: string) => setColDocs((prev) => prev.filter((d) => d.localId !== localId));
+  const setColDocField = (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) =>
+    setColDocs((prev) => prev.map((d) => (d.localId === localId ? { ...d, ...patch } : d)));
 
   useQuery({
     queryKey: ['case', id],
@@ -75,7 +95,11 @@ export function useCaseForm(id?: string) {
   const setB = (patch: Partial<UpsertCasePayload['borrower']>) => setForm((f) => ({ ...f, borrower: { ...f.borrower, ...patch } }));
   const setCol = (i: number, patch: Partial<CollateralDto>) => setForm((f) => ({ ...f, collaterals: f.collaterals.map((c, idx) => (idx === i ? { ...c, ...patch } : c)) }));
   const addCol = (type: ProductType) => setForm((f) => ({ ...f, collaterals: [...f.collaterals, newCollateral(type)] }));
-  const removeCol = (i: number) => setForm((f) => ({ ...f, collaterals: f.collaterals.filter((_, idx) => idx !== i) }));
+  const removeCol = (i: number) => {
+    setForm((f) => ({ ...f, collaterals: f.collaterals.filter((_, idx) => idx !== i) }));
+    // Drop staged attachments for the removed collateral and reindex the rest.
+    setColDocs((prev) => prev.filter((d) => d.colIndex !== i).map((d) => (d.colIndex > i ? { ...d, colIndex: d.colIndex - 1 } : d)));
+  };
   const addGuarantor = () => setForm((f) => ({ ...f, guarantors: [...f.guarantors, { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, phone: null, relation: null }] }));
   const setG = (i: number, patch: Partial<GuarantorDto>) => setForm((f) => ({ ...f, guarantors: f.guarantors.map((g, idx) => (idx === i ? { ...g, ...patch } : g)) }));
   const removeG = (i: number) => setForm((f) => ({ ...f, guarantors: f.guarantors.filter((_, idx) => idx !== i) }));
@@ -104,7 +128,17 @@ export function useCaseForm(id?: string) {
       for (const d of docs) {
         await api.uploadDocument(saved.id, d.type, d.file, { title: d.title || undefined });
       }
+      // Upload per-collateral attachments, mapping the form index to the saved collateral id.
+      for (const d of colDocs) {
+        const collateralId = saved.collaterals[d.colIndex]?.id;
+        await api.uploadDocument(saved.id, d.type, d.file, {
+          collateralId,
+          title: d.title || undefined,
+          description: d.description || undefined,
+        });
+      }
       if (docs.length) setDocs([]);
+      if (colDocs.length) setColDocs([]);
       qc.invalidateQueries({ queryKey: ['cases'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
       qc.invalidateQueries({ queryKey: ['case', saved.id] });
@@ -114,14 +148,14 @@ export function useCaseForm(id?: string) {
     }
   };
 
-  return { editing, form, setForm, setB, setCol, addCol, removeCol, addGuarantor, setG, removeG, onImport, warnings, valid, saving, save, docs, addDocs, removeDoc, setDocTitle };
+  return { editing, form, setForm, setB, setCol, addCol, removeCol, addGuarantor, setG, removeG, onImport, warnings, valid, saving, save, docs, addDocs, removeDoc, setDocTitle, colDocs, addColDocs, removeColDoc, setColDocField };
 }
 
 type FormApi = ReturnType<typeof useCaseForm>;
 
 /** Presentational form body (no page chrome) — reused in page and modal. */
 export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImport?: boolean }) {
-  const { form, setForm, setB, setCol, addCol, removeCol, addGuarantor, setG, removeG, onImport, warnings, docs, addDocs, removeDoc, setDocTitle } = f;
+  const { form, setForm, setB, setCol, addCol, removeCol, addGuarantor, setG, removeG, onImport, warnings, docs, addDocs, removeDoc, setDocTitle, colDocs, addColDocs, removeColDoc, setColDocField } = f;
   const fileRef = useRef<HTMLInputElement>(null);
   const passportRef = useRef<HTMLInputElement>(null);
   const extraRef = useRef<HTMLInputElement>(null);
@@ -242,7 +276,18 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
       </div>
 
       {form.collaterals.map((c, i) => (
-        <CollateralCard key={i} index={i} c={c} onChange={(p) => setCol(i, p)} onRemove={() => removeCol(i)} canRemove={form.collaterals.length > 1} />
+        <CollateralCard
+          key={i}
+          index={i}
+          c={c}
+          onChange={(p) => setCol(i, p)}
+          onRemove={() => removeCol(i)}
+          canRemove={form.collaterals.length > 1}
+          docs={colDocs.filter((d) => d.colIndex === i)}
+          onAddDocs={(files) => addColDocs(i, files)}
+          onRemoveDoc={removeColDoc}
+          onSetDocField={setColDocField}
+        />
       ))}
     </div>
   );
@@ -312,11 +357,14 @@ export function NewCaseModal({ open, onClose }: { open: boolean; onClose: () => 
   );
 }
 
-function CollateralCard({ index, c, onChange, onRemove, canRemove }: {
+function CollateralCard({ index, c, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField }: {
   index: number; c: CollateralDto; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
+  docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
+  onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;
 }) {
   const isAuto = c.type === ProductType.AUTO;
   const setOwners = (owners: CollateralDto['owners']) => onChange({ owners });
+  const docRef = useRef<HTMLInputElement>(null);
 
   return (
     <Card className="space-y-4">
@@ -380,6 +428,41 @@ function CollateralCard({ index, c, onChange, onRemove, canRemove }: {
             <Button variant="ghost" onClick={() => setOwners(c.owners.filter((_, x) => x !== idx))}><Trash2 className="h-4 w-4" /></Button>
           </div>
         ))}
+      </div>
+
+      {/* Qo'shimcha: rasm/fayl biriktirish + izoh matn (har bir garovga) */}
+      <div className="space-y-2 border-t border-hairline pt-4 dark:border-white/10">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="flex items-center gap-2 text-sm font-semibold"><FileText className="h-4 w-4 text-slate-400" /> Qo'shimcha rasm va izohlar</h4>
+          <input ref={docRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { onAddDocs(e.target.files); e.target.value = ''; }} />
+          <Button variant="secondary" onClick={() => docRef.current?.click()}><Upload className="h-4 w-4" /> Rasm/fayl biriktirish</Button>
+        </div>
+        {docs.length === 0 ? (
+          <p className="text-xs text-muted">Garovga oid rasmlar va hujjatlarni yuklang; har biriga nom va izoh yozishingiz mumkin (ixtiyoriy).</p>
+        ) : (
+          <ul className="space-y-2">
+            {docs.map((d) => {
+              const isImg = d.file.type.startsWith('image/');
+              return (
+                <li key={d.localId} className="rounded-xl border border-hairline p-2.5 dark:border-white/10">
+                  <div className="flex items-start gap-2.5">
+                    {isImg ? (
+                      <img src={URL.createObjectURL(d.file)} alt={d.file.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-white/10"><FileText className="h-5 w-5" /></span>
+                    )}
+                    <div className="min-w-0 flex-1 space-y-1.5">
+                      <Input value={d.title} onChange={(e) => onSetDocField(d.localId, { title: e.target.value })} placeholder="Nomi (masalan: Old tomondan)" />
+                      <Input value={d.description} onChange={(e) => onSetDocField(d.localId, { description: e.target.value })} placeholder="Izoh matni (ixtiyoriy)" />
+                      <p className="truncate text-[11px] text-muted">{d.file.name}</p>
+                    </div>
+                    <Button variant="ghost" className="shrink-0 px-2 text-danger-600" onClick={() => onRemoveDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
     </Card>
   );
