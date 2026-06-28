@@ -1,5 +1,5 @@
 import * as ExcelJS from 'exceljs';
-import { ImportParseResult } from '@credit-core/shared';
+import { ImportParseResult, ProductType } from '@credit-core/shared';
 
 type Cell = { row: number; col: number; text: string };
 
@@ -97,7 +97,8 @@ export async function parseRealEstateWorkbook(
   return {
     amount: agreedValue,
     borrower: { fullName: borrowerName },
-    realEstate: {
+    collateral: {
+      type: ProductType.REAL_ESTATE,
       address: address ?? '',
       registryNo,
       propertyType,

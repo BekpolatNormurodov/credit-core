@@ -1,4 +1,4 @@
-import { CheckCircle2, RotateCcw, Send, Flag } from 'lucide-react';
+import { CheckCircle2, RotateCcw, Send, Flag } from '../lib/icons';
 import { ROLE_LABEL, WorkflowDecision, type WorkflowEventDto } from '@credit-core/shared';
 
 const icons: Record<WorkflowDecision, React.ComponentType<{ className?: string }>> = {

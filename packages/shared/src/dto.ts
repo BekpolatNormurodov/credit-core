@@ -30,19 +30,35 @@ export interface CollateralOwnerDto {
   sharePercent: number | null;
 }
 
-export interface RealEstateCollateralDto {
+/** Unified collateral — REAL_ESTATE uses the address/cadastre fields,
+ *  AUTO uses the vehicle fields. A case can hold several. */
+export interface CollateralDto {
   id?: string;
-  address: string;
-  registryNo: string | null; // № реестра
-  propertyType: string | null; // вид имущества
-  cadastreNo: string | null; // № кадастра
-  registrationDate: string | null; // ko'chirma / sana
-  totalAreaM2: number | null;
-  livingAreaM2: number | null;
-  roomNames: string | null; // хоналар номи
-  roomCount: number | null;
-  agreedValue: number | null; // согласованная залоговая стоимость
-  agreedValueWords: string | null; // прописью
+  type: ProductType;
+  agreedValue: number | null;
+  agreedValueWords: string | null;
+  // real estate
+  address?: string | null;
+  registryNo?: string | null;
+  propertyType?: string | null;
+  cadastreNo?: string | null;
+  registrationDate?: string | null;
+  totalAreaM2?: number | null;
+  livingAreaM2?: number | null;
+  roomNames?: string | null;
+  roomCount?: number | null;
+  // auto
+  techPassportNo?: string | null;
+  techPassportDate?: string | null;
+  model?: string | null;
+  stateNumber?: string | null;
+  bodyType?: string | null;
+  bodyNo?: string | null;
+  engineNo?: string | null;
+  chassis?: string | null;
+  color?: string | null;
+  year?: number | null;
+  mileage?: number | null;
   owners: CollateralOwnerDto[];
 }
 
@@ -88,6 +104,19 @@ export interface MessageDto {
   createdAt: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  caseId: string;
+  caseNumber: string;
+  senderName: string;
+  senderRole: Role;
+  text: string | null;
+  toRole: Role | null;
+  hasFile: boolean;
+  read: boolean;
+  createdAt: string;
+}
+
 export interface StatsResponse {
   byStatus: { status: CaseStatus; count: number }[];
   byBranch: { branch: string; count: number }[];
@@ -120,7 +149,7 @@ export interface CreditCaseDto {
   branch: BranchDto | null;
   createdByName: string;
   borrower: BorrowerDto | null;
-  realEstate: RealEstateCollateralDto | null;
+  collaterals: CollateralDto[];
   documents: DocumentDto[];
   events: WorkflowEventDto[];
   createdAt: string;
@@ -138,12 +167,12 @@ export interface CreditCaseListItem {
   updatedAt: string;
 }
 
-/** Payload to create or update a real-estate case (manual form OR import-confirmed). */
-export interface UpsertRealEstateCasePayload {
+/** Payload to create or update a case (manual form OR import-confirmed). */
+export interface UpsertCasePayload {
   amount: number | null;
   termMonths: number | null;
   borrower: BorrowerDto;
-  realEstate: RealEstateCollateralDto;
+  collaterals: CollateralDto[];
 }
 
 export interface TransitionPayload {
@@ -154,7 +183,7 @@ export interface TransitionPayload {
 /** Result of parsing an uploaded .xlsx — prefilled, operator confirms. */
 export interface ImportParseResult {
   borrower: Partial<BorrowerDto>;
-  realEstate: Partial<RealEstateCollateralDto>;
+  collateral: Partial<CollateralDto>;
   amount: number | null;
   warnings: string[];
 }

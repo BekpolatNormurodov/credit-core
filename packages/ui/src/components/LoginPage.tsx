@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, LogIn } from 'lucide-react';
+import { ShieldCheck, LogIn } from '../lib/icons';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Input, Field } from './primitives';

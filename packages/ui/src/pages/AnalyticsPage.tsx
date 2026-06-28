@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Banknote, FileCheck2, Landmark, Layers } from 'lucide-react';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Banknote, FileCheck2, Landmark, Layers } from '../lib/icons';
 import { api } from '@credit-core/api-client';
 import { CaseStatus, STATUS_LABEL } from '@credit-core/shared';
 import { Card, Skeleton, StatusBadge } from '../components/primitives';
@@ -14,6 +15,15 @@ const statusColor: Record<CaseStatus, string> = {
   [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-600',
   [CaseStatus.FINALIZED]: 'bg-success-600',
   [CaseStatus.REJECTED]: 'bg-danger-600',
+};
+
+const hexFor: Record<CaseStatus, string> = {
+  [CaseStatus.DRAFT]: '#94a3b8',
+  [CaseStatus.MODERATION]: '#d97706',
+  [CaseStatus.DIRECTOR_REVIEW]: '#8b5cf6',
+  [CaseStatus.ADMIN_FINALIZE]: '#0369a1',
+  [CaseStatus.FINALIZED]: '#059669',
+  [CaseStatus.REJECTED]: '#dc2626',
 };
 
 function StatCard({ icon: Icon, label, value, tone }: { icon: any; label: string; value: string; tone: string }) {
@@ -89,31 +99,70 @@ export function AnalyticsPage() {
           />
         </Card>
         <Card>
-          <h2 className="mb-4 font-semibold">Filial bo‘yicha</h2>
-          {data.byBranch.length ? (
-            <Bars data={data.byBranch.map((b) => ({ label: b.branch, count: b.count }))} />
+          <h2 className="mb-4 font-semibold">Holatlar ulushi</h2>
+          {data.totalCases ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={data.byStatus.filter((s) => s.count > 0).map((s) => ({ name: STATUS_LABEL[s.status], value: s.count, status: s.status }))}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {data.byStatus.filter((s) => s.count > 0).map((s) => (
+                      <Cell key={s.status} fill={hexFor[s.status]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
           ) : (
             <p className="text-sm text-slate-400">Ma'lumot yo‘q</p>
           )}
         </Card>
       </div>
 
-      <Card>
-        <h2 className="mb-3 font-semibold">So‘nggi ishlar</h2>
-        <div className="space-y-2">
-          {data.recent.map((c) => (
-            <Link
-              key={c.id}
-              to={`/cases/${c.id}`}
-              className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2 hover:border-brand-200"
-            >
-              <span className="text-sm font-medium">{c.number} <span className="text-slate-400">· {c.borrowerName ?? '—'}</span></span>
-              <span className="flex items-center gap-3">
-                <span className="nums text-sm">{formatMoney(c.amount)}</span>
-                <StatusBadge status={c.status} />
-              </span>
-            </Link>
-          ))}
+      <Card className="lg:col-span-2">
+        <h2 className="mb-4 font-semibold">Filial bo‘yicha</h2>
+        {data.byBranch.length ? (
+          <Bars data={data.byBranch.map((b) => ({ label: b.branch, count: b.count }))} />
+        ) : (
+          <p className="text-sm text-slate-400">Ma'lumot yo‘q</p>
+        )}
+      </Card>
+
+      <Card className="overflow-hidden p-0">
+        <h2 className="border-b border-hairline p-5 font-semibold">So‘nggi arizalar</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-muted">
+              <tr>
+                <th className="px-5 py-3">Raqam</th>
+                <th className="px-5 py-3">Qarz oluvchi</th>
+                <th className="px-5 py-3">Filial</th>
+                <th className="px-5 py-3 text-right">Summa</th>
+                <th className="px-5 py-3">Holat</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {data.recent.map((c) => (
+                <tr key={c.id} className="hover:bg-slate-50">
+                  <td className="px-5 py-3 font-medium">
+                    <Link to={`/cases/${c.id}`} className="text-brand-700 hover:underline">{c.number}</Link>
+                  </td>
+                  <td className="px-5 py-3">{c.borrowerName ?? '—'}</td>
+                  <td className="px-5 py-3">{c.branchSymbol ?? '—'}</td>
+                  <td className="nums px-5 py-3 text-right font-medium">{formatMoney(c.amount)}</td>
+                  <td className="px-5 py-3"><StatusBadge status={c.status} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
     </div>

@@ -35,14 +35,43 @@ export class PdfService {
 
   /** Build the "Garov baholash akti" (valuation act) PDF for a case. */
   async valuationAct(c: CreditCaseDto): Promise<Buffer> {
-    const re = c.realEstate;
-    const value = c.realEstate?.agreedValue ?? c.amount ?? null;
-    const words = re?.agreedValueWords ?? (value != null ? sumToWordsUz(value) : '—');
+    const totalCollateral = c.collaterals.reduce((s, x) => s + (x.agreedValue ?? 0), 0);
+    const value = totalCollateral || c.amount || 0;
+    const words = value ? sumToWordsUz(value) : '—';
 
     const row = (label: string, val: string) => [
       { text: label, bold: true, margin: [0, 2, 0, 2] as [number, number, number, number] },
       { text: val || '—', margin: [0, 2, 0, 2] as [number, number, number, number] },
     ];
+
+    const collateralBlocks = c.collaterals.flatMap((col, i) => {
+      const head = {
+        text: `Garov ${i + 1} — ${col.type === 'AUTO' ? 'Avtotransport' : 'Uy-joy (ko‘chmas mulk)'}`,
+        bold: true,
+        margin: [0, 12, 0, 4] as [number, number, number, number],
+      };
+      const rows =
+        col.type === 'AUTO'
+          ? [
+              row('Model', col.model ?? '—'),
+              row('Davlat raqami', col.stateNumber ?? '—'),
+              row('Tex passport', col.techPassportNo ?? '—'),
+              row('Kuzov / dvigatel', `${col.bodyNo ?? '—'} / ${col.engineNo ?? '—'}`),
+              row('Rang / yil', `${col.color ?? '—'} / ${col.year ?? '—'}`),
+              row('Probeg', col.mileage != null ? `${col.mileage} km` : '—'),
+              row('Garov qiymati', fmtMoney(col.agreedValue)),
+            ]
+          : [
+              row('Manzil', col.address ?? '—'),
+              row('Kadastr №', col.cadastreNo ?? '—'),
+              row('Reestr №', col.registryNo ?? '—'),
+              row('Mulk turi', col.propertyType ?? '—'),
+              row('Maydon (umumiy/yashash)', `${col.totalAreaM2 ?? '—'} / ${col.livingAreaM2 ?? '—'} m²`),
+              row('Xonalar', [col.roomNames, col.roomCount != null ? `(${col.roomCount})` : ''].filter(Boolean).join(' ')),
+              row('Garov qiymati', fmtMoney(col.agreedValue)),
+            ];
+      return [head, { table: { widths: [180, '*'], body: rows } }];
+    });
 
     const def: TDocumentDefinitions = {
       defaultStyle: { font: 'Roboto', fontSize: 10 },
@@ -57,21 +86,20 @@ export class PdfService {
               row('Filial', c.branch ? `${c.branch.name} (${c.branch.symbol})` : '—'),
               row('Qarz oluvchi', c.borrower?.fullName ?? '—'),
               row('Pasport', [c.borrower?.passportSeries, c.borrower?.passportNumber].filter(Boolean).join(' ') || '—'),
-              row('Mahsulot', 'Uy-joy (ko‘chmas mulk)'),
-              row('Manzil', re?.address ?? '—'),
-              row('Reestr №', re?.registryNo ?? '—'),
-              row('Kadastr №', re?.cadastreNo ?? '—'),
-              row('Mulk turi', re?.propertyType ?? '—'),
-              row('Umumiy maydon', re?.totalAreaM2 != null ? `${re.totalAreaM2} m²` : '—'),
-              row('Yashash maydoni', re?.livingAreaM2 != null ? `${re.livingAreaM2} m²` : '—'),
-              row('Xonalar', [re?.roomNames, re?.roomCount != null ? `(${re.roomCount} ta)` : ''].filter(Boolean).join(' ')),
               row('Kredit summasi', fmtMoney(c.amount)),
               row('Muddat', c.termMonths != null ? `${c.termMonths} oy` : '—'),
               row('KATM narxi', fmtMoney(c.katmPrice)),
-              row('Kelishilgan garov qiymati', fmtMoney(value)),
-              row('Prописью', words),
+              row('Garovlar soni', String(c.collaterals.length)),
             ],
           },
+        },
+        ...collateralBlocks,
+        {
+          table: {
+            widths: [180, '*'],
+            body: [row('Jami garov qiymati', fmtMoney(value)), row('Prописью', words)],
+          },
+          margin: [0, 12, 0, 0],
         },
         {
           text: '\n\nImzolar: __________________ (Direktor)        __________________ (Administrator)',

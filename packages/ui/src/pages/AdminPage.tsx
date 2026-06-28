@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Building2, Plus, UserPlus } from 'lucide-react';
+import { Building2, Plus, UserPlus } from '../lib/icons';
 import { api } from '@credit-core/api-client';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';

@@ -48,6 +48,29 @@ class MessagesController {
     }));
   }
 
+  /** Notification feed — recent messages from others, newest first. */
+  @Get('messages/feed')
+  async feed(@CurrentUser() user: RequestUser) {
+    const msgs = await this.prisma.message.findMany({
+      where: { senderId: { not: user.id } },
+      include: { sender: true, case: { select: { number: true } }, document: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return msgs.map((m) => ({
+      id: m.id,
+      caseId: m.caseId,
+      caseNumber: m.case.number,
+      senderName: m.sender.fullName,
+      senderRole: m.sender.role,
+      text: m.text,
+      toRole: m.toRole,
+      hasFile: !!m.documentId,
+      read: (m.readBy ?? '').split(',').includes(user.id),
+      createdAt: m.createdAt.toISOString(),
+    }));
+  }
+
   /** Unread message count across the current user's cases (for the sidebar badge). */
   @Get('messages/unread')
   async unread(@CurrentUser() user: RequestUser) {

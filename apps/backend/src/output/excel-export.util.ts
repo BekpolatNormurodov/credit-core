@@ -9,28 +9,40 @@ export async function exportCaseToExcel(c: CreditCaseDto): Promise<Buffer> {
     { header: 'Maydon', key: 'k', width: 36 },
     { header: 'Qiymat', key: 'v', width: 50 },
   ];
-  const re = c.realEstate;
   const rows: [string, string | number | null][] = [
-    ['Ish raqami', c.number],
+    ['Ariza raqami', c.number],
     ['Filial', c.branch ? `${c.branch.name} (${c.branch.symbol})` : ''],
     ['Holat', c.status],
     ['Qarz oluvchi', c.borrower?.fullName ?? ''],
     ['Pasport', [c.borrower?.passportSeries, c.borrower?.passportNumber].filter(Boolean).join(' ')],
     ['PINFL', c.borrower?.pinfl ?? ''],
-    ['Manzil', re?.address ?? ''],
-    ['Reestr №', re?.registryNo ?? ''],
-    ['Kadastr №', re?.cadastreNo ?? ''],
-    ['Mulk turi', re?.propertyType ?? ''],
-    ['Umumiy maydon (m²)', re?.totalAreaM2 ?? null],
-    ['Yashash maydoni (m²)', re?.livingAreaM2 ?? null],
-    ['Xonalar nomi', re?.roomNames ?? ''],
-    ['Xonalar soni', re?.roomCount ?? null],
     ['Kredit summasi', c.amount ?? null],
     ['Muddat (oy)', c.termMonths ?? null],
     ['KATM narxi', c.katmPrice ?? null],
-    ['Kelishilgan garov qiymati', re?.agreedValue ?? null],
-    ['Prописью', re?.agreedValueWords ?? ''],
+    ['Garovlar soni', c.collaterals.length],
   ];
+  c.collaterals.forEach((col, i) => {
+    const n = i + 1;
+    if (col.type === 'AUTO') {
+      rows.push(
+        [`Garov ${n} turi`, 'Avtotransport'],
+        [`Garov ${n} model`, col.model ?? ''],
+        [`Garov ${n} davlat raqami`, col.stateNumber ?? ''],
+        [`Garov ${n} tex passport`, col.techPassportNo ?? ''],
+        [`Garov ${n} rang/yil`, `${col.color ?? ''} ${col.year ?? ''}`],
+        [`Garov ${n} qiymati`, col.agreedValue ?? null],
+      );
+    } else {
+      rows.push(
+        [`Garov ${n} turi`, 'Uy-joy'],
+        [`Garov ${n} manzil`, col.address ?? ''],
+        [`Garov ${n} kadastr №`, col.cadastreNo ?? ''],
+        [`Garov ${n} maydon (m²)`, col.totalAreaM2 ?? null],
+        [`Garov ${n} xonalar`, col.roomNames ?? ''],
+        [`Garov ${n} qiymati`, col.agreedValue ?? null],
+      );
+    }
+  });
   rows.forEach(([k, v]) => ws.addRow({ k, v }));
   ws.getRow(1).font = { bold: true };
   ws.getColumn('k').font = { bold: true };

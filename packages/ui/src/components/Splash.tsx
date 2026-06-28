@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '../lib/icons';
 
 export function Splash({ title, subtitle }: { title: string; subtitle: string }) {
   const reduce = useReducedMotion();

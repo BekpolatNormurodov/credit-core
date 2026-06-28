@@ -1,19 +1,57 @@
 import { Prisma } from '@prisma/client';
-import { CreditCaseDto, CreditCaseListItem } from '@credit-core/shared';
+import { CollateralDto, CreditCaseDto, CreditCaseListItem } from '@credit-core/shared';
 
 export const caseInclude = {
   branch: true,
   createdBy: true,
   borrower: true,
-  realEstate: { include: { owners: true } },
+  collaterals: { include: { owners: true }, orderBy: { createdAt: 'asc' } },
   documents: { include: { uploadedBy: true }, orderBy: { createdAt: 'asc' } },
   events: { include: { actor: true }, orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.CreditCaseInclude;
 
 type CaseWithRelations = Prisma.CreditCaseGetPayload<{ include: typeof caseInclude }>;
+type CollateralRow = CaseWithRelations['collaterals'][number];
 
 const num = (d: Prisma.Decimal | null): number | null => (d == null ? null : Number(d));
 const iso = (d: Date | null): string | null => (d == null ? null : d.toISOString());
+
+function toCollateral(c: CollateralRow): CollateralDto {
+  return {
+    id: c.id,
+    type: c.type,
+    agreedValue: num(c.agreedValue),
+    agreedValueWords: c.agreedValueWords,
+    address: c.address,
+    registryNo: c.registryNo,
+    propertyType: c.propertyType,
+    cadastreNo: c.cadastreNo,
+    registrationDate: iso(c.registrationDate),
+    totalAreaM2: c.totalAreaM2,
+    livingAreaM2: c.livingAreaM2,
+    roomNames: c.roomNames,
+    roomCount: c.roomCount,
+    techPassportNo: c.techPassportNo,
+    techPassportDate: iso(c.techPassportDate),
+    model: c.model,
+    stateNumber: c.stateNumber,
+    bodyType: c.bodyType,
+    bodyNo: c.bodyNo,
+    engineNo: c.engineNo,
+    chassis: c.chassis,
+    color: c.color,
+    year: c.year,
+    mileage: c.mileage,
+    owners: c.owners.map((o) => ({
+      id: o.id,
+      fullName: o.fullName,
+      passportSeries: o.passportSeries,
+      passportNumber: o.passportNumber,
+      pinfl: o.pinfl,
+      sharePercent: o.sharePercent,
+    })),
+  };
+}
 
 export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
   return {
@@ -40,30 +78,7 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
           phone: c.borrower.phone,
         }
       : null,
-    realEstate: c.realEstate
-      ? {
-          id: c.realEstate.id,
-          address: c.realEstate.address,
-          registryNo: c.realEstate.registryNo,
-          propertyType: c.realEstate.propertyType,
-          cadastreNo: c.realEstate.cadastreNo,
-          registrationDate: iso(c.realEstate.registrationDate),
-          totalAreaM2: c.realEstate.totalAreaM2,
-          livingAreaM2: c.realEstate.livingAreaM2,
-          roomNames: c.realEstate.roomNames,
-          roomCount: c.realEstate.roomCount,
-          agreedValue: num(c.realEstate.agreedValue),
-          agreedValueWords: c.realEstate.agreedValueWords,
-          owners: c.realEstate.owners.map((o) => ({
-            id: o.id,
-            fullName: o.fullName,
-            passportSeries: o.passportSeries,
-            passportNumber: o.passportNumber,
-            pinfl: o.pinfl,
-            sharePercent: o.sharePercent,
-          })),
-        }
-      : null,
+    collaterals: c.collaterals.map(toCollateral),
     documents: c.documents.map((d) => ({
       id: d.id,
       type: d.type,

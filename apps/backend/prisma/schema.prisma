@@ -91,8 +91,7 @@ model CreditCase {
   createdById  String
 
   borrower     Borrower?
-  realEstate   RealEstateCollateral?
-  autoCollateral AutoCollateral?
+  collaterals  Collateral[]
   valuationAct ValuationAct?
   documents    Document[]
   events       WorkflowEvent[]
@@ -119,39 +118,27 @@ model Borrower {
   phone          String?
 }
 
-model RealEstateCollateral {
-  id               String   @id @default(cuid())
-  case             CreditCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId           String   @unique
-  address          String   @db.Text
-  registryNo       String?  // № реестра
-  propertyType     String?  // вид имущества
-  cadastreNo       String?  // № кадастра
-  registrationDate DateTime? // ko'chirma sanasi
+// Unified collateral — a case can have several (e.g. 2 flats + 1 car).
+model Collateral {
+  id               String      @id @default(cuid())
+  case             CreditCase  @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId           String
+  type             ProductType // REAL_ESTATE | AUTO
+  agreedValue      Decimal?    @db.Decimal(18, 2)
+  agreedValueWords String?     @db.Text
+
+  // Real estate fields
+  address          String?  @db.Text
+  registryNo       String?
+  propertyType     String?
+  cadastreNo       String?
+  registrationDate DateTime?
   totalAreaM2      Float?
   livingAreaM2     Float?
-  roomNames        String?  @db.Text // хоналар номи
+  roomNames        String?  @db.Text
   roomCount        Int?
-  agreedValue      Decimal? @db.Decimal(18, 2)
-  agreedValueWords String?  @db.Text // прописью
-  owners           CollateralOwner[]
-}
 
-model CollateralOwner {
-  id             String   @id @default(cuid())
-  collateral     RealEstateCollateral @relation(fields: [collateralId], references: [id], onDelete: Cascade)
-  collateralId   String
-  fullName       String
-  passportSeries String?
-  passportNumber String?
-  pinfl          String?
-  sharePercent   Float?
-}
-
-model AutoCollateral {
-  id               String   @id @default(cuid())
-  case             CreditCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId           String   @unique
+  // Auto fields
   techPassportNo   String?
   techPassportDate DateTime?
   model            String?
@@ -163,9 +150,22 @@ model AutoCollateral {
   color            String?
   year             Int?
   mileage          Int?
-  position         String?
-  agreedValue      Decimal? @db.Decimal(18, 2)
-  agreedValueWords String?  @db.Text
+
+  owners    CollateralOwner[]
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+}
+
+model CollateralOwner {
+  id             String   @id @default(cuid())
+  collateral     Collateral @relation(fields: [collateralId], references: [id], onDelete: Cascade)
+  collateralId   String
+  fullName       String
+  passportSeries String?
+  passportNumber String?
+  pinfl          String?
+  sharePercent   Float?
 }
 
 model ValuationAct {

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, LogOut, Menu, ShieldCheck, X } from 'lucide-react';
+import { Bell, LogOut, Menu, ShieldCheck, X } from '../lib/icons';
 import { api } from '@credit-core/api-client';
 import { ROLE_LABEL } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';

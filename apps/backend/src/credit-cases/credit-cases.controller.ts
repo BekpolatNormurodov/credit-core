@@ -5,7 +5,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { CreditCasesService } from './credit-cases.service';
-import { SetKatmPriceDto, TransitionDto, UpsertRealEstateCaseDto } from './dto';
+import { SetKatmPriceDto, TransitionDto, UpsertCaseDto } from './dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases')
@@ -24,20 +24,16 @@ export class CreditCasesController {
 
   @UseGuards(RolesGuard)
   @Roles(Role.OPERATOR)
-  @Post('real-estate')
-  create(@CurrentUser() user: RequestUser, @Body() dto: UpsertRealEstateCaseDto) {
-    return this.service.createRealEstate(user, dto);
+  @Post()
+  create(@CurrentUser() user: RequestUser, @Body() dto: UpsertCaseDto) {
+    return this.service.createCase(user, dto);
   }
 
   @UseGuards(RolesGuard)
   @Roles(Role.OPERATOR)
-  @Put(':id/real-estate')
-  update(
-    @Param('id') id: string,
-    @CurrentUser() user: RequestUser,
-    @Body() dto: UpsertRealEstateCaseDto,
-  ) {
-    return this.service.updateRealEstate(id, user, dto);
+  @Put(':id')
+  update(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: UpsertCaseDto) {
+    return this.service.updateCase(id, user, dto);
   }
 
   @Post(':id/transition')

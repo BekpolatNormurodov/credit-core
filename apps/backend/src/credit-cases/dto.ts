@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMinSize,
   IsArray,
   IsEnum,
   IsInt,
@@ -30,8 +31,13 @@ export class CollateralOwnerInput {
   @IsOptional() @IsNumber() sharePercent?: number | null;
 }
 
-export class RealEstateInput {
-  @IsString() @MinLength(1) address!: string;
+export class CollateralInput {
+  @IsEnum(ProductType) type!: ProductType;
+  @IsOptional() @IsNumber() agreedValue?: number | null;
+  @IsOptional() @IsString() agreedValueWords?: string | null;
+
+  // real estate
+  @IsOptional() @IsString() address?: string | null;
   @IsOptional() @IsString() registryNo?: string | null;
   @IsOptional() @IsString() propertyType?: string | null;
   @IsOptional() @IsString() cadastreNo?: string | null;
@@ -40,8 +46,19 @@ export class RealEstateInput {
   @IsOptional() @IsNumber() livingAreaM2?: number | null;
   @IsOptional() @IsString() roomNames?: string | null;
   @IsOptional() @IsInt() roomCount?: number | null;
-  @IsOptional() @IsNumber() agreedValue?: number | null;
-  @IsOptional() @IsString() agreedValueWords?: string | null;
+
+  // auto
+  @IsOptional() @IsString() techPassportNo?: string | null;
+  @IsOptional() @IsString() techPassportDate?: string | null;
+  @IsOptional() @IsString() model?: string | null;
+  @IsOptional() @IsString() stateNumber?: string | null;
+  @IsOptional() @IsString() bodyType?: string | null;
+  @IsOptional() @IsString() bodyNo?: string | null;
+  @IsOptional() @IsString() engineNo?: string | null;
+  @IsOptional() @IsString() chassis?: string | null;
+  @IsOptional() @IsString() color?: string | null;
+  @IsOptional() @IsInt() year?: number | null;
+  @IsOptional() @IsInt() mileage?: number | null;
 
   @IsOptional()
   @IsArray()
@@ -50,7 +67,7 @@ export class RealEstateInput {
   owners?: CollateralOwnerInput[];
 }
 
-export class UpsertRealEstateCaseDto {
+export class UpsertCaseDto {
   @IsOptional() @IsNumber() @Min(0) amount?: number | null;
   @IsOptional() @IsInt() @Min(1) termMonths?: number | null;
 
@@ -58,13 +75,11 @@ export class UpsertRealEstateCaseDto {
   @Type(() => BorrowerInput)
   borrower!: BorrowerInput;
 
-  @ValidateNested()
-  @Type(() => RealEstateInput)
-  realEstate!: RealEstateInput;
-}
-
-export class CreateCaseDto extends UpsertRealEstateCaseDto {
-  @IsEnum(ProductType) productType!: ProductType;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CollateralInput)
+  collaterals!: CollateralInput[];
 }
 
 export class TransitionDto {

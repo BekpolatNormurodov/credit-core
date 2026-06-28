@@ -8,10 +8,11 @@ import type {
   ImportParseResult,
   LoginResponse,
   MessageDto,
+  NotificationItem,
   Role,
   StatsResponse,
   TransitionPayload,
-  UpsertRealEstateCasePayload,
+  UpsertCasePayload,
 } from '@credit-core/shared';
 
 const TOKEN_KEY = 'cc_token';
@@ -56,12 +57,12 @@ export const api = {
     const { data } = await http.get<CreditCaseDto>(`/cases/${id}`);
     return data;
   },
-  async createRealEstate(payload: UpsertRealEstateCasePayload): Promise<CreditCaseDto> {
-    const { data } = await http.post<CreditCaseDto>('/cases/real-estate', payload);
+  async createCase(payload: UpsertCasePayload): Promise<CreditCaseDto> {
+    const { data } = await http.post<CreditCaseDto>('/cases', payload);
     return data;
   },
-  async updateRealEstate(id: string, payload: UpsertRealEstateCasePayload): Promise<CreditCaseDto> {
-    const { data } = await http.put<CreditCaseDto>(`/cases/${id}/real-estate`, payload);
+  async updateCase(id: string, payload: UpsertCasePayload): Promise<CreditCaseDto> {
+    const { data } = await http.put<CreditCaseDto>(`/cases/${id}`, payload);
     return data;
   },
   async transition(id: string, payload: TransitionPayload): Promise<CreditCaseDto> {
@@ -141,28 +142,26 @@ export const api = {
     const { data } = await http.get<{ count: number }>('/messages/unread');
     return data.count;
   },
+  async notifications(): Promise<NotificationItem[]> {
+    const { data } = await http.get<NotificationItem[]>('/messages/feed');
+    return data;
+  },
   async directory(role?: Role, q?: string): Promise<DirectoryUser[]> {
     const { data } = await http.get<DirectoryUser[]>('/directory', { params: { role, q } });
     return data;
   },
 };
 
-/** Fetch an authenticated document and open it in a new tab (view). */
+/**
+ * Open a document inline in a new browser tab (renders PDFs/images natively).
+ * Uses a tokenized URL with inline disposition so the browser displays rather
+ * than downloads. Falls back to an authenticated blob download if blocked.
+ */
 export async function viewDocument(id: string, fileName: string) {
-  const blob = await api.downloadDocument(id);
-  const url = URL.createObjectURL(blob);
-  const w = window.open(url, '_blank');
-  if (!w) downloadBlobNamed(blob, fileName);
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-
-function downloadBlobNamed(blob: Blob, fileName: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  a.click();
-  URL.revokeObjectURL(url);
+  const token = getToken();
+  const url = `${apiBaseUrl}/api/documents/${id}/download?inline=1&token=${encodeURIComponent(token ?? '')}`;
+  const w = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!w) downloadBlob(await api.downloadDocument(id), fileName);
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

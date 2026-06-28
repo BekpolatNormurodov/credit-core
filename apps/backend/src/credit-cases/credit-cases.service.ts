@@ -1,11 +1,11 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { CaseStatus, DocumentType, ProductType, Role, ROLE_INBOX_STATUS } from '@credit-core/shared';
+import { CaseStatus, DocumentType, ProductType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { WorkflowService } from './workflow.service';
 import { caseInclude, toCaseDto, toListItem } from './case.mapper';
-import { RealEstateInput, TransitionDto, UpsertRealEstateCaseDto } from './dto';
+import { CollateralInput, TransitionDto, UpsertCaseDto } from './dto';
 
 const parseDate = (s?: string | null): Date | null => (s ? new Date(s) : null);
 
@@ -19,108 +19,109 @@ export class CreditCasesService {
   private async nextNumber(branchSymbol: string | null): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `${branchSymbol ?? 'GEN'}-${year}-`;
-    const count = await this.prisma.creditCase.count({
-      where: { number: { startsWith: prefix } },
-    });
+    const count = await this.prisma.creditCase.count({ where: { number: { startsWith: prefix } } });
     return `${prefix}${String(count + 1).padStart(4, '0')}`;
   }
 
-  private realEstateData(re: RealEstateInput) {
+  private collateralCreate(c: CollateralInput): Prisma.CollateralCreateWithoutCaseInput {
     return {
-      address: re.address,
-      registryNo: re.registryNo ?? null,
-      propertyType: re.propertyType ?? null,
-      cadastreNo: re.cadastreNo ?? null,
-      registrationDate: parseDate(re.registrationDate),
-      totalAreaM2: re.totalAreaM2 ?? null,
-      livingAreaM2: re.livingAreaM2 ?? null,
-      roomNames: re.roomNames ?? null,
-      roomCount: re.roomCount ?? null,
-      agreedValue: re.agreedValue ?? null,
-      agreedValueWords: re.agreedValueWords ?? null,
+      type: c.type,
+      agreedValue: c.agreedValue ?? null,
+      agreedValueWords: c.agreedValueWords ?? null,
+      address: c.address ?? null,
+      registryNo: c.registryNo ?? null,
+      propertyType: c.propertyType ?? null,
+      cadastreNo: c.cadastreNo ?? null,
+      registrationDate: parseDate(c.registrationDate),
+      totalAreaM2: c.totalAreaM2 ?? null,
+      livingAreaM2: c.livingAreaM2 ?? null,
+      roomNames: c.roomNames ?? null,
+      roomCount: c.roomCount ?? null,
+      techPassportNo: c.techPassportNo ?? null,
+      techPassportDate: parseDate(c.techPassportDate),
+      model: c.model ?? null,
+      stateNumber: c.stateNumber ?? null,
+      bodyType: c.bodyType ?? null,
+      bodyNo: c.bodyNo ?? null,
+      engineNo: c.engineNo ?? null,
+      chassis: c.chassis ?? null,
+      color: c.color ?? null,
+      year: c.year ?? null,
+      mileage: c.mileage ?? null,
+      owners: { create: (c.owners ?? []).map((o) => ({ ...o, sharePercent: o.sharePercent ?? null })) },
     };
   }
 
-  async createRealEstate(user: RequestUser, dto: UpsertRealEstateCaseDto) {
+  async createCase(user: RequestUser, dto: UpsertCaseDto) {
     const branch = user.branchId
       ? await this.prisma.branch.findUnique({ where: { id: user.branchId } })
       : null;
     const number = await this.nextNumber(branch?.symbol ?? null);
-
-    const owners = dto.realEstate.owners ?? [];
+    const productType = dto.collaterals[0]?.type ?? ProductType.REAL_ESTATE;
 
     const created = await this.prisma.creditCase.create({
       data: {
         number,
-        productType: ProductType.REAL_ESTATE,
+        productType,
         status: CaseStatus.DRAFT,
         amount: dto.amount ?? null,
         termMonths: dto.termMonths ?? null,
         branchId: user.branchId,
         createdById: user.id,
         borrower: { create: { ...dto.borrower, birthDate: parseDate(dto.borrower.birthDate) } },
-        realEstate: {
-          create: {
-            ...this.realEstateData(dto.realEstate),
-            owners: { create: owners.map((o) => ({ ...o, sharePercent: o.sharePercent ?? null })) },
-          },
-        },
+        collaterals: { create: dto.collaterals.map((c) => this.collateralCreate(c)) },
       },
       include: caseInclude,
     });
     return toCaseDto(created);
   }
 
-  async updateRealEstate(id: string, user: RequestUser, dto: UpsertRealEstateCaseDto) {
+  async updateCase(id: string, user: RequestUser, dto: UpsertCaseDto) {
     const existing = await this.prisma.creditCase.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException('Ish topilmadi');
+    if (!existing) throw new NotFoundException('Ariza topilmadi');
     if (existing.status !== CaseStatus.DRAFT) {
-      throw new ForbiddenException('Faqat qoralama holatidagi ishni tahrirlash mumkin');
+      throw new ForbiddenException('Faqat qoralama holatidagi arizani tahrirlash mumkin');
     }
     if (user.role === Role.OPERATOR && existing.createdById !== user.id) {
-      throw new ForbiddenException('Bu ish sizga tegishli emas');
+      throw new ForbiddenException('Bu ariza sizga tegishli emas');
     }
 
-    const owners = dto.realEstate.owners ?? [];
     await this.prisma.$transaction([
       this.prisma.creditCase.update({
         where: { id },
-        data: { amount: dto.amount ?? null, termMonths: dto.termMonths ?? null },
+        data: {
+          amount: dto.amount ?? null,
+          termMonths: dto.termMonths ?? null,
+          productType: dto.collaterals[0]?.type ?? existing.productType,
+        },
       }),
       this.prisma.borrower.upsert({
         where: { caseId: id },
         create: { caseId: id, ...dto.borrower, birthDate: parseDate(dto.borrower.birthDate) },
         update: { ...dto.borrower, birthDate: parseDate(dto.borrower.birthDate) },
       }),
-      this.prisma.collateralOwner.deleteMany({ where: { collateral: { caseId: id } } }),
-      this.prisma.realEstateCollateral.upsert({
-        where: { caseId: id },
-        create: {
-          caseId: id,
-          ...this.realEstateData(dto.realEstate),
-          owners: { create: owners.map((o) => ({ ...o, sharePercent: o.sharePercent ?? null })) },
-        },
-        update: {
-          ...this.realEstateData(dto.realEstate),
-          owners: { create: owners.map((o) => ({ ...o, sharePercent: o.sharePercent ?? null })) },
-        },
-      }),
+      this.prisma.collateral.deleteMany({ where: { caseId: id } }),
+      ...dto.collaterals.map((c) =>
+        this.prisma.collateral.create({ data: { caseId: id, ...this.collateralCreate(c) } }),
+      ),
     ]);
 
     return this.getOne(id);
   }
 
-  /** Role-scoped list: each role sees its inbox + (operators) their own drafts. */
   async list(user: RequestUser, mineOnly = false): Promise<ReturnType<typeof toListItem>[]> {
     const where: Prisma.CreditCaseWhereInput = {};
-
     if (user.role === Role.OPERATOR) {
       where.createdById = user.id;
     } else if (user.role === Role.MODERATOR) {
-      where.status = mineOnly ? CaseStatus.MODERATION : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
+      where.status = mineOnly
+        ? CaseStatus.MODERATION
+        : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
       if (user.branchId) where.branchId = user.branchId;
     } else if (user.role === Role.DIRECTOR) {
-      where.status = mineOnly ? CaseStatus.DIRECTOR_REVIEW : { in: [CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
+      where.status = mineOnly
+        ? CaseStatus.DIRECTOR_REVIEW
+        : { in: [CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
     } else if (user.role === Role.ADMIN && mineOnly) {
       where.status = CaseStatus.ADMIN_FINALIZE;
     }
@@ -135,16 +136,13 @@ export class CreditCasesService {
 
   async getOne(id: string) {
     const c = await this.prisma.creditCase.findUnique({ where: { id }, include: caseInclude });
-    if (!c) throw new NotFoundException('Ish topilmadi');
+    if (!c) throw new NotFoundException('Ariza topilmadi');
     return toCaseDto(c);
   }
 
   async transition(id: string, user: RequestUser, dto: TransitionDto) {
-    const c = await this.prisma.creditCase.findUnique({
-      where: { id },
-      include: { documents: true },
-    });
-    if (!c) throw new NotFoundException('Ish topilmadi');
+    const c = await this.prisma.creditCase.findUnique({ where: { id }, include: { documents: true } });
+    if (!c) throw new NotFoundException('Ariza topilmadi');
 
     const rule = this.workflow.resolve({
       currentStatus: c.status,

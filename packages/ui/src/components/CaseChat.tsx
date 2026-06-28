@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Paperclip, Search, Send, FileText, Download } from 'lucide-react';
+import { Paperclip, Search, Send, FileText, Download } from '../lib/icons';
 import { api, downloadBlob, viewDocument } from '@credit-core/api-client';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { Button, Input } from './primitives';

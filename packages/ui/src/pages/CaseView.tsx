@@ -2,11 +2,10 @@ import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CheckCircle2, Download, FileDown, FileText, Pencil, RotateCcw, Send, Flag, Upload,
-} from 'lucide-react';
+  CheckCircle2, Download, FileDown, FileText, Pencil, RotateCcw, Send, Flag, Upload, Eye, House, Car,
+} from '../lib/icons';
 import { api, downloadBlob, viewDocument } from '@credit-core/api-client';
 import { CaseChat } from '../components/CaseChat';
-import { Eye } from 'lucide-react';
 import {
   CaseStatus, DocumentType, DOCUMENT_LABEL, PRODUCT_LABEL, Role,
   TRANSITIONS, WorkflowDecision, type CreditCaseDto,
@@ -174,40 +173,75 @@ export function CaseView() {
 }
 
 function Detail({ c }: { c: CreditCaseDto }) {
-  const re = c.realEstate;
-  const rows: [string, string][] = [
+  const totalCollateral = c.collaterals.reduce((s, x) => s + (x.agreedValue ?? 0), 0);
+  const base: [string, string][] = [
     ['Qarz oluvchi', c.borrower?.fullName ?? '—'],
     ['Pasport', [c.borrower?.passportSeries, c.borrower?.passportNumber].filter(Boolean).join(' ') || '—'],
+    ['PINFL', c.borrower?.pinfl ?? '—'],
+    ['Telefon', c.borrower?.phone ?? '—'],
     ['Summa', formatMoney(c.amount)],
     ['Muddat', c.termMonths ? `${c.termMonths} oy` : '—'],
-    ['Manzil', re?.address ?? '—'],
-    ['Kadastr №', re?.cadastreNo ?? '—'],
-    ['Reestr №', re?.registryNo ?? '—'],
-    ['Mulk turi', re?.propertyType ?? '—'],
-    ['Umumiy / yashash', `${re?.totalAreaM2 ?? '—'} / ${re?.livingAreaM2 ?? '—'} m²`],
-    ['Xonalar', [re?.roomNames, re?.roomCount != null ? `(${re.roomCount})` : ''].filter(Boolean).join(' ') || '—'],
-    ['Garov qiymati', formatMoney(re?.agreedValue)],
+    ['Jami garov', formatMoney(totalCollateral)],
     ['KATM narxi', formatMoney(c.katmPrice)],
   ];
   return (
-    <Card>
-      <h2 className="mb-3 font-semibold">Ma'lumotlar</h2>
-      <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-        {rows.map(([k, v]) => (
-          <div key={k}>
-            <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
-            <dd className="nums text-sm font-medium text-ink">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {re?.owners?.length ? (
-        <div className="mt-4 border-t border-slate-100 pt-3">
-          <p className="text-xs uppercase tracking-wide text-slate-400">Egalar</p>
-          {re.owners.map((o, i) => (
-            <p key={i} className="text-sm">{o.fullName} {o.sharePercent != null ? `— ${o.sharePercent}%` : ''}</p>
+    <Card className="space-y-5">
+      <div>
+        <h2 className="mb-3 font-semibold">Qarz oluvchi va kredit</h2>
+        <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+          {base.map(([k, v]) => (
+            <div key={k}>
+              <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
+              <dd className="nums text-sm font-medium text-ink">{v}</dd>
+            </div>
           ))}
-        </div>
-      ) : null}
+        </dl>
+      </div>
+
+      <div className="space-y-3 border-t border-slate-100 pt-4">
+        <h2 className="font-semibold">Garovlar ({c.collaterals.length})</h2>
+        {c.collaterals.map((col, i) => {
+          const isAuto = col.type === 'AUTO';
+          const rows: [string, string][] = isAuto
+            ? [
+                ['Model', col.model ?? '—'],
+                ['Davlat raqami', col.stateNumber ?? '—'],
+                ['Tex passport', col.techPassportNo ?? '—'],
+                ['Rang / yil', `${col.color ?? '—'} / ${col.year ?? '—'}`],
+                ['Probeg', col.mileage != null ? `${col.mileage} km` : '—'],
+                ['Garov qiymati', formatMoney(col.agreedValue)],
+              ]
+            : [
+                ['Manzil', col.address ?? '—'],
+                ['Kadastr №', col.cadastreNo ?? '—'],
+                ['Reestr №', col.registryNo ?? '—'],
+                ['Maydon', `${col.totalAreaM2 ?? '—'} / ${col.livingAreaM2 ?? '—'} m²`],
+                ['Xonalar', [col.roomNames, col.roomCount != null ? `(${col.roomCount})` : ''].filter(Boolean).join(' ') || '—'],
+                ['Garov qiymati', formatMoney(col.agreedValue)],
+              ];
+          return (
+            <div key={col.id ?? i} className="rounded-xl border border-slate-100 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-white ${isAuto ? 'bg-warning-600' : 'bg-brand-700'}`}>
+                  {isAuto ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
+                </span>
+                <p className="text-sm font-semibold">Garov {i + 1} — {isAuto ? 'Avtotransport' : 'Uy-joy'}</p>
+              </div>
+              <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                {rows.map(([k, v]) => (
+                  <div key={k}>
+                    <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
+                    <dd className="nums text-sm font-medium text-ink">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              {col.owners?.length ? (
+                <p className="mt-2 text-xs text-slate-500">Egalar: {col.owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}</p>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
     </Card>
   );
 }

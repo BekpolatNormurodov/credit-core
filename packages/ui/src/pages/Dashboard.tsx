@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FilePlus2, Inbox } from 'lucide-react';
+import { FilePlus2, Inbox, House, Car } from '../lib/icons';
 import { api } from '@credit-core/api-client';
-import { PRODUCT_LABEL, Role } from '@credit-core/shared';
+import { ProductType, PRODUCT_LABEL, Role } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Skeleton, StatusBadge } from '../components/primitives';
 import { formatMoney } from '../lib/cn';
@@ -20,15 +20,15 @@ export function Dashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Ishlar ro‘yxati</h1>
-          <p className="text-sm text-slate-500">
-            {isOperator ? 'Sizning kredit ishlaringiz' : 'Sizning navbatingizdagi ishlar'}
+          <h1 className="text-2xl font-bold">Arizalar</h1>
+          <p className="text-sm text-muted">
+            {isOperator ? 'Sizning kredit arizalaringiz' : 'Navbatingizdagi arizalar'}
           </p>
         </div>
         {isOperator && (
           <Link to="/cases/new">
             <Button>
-              <FilePlus2 className="h-4 w-4" /> Yangi ish
+              <FilePlus2 className="h-4 w-4" /> Yangi ariza
             </Button>
           </Link>
         )}
@@ -49,7 +49,7 @@ export function Dashboard() {
       ) : !cases?.length ? (
         <Card className="flex flex-col items-center gap-3 py-16 text-center">
           <Inbox className="h-10 w-10 text-slate-300" />
-          <p className="text-slate-500">Hozircha ishlar yo‘q</p>
+          <p className="text-slate-500">Hozircha ariza yo‘q</p>
         </Card>
       ) : (
         <div className="grid gap-3">
@@ -61,16 +61,21 @@ export function Dashboard() {
               transition={{ delay: i * 0.03 }}
             >
               <Link to={`/cases/${c.id}`}>
-                <Card className="flex items-center justify-between transition hover:border-brand-300 hover:shadow-soft">
-                  <div>
-                    <p className="font-semibold">{c.number}</p>
-                    <p className="text-sm text-slate-500">
-                      {c.borrowerName ?? '—'} • {PRODUCT_LABEL[c.productType]}
-                      {c.branchSymbol ? ` • ${c.branchSymbol}` : ''}
-                    </p>
+                <Card className="flex items-center justify-between gap-3 transition hover:border-brand-300 hover:shadow-soft">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-white ${c.productType === ProductType.AUTO ? 'bg-warning-600' : 'bg-brand-700'}`}>
+                      {c.productType === ProductType.AUTO ? <Car className="h-5 w-5" /> : <House className="h-5 w-5" />}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{c.number}</p>
+                      <p className="truncate text-sm text-muted">
+                        {c.borrowerName ?? '—'} · {PRODUCT_LABEL[c.productType]}
+                        {c.branchSymbol ? ` · ${c.branchSymbol}` : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="nums text-sm font-semibold text-ink">{formatMoney(c.amount)}</span>
+                  <div className="flex shrink-0 items-center gap-4">
+                    <span className="nums hidden text-sm font-semibold text-ink sm:inline">{formatMoney(c.amount)}</span>
                     <StatusBadge status={c.status} />
                   </div>
                 </Card>
