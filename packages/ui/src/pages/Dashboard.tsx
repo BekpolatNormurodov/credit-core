@@ -4,22 +4,11 @@ import { FilePlus2, House, Car, Layers, FileCheck2, Banknote } from '../lib/icon
 import { api } from '@credit-core/api-client';
 import { ProductType, PRODUCT_LABEL, Role, type CreditCaseListItem } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
-import { Button, Card, Skeleton, StatusBadge } from '../components/primitives';
+import { Button, Skeleton, StatusBadge } from '../components/primitives';
+import { MetricCard } from '../components/widgets';
 import { DataTable, type Column } from '../components/DataTable';
 import { NewCaseModal } from './CaseForm';
 import { formatMoney } from '../lib/cn';
-
-function Kpi({ icon: Icon, label, value, tone }: { icon: any; label: string; value: string; tone: string }) {
-  return (
-    <Card className="flex items-center gap-3.5">
-      <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5 text-white" /></span>
-      <div className="min-w-0">
-        <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
-        <p className="nums truncate text-lg font-bold text-ink">{value}</p>
-      </div>
-    </Card>
-  );
-}
 
 export function Dashboard() {
   const { user } = useAuth();
@@ -69,28 +58,31 @@ export function Dashboard() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats ? (
           <>
-            <Kpi icon={Layers} label="Jami ariza" value={String(stats.totalCases)} tone="bg-brand-600" />
-            <Kpi icon={FileCheck2} label="Yakunlangan" value={String(stats.finalizedCount)} tone="bg-success-600" />
-            <Kpi icon={Banknote} label="Jami summa" value={formatMoney(stats.totalAmount)} tone="bg-navy-800" />
-            <Kpi icon={Banknote} label="Jami KATM" value={formatMoney(stats.totalKatm)} tone="bg-warning-600" />
+            <MetricCard icon={Layers} label="Jami ariza" value={String(stats.totalCases)} tone="brand" />
+            <MetricCard icon={FileCheck2} label="Yakunlangan" value={String(stats.finalizedCount)} tone="success" />
+            <MetricCard icon={Banknote} label="Jami summa" value={formatMoney(stats.totalAmount)} tone="warning" />
+            <MetricCard icon={Banknote} label="Jami KATM" value={formatMoney(stats.totalKatm)} tone="danger" />
           </>
         ) : (
-          [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[72px]" />)
+          [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[132px] rounded-2xl" />)
         )}
       </div>
 
-      {isLoading ? (
-        <Skeleton className="h-72" />
-      ) : (
-        <DataTable
-          columns={columns}
-          rows={cases ?? []}
-          searchable
-          searchFields={['number', 'borrowerName', 'branchSymbol']}
-          onRowClick={(c) => nav(`/cases/${c.id}`)}
-          empty="Hozircha ariza yo‘q"
-        />
-      )}
+      <div className="space-y-3">
+        <h3 className="text-base font-semibold text-ink dark:text-white">So‘nggi arizalar</h3>
+        {isLoading ? (
+          <Skeleton className="h-72 rounded-2xl" />
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={cases ?? []}
+            searchable
+            searchFields={['number', 'borrowerName', 'branchSymbol']}
+            onRowClick={(c) => nav(`/cases/${c.id}`)}
+            empty="Hozircha ariza yo‘q"
+          />
+        )}
+      </div>
     </div>
   );
 }

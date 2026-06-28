@@ -37,6 +37,15 @@ h3 {
   font-variant-numeric: tabular-nums;
 }
 
+/* Hidden scrollbar for sidebar nav (TailAdmin-style chrome). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Respect prefers-reduced-motion (reduced-motion / accessibility). */
 @media (prefers-reduced-motion: reduce) {
   *,

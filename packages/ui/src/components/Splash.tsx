@@ -6,6 +6,13 @@ export function Splash({ title, subtitle }: { title: string; subtitle: string })
   const from = (v: Record<string, number>) => (reduce ? { opacity: 1 } : v);
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-navy-800 via-brand-700 to-navy-900 text-white">
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 opacity-20"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.6) 1px, transparent 1px)',
+          backgroundSize: '22px 22px',
+        }}
+      />
       <motion.div
         initial={from({ scale: 0.6, opacity: 0, rotate: -8 })}
         animate={{ scale: 1, opacity: 1, rotate: 0 }}
