@@ -13,5 +13,22 @@ body,
 }
 
 body {
-  @apply bg-slate-50 text-slate-900 antialiased;
+  @apply bg-canvas text-ink antialiased;
+  font-feature-settings: 'cv11', 'ss01';
+}
+
+/* Tabular figures for money/data so columns don't shift (number-tabular). */
+.nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Respect prefers-reduced-motion (reduced-motion / accessibility). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

@@ -1,13 +1,15 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { ShieldCheck } from 'lucide-react';
 
 export function Splash({ title, subtitle }: { title: string; subtitle: string }) {
+  const reduce = useReducedMotion();
+  const from = (v: Record<string, number>) => (reduce ? { opacity: 1 } : v);
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-brand-700 via-brand-600 to-brand-900 text-white">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-brand-800 via-brand-700 to-brand-900 text-white">
       <motion.div
-        initial={{ scale: 0.6, opacity: 0, rotate: -8 }}
+        initial={from({ scale: 0.6, opacity: 0, rotate: -8 })}
         animate={{ scale: 1, opacity: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 140, damping: 14 }}
+        transition={reduce ? { duration: 0 } : { type: 'spring', stiffness: 140, damping: 14 }}
         className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white/15 backdrop-blur"
       >
         <ShieldCheck className="h-12 w-12" />

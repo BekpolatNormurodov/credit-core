@@ -51,9 +51,13 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
           <Field label="Parol">
             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
           </Field>
-          {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            <LogIn className="h-4 w-4" />
+          {error && (
+            <p role="alert" className="rounded-lg bg-danger-50 px-3 py-2 text-sm text-danger-700">
+              {error}
+            </p>
+          )}
+          <Button type="submit" className="w-full" loading={loading}>
+            {!loading && <LogIn className="h-4 w-4" />}
             {loading ? 'Kirilmoqda…' : 'Kirish'}
           </Button>
         </form>

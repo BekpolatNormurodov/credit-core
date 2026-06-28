@@ -88,8 +88,8 @@ export function CaseForm() {
           <Button variant="secondary" onClick={() => fileRef.current?.click()}>
             <FileSpreadsheet className="h-4 w-4" /> Excel'dan import
           </Button>
-          <Button onClick={onSave} disabled={saving || !form.borrower.fullName || !re.address}>
-            <Save className="h-4 w-4" /> {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+          <Button onClick={onSave} loading={saving} disabled={!form.borrower.fullName || !re.address}>
+            {!saving && <Save className="h-4 w-4" />} {saving ? 'Saqlanmoqda…' : 'Saqlash'}
           </Button>
         </div>
       </div>
@@ -118,7 +118,7 @@ export function CaseForm() {
       <Card className="space-y-4">
         <h2 className="font-semibold">Qarz oluvchi (profil)</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="F.I.O"><Input value={form.borrower.fullName} onChange={(e) => setB({ fullName: e.target.value })} /></Field>
+          <Field label="F.I.O" required><Input value={form.borrower.fullName} onChange={(e) => setB({ fullName: e.target.value })} /></Field>
           <Field label="PINFL"><Input value={form.borrower.pinfl ?? ''} onChange={(e) => setB({ pinfl: e.target.value })} /></Field>
           <Field label="Pasport seriya"><Input value={form.borrower.passportSeries ?? ''} onChange={(e) => setB({ passportSeries: e.target.value })} /></Field>
           <Field label="Pasport raqami"><Input value={form.borrower.passportNumber ?? ''} onChange={(e) => setB({ passportNumber: e.target.value })} /></Field>
@@ -130,7 +130,7 @@ export function CaseForm() {
       <Card className="space-y-4">
         <h2 className="font-semibold">Garov — uy-joy (ko‘chmas mulk)</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Manzil" className="sm:col-span-2"><Input value={re.address} onChange={(e) => setRe({ address: e.target.value })} /></Field>
+          <Field label="Manzil" required className="sm:col-span-2"><Input value={re.address} onChange={(e) => setRe({ address: e.target.value })} /></Field>
           <Field label="Reestr №"><Input value={re.registryNo ?? ''} onChange={(e) => setRe({ registryNo: e.target.value })} /></Field>
           <Field label="Kadastr №"><Input value={re.cadastreNo ?? ''} onChange={(e) => setRe({ cadastreNo: e.target.value })} /></Field>
           <Field label="Mulk turi"><Input value={re.propertyType ?? ''} onChange={(e) => setRe({ propertyType: e.target.value })} /></Field>

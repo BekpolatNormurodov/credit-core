@@ -5,7 +5,7 @@ import { FilePlus2, Inbox } from 'lucide-react';
 import { api } from '@credit-core/api-client';
 import { PRODUCT_LABEL, Role } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
-import { Button, Card, StatusBadge } from '../components/primitives';
+import { Button, Card, Skeleton, StatusBadge } from '../components/primitives';
 import { formatMoney } from '../lib/cn';
 
 export function Dashboard() {
@@ -35,7 +35,17 @@ export function Dashboard() {
       </div>
 
       {isLoading ? (
-        <p className="text-slate-400">Yuklanmoqda…</p>
+        <div className="grid gap-3">
+          {[0, 1, 2].map((i) => (
+            <Card key={i} className="flex items-center justify-between">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
+              </div>
+              <Skeleton className="h-6 w-24" />
+            </Card>
+          ))}
+        </div>
       ) : !cases?.length ? (
         <Card className="flex flex-col items-center gap-3 py-16 text-center">
           <Inbox className="h-10 w-10 text-slate-300" />
@@ -60,7 +70,7 @@ export function Dashboard() {
                     </p>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium">{formatMoney(c.amount)}</span>
+                    <span className="nums text-sm font-semibold text-ink">{formatMoney(c.amount)}</span>
                     <StatusBadge status={c.status} />
                   </div>
                 </Card>

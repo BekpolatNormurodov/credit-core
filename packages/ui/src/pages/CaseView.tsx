@@ -138,10 +138,10 @@ export function CaseView() {
                     key={t.decision}
                     variant={t.decision === WorkflowDecision.RETURN ? 'danger' : 'primary'}
                     className="w-full"
-                    disabled={transition.isPending}
+                    loading={transition.isPending}
                     onClick={() => transition.mutate(t.decision)}
                   >
-                    <Icon className="h-4 w-4" /> {decisionLabel[t.decision]}
+                    {!transition.isPending && <Icon className="h-4 w-4" />} {decisionLabel[t.decision]}
                   </Button>
                 );
               })}
@@ -179,7 +179,7 @@ function Detail({ c }: { c: CreditCaseDto }) {
         {rows.map(([k, v]) => (
           <div key={k}>
             <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
-            <dd className="text-sm font-medium">{v}</dd>
+            <dd className="nums text-sm font-medium text-ink">{v}</dd>
           </div>
         ))}
       </dl>

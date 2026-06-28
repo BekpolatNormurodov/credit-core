@@ -13,6 +13,7 @@
   "dependencies": {
     "@credit-core/api-client": "*",
     "@credit-core/shared": "*",
+    "@fontsource-variable/inter": "^5.1.1",
     "@tanstack/react-query": "^5.64.1",
     "clsx": "^2.1.1",
     "framer-motion": "^11.18.0",
