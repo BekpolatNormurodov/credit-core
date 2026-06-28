@@ -19,7 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
 import type { Response } from 'express';
-import { IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsArray, IsBoolean, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
 import * as bcrypt from 'bcryptjs';
 import { Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -34,13 +34,15 @@ class CreateUserDto {
   @IsString() @MinLength(3) login!: string;
   @IsString() @MinLength(4) password!: string;
   @IsEnum(Role) role!: Role;
-  @IsOptional() @IsString() branchId?: string;
+  @IsOptional() @IsString() branchId?: string; // operator: single branch
+  @IsOptional() @IsArray() @IsString({ each: true }) moderatedBranchIds?: string[]; // moderator: many
 }
 
 class UpdateUserDto {
   @IsOptional() @IsString() fullName?: string;
   @IsOptional() @IsEnum(Role) role?: Role;
   @IsOptional() @IsString() branchId?: string;
+  @IsOptional() @IsArray() @IsString({ each: true }) moderatedBranchIds?: string[];
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsString() @MinLength(4) password?: string;
 }
@@ -57,6 +59,7 @@ const userSelect = {
   branchId: true,
   isActive: true,
   branch: { select: { id: true, name: true, symbol: true } },
+  moderatedBranches: { select: { id: true, name: true } },
 };
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -77,12 +80,17 @@ class UsersController {
   @Post()
   async create(@Body() dto: CreateUserDto) {
     const passwordHash = await bcrypt.hash(dto.password, 10);
+    const isModerator = dto.role === Role.MODERATOR;
     return this.prisma.user.create({
       data: {
         fullName: dto.fullName,
         login: dto.login,
         role: dto.role,
-        branchId: dto.branchId ?? null,
+        // Operator → one personal branch; moderator → many moderatedBranches; director/admin → none.
+        branchId: isModerator ? null : dto.branchId ?? null,
+        moderatedBranches: isModerator && dto.moderatedBranchIds?.length
+          ? { connect: dto.moderatedBranchIds.map((id) => ({ id })) }
+          : undefined,
         passwordHash,
         plainPassword: dto.password,
       },
@@ -108,9 +116,15 @@ class UsersController {
     const data: Record<string, unknown> = {
       fullName: dto.fullName,
       role: dto.role,
-      branchId: dto.branchId === undefined ? undefined : dto.branchId || null,
       isActive: dto.isActive,
     };
+    if (dto.role === Role.MODERATOR) {
+      data.branchId = null; // moderator has no personal branch
+      if (dto.moderatedBranchIds !== undefined) data.moderatedBranches = { set: dto.moderatedBranchIds.map((id) => ({ id })) };
+    } else {
+      data.branchId = dto.branchId === undefined ? undefined : dto.branchId || null;
+      if (dto.role !== undefined) data.moderatedBranches = { set: [] }; // leaving moderator → drop branches
+    }
     if (dto.password) {
       data.passwordHash = await bcrypt.hash(dto.password, 10);
       data.plainPassword = dto.password;

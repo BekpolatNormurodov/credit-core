@@ -13,7 +13,7 @@ body,
 }
 
 body {
-  @apply bg-canvas text-ink antialiased;
+  @apply bg-gray-50 text-gray-700 antialiased;
 }
 
 .dark {
@@ -21,20 +21,21 @@ body {
 }
 
 .dark body {
-  @apply bg-navy-900 text-slate-100;
+  @apply bg-gray-900 text-gray-300;
 }
 
-/* Headings use Fira Code (skill: data/technical/precise mood). */
+/* Headings use Outfit (TailAdmin) — inherited from the sans family. */
 h1,
 h2,
 h3 {
-  font-family: theme('fontFamily.heading');
+  font-family: theme('fontFamily.sans');
   letter-spacing: -0.01em;
 }
 
 /* Tabular figures for money/data so columns don't shift (number-tabular). */
 .nums {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 /* Hidden scrollbar for sidebar nav (TailAdmin-style chrome). */

@@ -22,9 +22,9 @@ interface ToastApi {
 const ToastCtx = createContext<ToastApi | null>(null);
 
 const toneMap: Record<ToastTone, { icon: React.ComponentType<{ className?: string }>; ring: string; chip: string }> = {
-  success: { icon: Check, ring: 'border-l-success-500', chip: 'bg-success-50 text-success-600 dark:bg-success-600/15' },
-  error: { icon: Warning, ring: 'border-l-danger-500', chip: 'bg-danger-50 text-danger-600 dark:bg-danger-600/15' },
-  info: { icon: Info, ring: 'border-l-brand-500', chip: 'bg-brand-50 text-brand-700 dark:bg-brand-600/15' },
+  success: { icon: Check, ring: 'border-l-success-500', chip: 'bg-success-50 text-success-600 dark:bg-success-500/12' },
+  error: { icon: Warning, ring: 'border-l-error-500', chip: 'bg-error-50 text-error-600 dark:bg-error-500/12' },
+  info: { icon: Info, ring: 'border-l-brand-500', chip: 'bg-brand-50 text-brand-700 dark:bg-brand-500/12' },
 };
 
 let counter = 0;
@@ -64,8 +64,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   exit={{ opacity: 0, x: 40, scale: 0.96 }}
                   transition={{ type: 'spring', stiffness: 360, damping: 30 }}
                   className={cn(
-                    'pointer-events-auto flex items-start gap-3 rounded-xl border border-l-4 border-hairline bg-surface p-3.5 shadow-card',
-                    'dark:bg-navy-800 dark:border-white/10',
+                    'pointer-events-auto flex items-start gap-3 rounded-xl border border-l-4 border-gray-200 bg-white p-3.5 shadow-theme-md',
+                    'dark:bg-gray-900 dark:border-gray-800',
                     cfg.ring,
                   )}
                 >
@@ -73,10 +73,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                     <cfg.icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink dark:text-slate-100">{t.title}</p>
-                    {t.message && <p className="mt-0.5 text-sm text-muted">{t.message}</p>}
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">{t.title}</p>
+                    {t.message && <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{t.message}</p>}
                   </div>
-                  <button onClick={() => remove(t.id)} className="-mr-1 shrink-0 rounded-md p-0.5 text-slate-400 transition hover:text-ink dark:hover:text-white">
+                  <button onClick={() => remove(t.id)} className="-mr-1 shrink-0 rounded-md p-0.5 text-gray-400 transition hover:text-gray-700 dark:hover:text-white">
                     <X className="h-4 w-4" />
                   </button>
                 </motion.div>

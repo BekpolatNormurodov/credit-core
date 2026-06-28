@@ -54,20 +54,20 @@ export function BranchesPage() {
   });
 
   const columns: Column<BranchDto>[] = [
-    { key: 'name', header: 'Filial', render: (x) => <span className="font-medium">{x.name}</span> },
-    { key: 'symbol', header: 'Simvol', render: (x) => <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-600/15 dark:text-brand-300">{x.symbol}</span> },
+    { key: 'name', header: 'Filial', render: (x) => <span className="font-medium text-gray-800 dark:text-white">{x.name}</span> },
+    { key: 'symbol', header: 'Simvol', render: (x) => <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">{x.symbol}</span> },
     { key: 'region', header: 'Hudud', render: (x) => x.region ?? '—' },
-    { key: 'caseCount', header: 'Arizalar', align: 'right', render: (x) => <span className="nums font-medium">{x.caseCount ?? 0}</span> },
-    { key: 'totalAmount', header: 'Summa', align: 'right', render: (x) => <span className="nums">{formatMoney(x.totalAmount ?? 0)}</span> },
+    { key: 'caseCount', header: 'Arizalar', align: 'right', render: (x) => <span className="nums font-medium text-gray-800 dark:text-gray-100">{x.caseCount ?? 0}</span> },
+    { key: 'totalAmount', header: 'Summa', align: 'right', render: (x) => <span className="nums text-gray-700 dark:text-gray-300">{formatMoney(x.totalAmount ?? 0)}</span> },
     { key: 'moderators', header: 'Moderatorlar', render: (x) => (
       x.moderators?.length ? (
         <span className="flex flex-wrap gap-1">
-          {x.moderators.map((m) => <span key={m.id} className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs dark:bg-white/10">{m.fullName}</span>)}
+          {x.moderators.map((m) => <span key={m.id} className="rounded-md bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-300">{m.fullName}</span>)}
         </span>
-      ) : <span className="text-slate-400">— biriktirilmagan</span>
+      ) : <span className="text-gray-400">— biriktirilmagan</span>
     ) },
     { key: 'actions', header: 'Amallar', align: 'right', render: (x) => (
-      <button onClick={(e) => { e.stopPropagation(); openEdit(x); }} className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10" title="Tahrirlash"><Pencil className="h-4 w-4" /></button>
+      <button onClick={(e) => { e.stopPropagation(); openEdit(x); }} aria-label="Filialni tahrirlash" title="Tahrirlash" className="rounded-lg p-1.5 text-gray-500 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-gray-400 dark:hover:bg-white/10"><Pencil className="h-[18px] w-[18px]" /></button>
     ) },
   ];
 
@@ -76,12 +76,12 @@ export function BranchesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-navy-800 text-white"><Building className="h-5 w-5" /></span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><Building className="h-5 w-5" /></span>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">Filiallar</h1>
-          <p className="text-sm text-muted">Filiallar va ularga biriktirilgan moderatorlar</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Filiallar</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Filiallar va ularga biriktirilgan moderatorlar</p>
         </div>
-        <Button onClick={openCreate}><Plus className="h-4 w-4" /> Yangi filial</Button>
+        <Button onClick={openCreate}><Plus className="h-5 w-5" /> Yangi filial</Button>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -102,7 +102,7 @@ export function BranchesPage() {
           <>
             <Button variant="secondary" onClick={close}>Bekor qilish</Button>
             <Button loading={save.isPending} disabled={!form.name || !form.symbol} onClick={() => save.mutate()}>
-              {!save.isPending && <Plus className="h-4 w-4" />} Saqlash
+              {!save.isPending && <Plus className="h-5 w-5" />} Saqlash
             </Button>
           </>
         }

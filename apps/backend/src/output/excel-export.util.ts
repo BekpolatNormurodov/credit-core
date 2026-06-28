@@ -1,5 +1,37 @@
 import * as ExcelJS from 'exceljs';
-import { CreditCaseDto } from '@credit-core/shared';
+import { CreditCaseDto, CreditCaseListItem, PRODUCT_LABEL, STATUS_LABEL } from '@credit-core/shared';
+
+/** Export the full case list (role-scoped) into one .xlsx table. */
+export async function exportCasesListToExcel(rows: CreditCaseListItem[]): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Arizalar');
+  ws.columns = [
+    { header: '№', key: 'number', width: 18 },
+    { header: 'Qarz oluvchi', key: 'borrower', width: 28 },
+    { header: 'Mahsulot', key: 'product', width: 22 },
+    { header: 'Filial', key: 'branch', width: 12 },
+    { header: 'Holat', key: 'status', width: 18 },
+    { header: "Summa (so'm)", key: 'amount', width: 18 },
+    { header: 'Yangilangan', key: 'updated', width: 20 },
+  ];
+  rows.forEach((c) =>
+    ws.addRow({
+      number: c.number,
+      borrower: c.borrowerName ?? '—',
+      product: PRODUCT_LABEL[c.productType],
+      branch: c.branchSymbol ?? '—',
+      status: STATUS_LABEL[c.status],
+      amount: c.amount ?? null,
+      updated: new Date(c.updatedAt).toLocaleString('ru-RU'),
+    }),
+  );
+  ws.getRow(1).font = { bold: true };
+  ws.getColumn('amount').numFmt = '#,##0';
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  ws.autoFilter = 'A1:G1';
+  const out = await wb.xlsx.writeBuffer();
+  return Buffer.from(out);
+}
 
 /** Export a case into a simple .xlsx (key/value), matching the source template layout. */
 export async function exportCaseToExcel(c: CreditCaseDto): Promise<Buffer> {

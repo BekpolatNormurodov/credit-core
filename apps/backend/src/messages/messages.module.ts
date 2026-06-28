@@ -1,9 +1,14 @@
 import {
+  BadRequestException,
   Body,
   Controller,
+  Delete,
+  ForbiddenException,
   Get,
   Module,
+  NotFoundException,
   Param,
+  Patch,
   Post,
   Query,
   UploadedFiles,
@@ -116,6 +121,20 @@ class MessagesController {
     return { count };
   }
 
+  /** Unread count grouped by case (for the conversations list badges). */
+  @Get('messages/unread-by-case')
+  async unreadByCase(@CurrentUser() user: RequestUser) {
+    const msgs = await this.prisma.message.findMany({
+      where: { AND: [{ senderId: { not: user.id } }, visibleTo(user)] },
+      select: { readBy: true, caseId: true },
+    });
+    const counts = new Map<string, number>();
+    for (const m of msgs) {
+      if (!(m.readBy ?? '').split(',').includes(user.id)) counts.set(m.caseId, (counts.get(m.caseId) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([caseId, count]) => ({ caseId, count }));
+  }
+
   @Get('cases/:id/messages')
   async list(@Param('id') caseId: string, @CurrentUser() user: RequestUser): Promise<MessageDto[]> {
     const messages = await this.prisma.message.findMany({
@@ -124,20 +143,31 @@ class MessagesController {
       orderBy: { createdAt: 'asc' },
     });
 
-    // Resolve directed-to user names (toUserId has no relation, look up in bulk).
-    const targetIds = [...new Set(messages.map((m) => m.toUserId).filter(Boolean) as string[])];
-    const targets = targetIds.length
-      ? await this.prisma.user.findMany({ where: { id: { in: targetIds } }, select: { id: true, fullName: true } })
-      : [];
-    const nameById = new Map(targets.map((t) => [t.id, t.fullName]));
-
-    // Mark unread (not mine) as read by me.
-    const toMark = messages.filter(
-      (m) => m.senderId !== user.id && !(m.readBy ?? '').split(',').includes(user.id),
+    // Messages (not mine) that my opening this thread marks as read now.
+    const toMarkIds = new Set(
+      messages.filter((m) => m.senderId !== user.id && !(m.readBy ?? '').split(',').includes(user.id)).map((m) => m.id),
     );
-    if (toMark.length) {
+    // Effective reader set per message = stored readBy (+ my just-now read).
+    const readersOf = (m: (typeof messages)[number]): string[] => {
+      const set = new Set((m.readBy ?? '').split(',').filter(Boolean));
+      if (toMarkIds.has(m.id)) set.add(user.id);
+      return [...set].filter((id) => id !== m.senderId);
+    };
+
+    // Bulk-resolve names for directed-to targets + everyone who has read a message.
+    const idsToResolve = new Set<string>();
+    for (const m of messages) {
+      if (m.toUserId) idsToResolve.add(m.toUserId);
+      for (const r of readersOf(m)) idsToResolve.add(r);
+    }
+    const users = idsToResolve.size
+      ? await this.prisma.user.findMany({ where: { id: { in: [...idsToResolve] } }, select: { id: true, fullName: true } })
+      : [];
+    const nameById = new Map(users.map((u) => [u.id, u.fullName]));
+
+    if (toMarkIds.size) {
       await Promise.all(
-        toMark.map((m) =>
+        messages.filter((m) => toMarkIds.has(m.id)).map((m) =>
           this.prisma.message.update({
             where: { id: m.id },
             data: { readBy: [...(m.readBy ?? '').split(',').filter(Boolean), user.id].join(',') },
@@ -148,6 +178,7 @@ class MessagesController {
 
     return messages.map((m) => {
       const docs = [...(m.document ? [m.document] : []), ...m.attachments];
+      const readers = readersOf(m);
       return {
         id: m.id,
         caseId: m.caseId,
@@ -159,6 +190,9 @@ class MessagesController {
         toUserId: m.toUserId,
         toUserName: m.toUserId ? nameById.get(m.toUserId) ?? null : null,
         mine: m.senderId === user.id,
+        readByNames: readers.map((id) => nameById.get(id)).filter(Boolean) as string[],
+        editable: m.senderId === user.id && readers.length === 0,
+        edited: !!m.editedAt,
         document: m.document ? docDto(m.document) : null,
         documents: docs.map(docDto),
         createdAt: m.createdAt.toISOString(),
@@ -206,6 +240,38 @@ class MessagesController {
       );
     }
     return { id: created.id };
+  }
+
+  /** Sender-only guard: must own the message and nobody else may have read it. */
+  private async ownUnreadMessage(caseId: string, msgId: string, user: RequestUser) {
+    const m = await this.prisma.message.findUnique({ where: { id: msgId }, include: { attachments: true } });
+    if (!m || m.caseId !== caseId) throw new NotFoundException('Xabar topilmadi');
+    if (m.senderId !== user.id) throw new ForbiddenException('Faqat o‘z xabaringizni o‘zgartira olasiz');
+    const others = (m.readBy ?? '').split(',').filter(Boolean).filter((id) => id !== user.id);
+    if (others.length) throw new BadRequestException('Xabar allaqachon o‘qilgan — o‘zgartirib bo‘lmaydi');
+    return m;
+  }
+
+  @Patch('cases/:id/messages/:msgId')
+  async edit(
+    @Param('id') caseId: string,
+    @Param('msgId') msgId: string,
+    @CurrentUser() user: RequestUser,
+    @Body('text') text: string | undefined,
+  ) {
+    await this.ownUnreadMessage(caseId, msgId, user);
+    if (!text || !text.trim()) throw new BadRequestException('Matn bo‘sh bo‘lishi mumkin emas');
+    await this.prisma.message.update({ where: { id: msgId }, data: { text: text.trim(), editedAt: new Date() } });
+    return { ok: true };
+  }
+
+  @Delete('cases/:id/messages/:msgId')
+  async remove(@Param('id') caseId: string, @Param('msgId') msgId: string, @CurrentUser() user: RequestUser) {
+    const m = await this.ownUnreadMessage(caseId, msgId, user);
+    const docIds = [...m.attachments.map((d) => d.id), ...(m.documentId ? [m.documentId] : [])];
+    if (docIds.length) await this.prisma.document.deleteMany({ where: { id: { in: docIds } } });
+    await this.prisma.message.delete({ where: { id: msgId } });
+    return { ok: true };
   }
 }
 

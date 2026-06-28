@@ -11,6 +11,7 @@ const dict: Record<string, { uz: string; ru: string }> = {
   'nav.notifications': { uz: 'Bildirishnomalar', ru: 'Уведомления' },
   'nav.branches': { uz: 'Filiallar', ru: 'Филиалы' },
   'nav.users': { uz: 'Foydalanuvchilar', ru: 'Пользователи' },
+  'nav.settings': { uz: 'Sozlamalar', ru: 'Настройки' },
   'common.logout': { uz: 'Chiqish', ru: 'Выход' },
   'common.save': { uz: 'Saqlash', ru: 'Сохранить' },
   'common.search': { uz: 'Qidirish…', ru: 'Поиск…' },

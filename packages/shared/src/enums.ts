@@ -31,6 +31,7 @@ export const CaseStatus = {
   ADMIN_FINALIZE: 'ADMIN_FINALIZE', // director approved + final docs uploaded, waiting for admin
   FINALIZED: 'FINALIZED', // admin finalized (KATM price + PDF + Excel) → done
   REJECTED: 'REJECTED', // returned/rejected terminally
+  CANCELLED: 'CANCELLED', // aborted by moderator/director — terminal, distinct from REJECTED
 } as const;
 export type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus];
 
@@ -40,6 +41,8 @@ export const WorkflowDecision = {
   APPROVE: 'APPROVE',
   RETURN: 'RETURN',
   FINALIZE: 'FINALIZE',
+  CANCEL: 'CANCEL', // moderator/director aborts the case → CANCELLED
+  REOPEN: 'REOPEN', // director sends an active case back to DRAFT for full re-entry
 } as const;
 export type WorkflowDecision = (typeof WorkflowDecision)[keyof typeof WorkflowDecision];
 

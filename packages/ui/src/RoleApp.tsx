@@ -1,8 +1,8 @@
-import '@fontsource/fira-sans/300.css';
-import '@fontsource/fira-sans/400.css';
-import '@fontsource/fira-sans/500.css';
-import '@fontsource/fira-sans/600.css';
-import '@fontsource/fira-sans/700.css';
+import '@fontsource/outfit/300.css';
+import '@fontsource/outfit/400.css';
+import '@fontsource/outfit/500.css';
+import '@fontsource/outfit/600.css';
+import '@fontsource/outfit/700.css';
 import '@fontsource/fira-code/400.css';
 import '@fontsource/fira-code/500.css';
 import '@fontsource/fira-code/600.css';
@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
-import { BarChart3, FilePlus2, LayoutGrid, Calculator, Messages, Building, UserAdd, Bell as BellIcon } from './lib/icons';
+import { BarChart3, FilePlus2, LayoutGrid, Calculator, Messages, Building, UserAdd, Bell as BellIcon, Settings } from './lib/icons';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
@@ -31,19 +31,22 @@ import { ChatsPage } from './pages/ChatsPage';
 import { BranchesPage } from './pages/BranchesPage';
 import { UsersPage } from './pages/UsersPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { SettingsPage } from './pages/SettingsPage';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
 function navFor(role: Role, t: (k: string) => string): NavItem[] {
-  const base: NavItem[] = [{ to: '/', label: t('nav.applications'), icon: LayoutGrid }];
-  if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/?new=1', label: t('nav.new'), icon: FilePlus2 });
-  base.push({ to: '/calculator', label: t('nav.calculator'), icon: Calculator });
-  base.push({ to: '/chats', label: t('nav.chats'), icon: Messages, badgeKey: 'unread' });
-  base.push({ to: '/analytics', label: t('nav.monitoring'), icon: BarChart3 });
-  base.push({ to: '/notifications', label: t('nav.notifications'), icon: BellIcon, badgeKey: 'unread' });
+  const main = 'Asosiy';
+  const base: NavItem[] = [{ to: '/', label: t('nav.applications'), icon: LayoutGrid, section: main }];
+  if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/?new=1', label: t('nav.new'), icon: FilePlus2, section: main });
+  base.push({ to: '/calculator', label: t('nav.calculator'), icon: Calculator, section: main });
+  base.push({ to: '/chats', label: t('nav.chats'), icon: Messages, badgeKey: 'unread', section: main });
+  base.push({ to: '/analytics', label: t('nav.monitoring'), icon: BarChart3, section: main });
+  base.push({ to: '/notifications', label: t('nav.notifications'), icon: BellIcon, badgeKey: 'unread', section: main });
   if (role === Role.ADMIN) {
-    base.push({ to: '/branches', label: t('nav.branches'), icon: Building });
-    base.push({ to: '/users', label: t('nav.users'), icon: UserAdd });
+    base.push({ to: '/branches', label: t('nav.branches'), icon: Building, section: 'Boshqaruv' });
+    base.push({ to: '/users', label: t('nav.users'), icon: UserAdd, section: 'Boshqaruv' });
+    base.push({ to: '/settings', label: t('nav.settings'), icon: Settings, section: 'Boshqaruv' });
   }
   return base;
 }
@@ -78,6 +81,7 @@ function Shell({ role, title }: { role: Role; title: string }) {
         <Route path="/profile" element={<ProfilePage />} />
         {role === Role.ADMIN && <Route path="/branches" element={<BranchesPage />} />}
         {role === Role.ADMIN && <Route path="/users" element={<UsersPage />} />}
+        {role === Role.ADMIN && <Route path="/settings" element={<SettingsPage />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppShell>

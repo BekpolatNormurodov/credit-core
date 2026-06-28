@@ -26,6 +26,7 @@ enum CaseStatus {
   ADMIN_FINALIZE
   FINALIZED
   REJECTED
+  CANCELLED
 }
 
 enum WorkflowDecision {
@@ -33,6 +34,8 @@ enum WorkflowDecision {
   APPROVE
   RETURN
   FINALIZE
+  CANCEL
+  REOPEN
 }
 
 enum DocumentType {
@@ -94,6 +97,12 @@ model CreditCase {
   termMonths   Int?
   katmPrice    Decimal?    @db.Decimal(18, 2)
 
+  // SLA timer for the current step (set on each transition into a deadline step).
+  stepStartedAt   DateTime?
+  stepDeadlineAt  DateTime?
+  overdueNotified Boolean  @default(false) // overdue notification already sent for this step
+  pausedAt        DateTime? // set while the case is on hold — SLA timer is suspended
+
   branch       Branch?     @relation(fields: [branchId], references: [id])
   branchId     String?
   createdBy    User        @relation("CaseCreatedBy", fields: [createdById], references: [id])
@@ -113,6 +122,26 @@ model CreditCase {
 
   @@index([status])
   @@index([branchId])
+  @@index([stepDeadlineAt])
+}
+
+/** Admin-configured SLA per workflow step (business days). One row per deadline step. */
+model StepSetting {
+  step         CaseStatus @id
+  businessDays Int        @default(2)
+  enabled      Boolean    @default(true) // false = step timer off (no deadline)
+  updatedAt    DateTime   @updatedAt
+}
+
+/** Singleton global config (pause limit + loan economics rates). id is always "default". */
+model AppConfig {
+  id            String   @id @default("default")
+  maxPauseDays  Int      @default(5)   // max business days a case may stay paused
+  markupPercent Float    @default(0.41) // klient ustama foizi
+  bankRate      Float    @default(0.28) // bank yillik foiz stavkasi
+  taxRate       Float    @default(0.12) // daromad solig'i
+  nplRate       Float    @default(0.05) // NPL (to'lanmaslik) foizi
+  updatedAt     DateTime @updatedAt
 }
 
 model Borrower {
@@ -241,6 +270,7 @@ model Message {
   documentId String?    @unique
   attachments Document[] @relation("MessageAttachments")
   readBy     String?    @db.Text // comma-separated userIds who have read it
+  editedAt   DateTime?  // set when the sender edits the text
   createdAt  DateTime   @default(now())
 
   @@index([caseId])

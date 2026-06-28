@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -12,6 +13,8 @@ import { OutputModule } from './output/output.module';
 import { KatmModule } from './katm/katm.module';
 import { StatsModule } from './stats/stats.module';
 import { MessagesModule } from './messages/messages.module';
+import { SettingsModule } from './settings/settings.module';
+import { DeadlinesModule } from './deadlines/deadlines.module';
 
 @Module({
   imports: [
@@ -19,6 +22,7 @@ import { MessagesModule } from './messages/messages.module';
       isGlobal: true,
       envFilePath: [join(__dirname, '..', '.env'), join(__dirname, '..', '..', '..', '.env')],
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     DocumentsModule,
     AuthModule,
@@ -30,6 +34,8 @@ import { MessagesModule } from './messages/messages.module';
     KatmModule,
     StatsModule,
     MessagesModule,
+    SettingsModule,
+    DeadlinesModule,
   ],
 })
 export class AppModule {}

@@ -7,6 +7,8 @@ export interface TransitionRule {
   decision: WorkflowDecision;
   /** If true, requires at least one DIRECTOR_FINAL document to be attached. */
   requiresFinalDocs?: boolean;
+  /** Override/escape-hatch action (director force-finalize, cancel) — UI confirms it. */
+  override?: boolean;
 }
 
 /**
@@ -29,6 +31,45 @@ export const TRANSITIONS: TransitionRule[] = [
   // Admin finalizes (KATM price + PDF + Excel) → done, or returns → director.
   { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.FINALIZED, role: Role.ADMIN, decision: WorkflowDecision.FINALIZE },
   { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.DIRECTOR_REVIEW, role: Role.ADMIN, decision: WorkflowDecision.RETURN },
+
+  // Director override — may force-finalize a case from ANY active step (escape hatch).
+  { from: CaseStatus.MODERATION, to: CaseStatus.FINALIZED, role: Role.DIRECTOR, decision: WorkflowDecision.FINALIZE, override: true },
+  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.FINALIZED, role: Role.DIRECTOR, decision: WorkflowDecision.FINALIZE, override: true },
+  { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.FINALIZED, role: Role.DIRECTOR, decision: WorkflowDecision.FINALIZE, override: true },
+
+  // Cancel — moderator aborts a case in their queue; director may cancel any active step.
+  { from: CaseStatus.MODERATION, to: CaseStatus.CANCELLED, role: Role.MODERATOR, decision: WorkflowDecision.CANCEL, override: true },
+  { from: CaseStatus.MODERATION, to: CaseStatus.CANCELLED, role: Role.DIRECTOR, decision: WorkflowDecision.CANCEL, override: true },
+  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.CANCELLED, role: Role.DIRECTOR, decision: WorkflowDecision.CANCEL, override: true },
+  { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.CANCELLED, role: Role.DIRECTOR, decision: WorkflowDecision.CANCEL, override: true },
+
+  // Reopen — director sends an active case all the way back to DRAFT so the operator
+  // can re-enter documents and resubmit (an alternative to a full cancel).
+  { from: CaseStatus.MODERATION, to: CaseStatus.DRAFT, role: Role.DIRECTOR, decision: WorkflowDecision.REOPEN, override: true },
+  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.DRAFT, role: Role.DIRECTOR, decision: WorkflowDecision.REOPEN, override: true },
+  { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.DRAFT, role: Role.DIRECTOR, decision: WorkflowDecision.REOPEN, override: true },
+];
+
+/** Steps that carry an SLA deadline (the "waiting on someone" states). */
+export const DEADLINE_STEPS: CaseStatus[] = [
+  CaseStatus.MODERATION,
+  CaseStatus.DIRECTOR_REVIEW,
+  CaseStatus.ADMIN_FINALIZE,
+];
+
+/** Whether a status has an SLA deadline (a step timer applies). */
+export function hasDeadline(status: CaseStatus): boolean {
+  return DEADLINE_STEPS.includes(status);
+}
+
+/** Active (in-progress) statuses — not terminal (FINALIZED/REJECTED/CANCELLED) and not DRAFT. */
+export const ACTIVE_STATUSES: CaseStatus[] = [...DEADLINE_STEPS];
+
+/** Terminal statuses — the case is closed. */
+export const TERMINAL_STATUSES: CaseStatus[] = [
+  CaseStatus.FINALIZED,
+  CaseStatus.REJECTED,
+  CaseStatus.CANCELLED,
 ];
 
 export function findTransition(

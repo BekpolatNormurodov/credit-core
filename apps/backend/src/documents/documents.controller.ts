@@ -2,10 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
+  ForbiddenException,
   Get,
   NotFoundException,
   Param,
   Post,
+  Put,
   Query,
   Res,
   UnauthorizedException,
@@ -16,7 +19,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtService } from '@nestjs/jwt';
 import type { Response } from 'express';
-import { DocumentType } from '@credit-core/shared';
+import { DocumentType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
@@ -59,6 +62,35 @@ export class DocumentsController {
         uploadedById: user.id,
       },
     });
+  }
+
+  /** Replace a document's file in place (keeps id/type/collateral/title). Uploader or admin. */
+  @UseGuards(JwtAuthGuard)
+  @Put(':id/file')
+  @UseInterceptors(FileInterceptor('file'))
+  async replace(@Param('id') id: string, @UploadedFile() file: Express.Multer.File, @CurrentUser() user: RequestUser) {
+    if (!file) throw new BadRequestException('Fayl yuborilmadi');
+    const doc = await this.prisma.document.findUnique({ where: { id } });
+    if (!doc) throw new NotFoundException('Hujjat topilmadi');
+    if (doc.uploadedById !== user.id && user.role !== Role.ADMIN) throw new ForbiddenException('Bu hujjatni o‘zgartira olmaysiz');
+    const stored = await this.storage.save(file.buffer, file.originalname, file.mimetype, doc.caseId);
+    await this.storage.remove(doc.storagePath);
+    return this.prisma.document.update({
+      where: { id },
+      data: { fileName: stored.fileName, storagePath: stored.storagePath, mimeType: stored.mimeType, uploadedById: user.id },
+    });
+  }
+
+  /** Delete a document. Uploader or admin. */
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  async remove(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    const doc = await this.prisma.document.findUnique({ where: { id } });
+    if (!doc) throw new NotFoundException('Hujjat topilmadi');
+    if (doc.uploadedById !== user.id && user.role !== Role.ADMIN) throw new ForbiddenException('Bu hujjatni o‘chira olmaysiz');
+    await this.prisma.document.delete({ where: { id } });
+    await this.storage.remove(doc.storagePath);
+    return { ok: true };
   }
 
   /**

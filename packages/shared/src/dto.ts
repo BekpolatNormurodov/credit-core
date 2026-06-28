@@ -127,7 +127,18 @@ export interface MessageDto {
   document: DocumentDto | null;
   documents: DocumentDto[];
   mine: boolean;
+  /** Names of people (other than the sender) who have read this message. */
+  readByNames: string[];
+  /** True only for the sender while nobody else has read it yet (edit/delete allowed). */
+  editable: boolean;
+  edited: boolean;
   createdAt: string;
+}
+
+/** Per-case unread message count (for the conversations list). */
+export interface CaseUnread {
+  caseId: string;
+  count: number;
 }
 
 export interface NotificationItem {
@@ -185,6 +196,12 @@ export interface CreditCaseDto {
   collaterals: CollateralDto[];
   documents: DocumentDto[];
   events: WorkflowEventDto[];
+  /** When the case entered its current step (null for DRAFT / terminal). */
+  stepStartedAt: string | null;
+  /** SLA deadline for the current step (null when the step has no timer). */
+  stepDeadlineAt: string | null;
+  /** When set, the case is on hold and the SLA timer is suspended. */
+  pausedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -197,7 +214,26 @@ export interface CreditCaseListItem {
   amount: number | null;
   borrowerName: string | null;
   branchSymbol: string | null;
+  /** SLA deadline for the current step (null when the step has no timer). */
+  stepDeadlineAt: string | null;
   updatedAt: string;
+}
+
+/** Admin-configured SLA: business days allowed per workflow step. */
+export interface StepDeadlineSetting {
+  step: CaseStatus;
+  businessDays: number;
+  /** When false, the step has no timer (no deadline, countdown or overdue alert). */
+  enabled: boolean;
+}
+
+/** Global admin config: pause limit + loan economics rates (fractions, e.g. 0.41 = 41%). */
+export interface AppConfigDto {
+  maxPauseDays: number;
+  markupPercent: number;
+  bankRate: number;
+  taxRate: number;
+  nplRate: number;
 }
 
 /** Payload to create or update a case (manual form OR import-confirmed). */

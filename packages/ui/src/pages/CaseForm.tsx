@@ -173,25 +173,25 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
       )}
 
       {warnings.length > 0 && (
-        <Card className="border-warning-100 bg-warning-50 dark:bg-warning-600/10">
-          <p className="text-sm font-medium text-warning-700">Importdan ogohlantirishlar:</p>
-          <ul className="mt-1 list-disc pl-5 text-sm text-warning-700">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
+        <Card className="border-warning-100 bg-warning-50 dark:border-warning-600/20 dark:bg-warning-600/10">
+          <p className="text-sm font-medium text-warning-700 dark:text-warning-400">Importdan ogohlantirishlar:</p>
+          <ul className="mt-1 list-disc pl-5 text-sm text-warning-700 dark:text-warning-400">{warnings.map((w, i) => <li key={i}>{w}</li>)}</ul>
         </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="space-y-4 lg:col-span-1">
-          <h2 className="flex items-center gap-2 font-semibold"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-600/15 dark:text-brand-300"><Money className="h-4 w-4" /></span>Kredit</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><Money className="h-4 w-4" /></span>Kredit</h2>
           <Field label="Summa" icon={Money}><MoneyInput value={form.amount} onChange={(v) => setForm((s) => ({ ...s, amount: v }))} /></Field>
           <Field label="Muddat (oy)" icon={Clock}><Input type="number" value={form.termMonths ?? ''} onChange={(e) => setForm((s) => ({ ...s, termMonths: num(e.target.value) }))} /></Field>
-          <div className="rounded-xl bg-brand-50 p-3 text-sm dark:bg-brand-600/10">
-            <p className="text-muted">Jami garov qiymati</p>
-            <p className="nums text-lg font-bold text-brand-800 dark:text-brand-300">{formatMoney(totalCollateral)}</p>
+          <div className="rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/12">
+            <p className="text-gray-500 dark:text-gray-400">Jami garov qiymati</p>
+            <p className="nums text-lg font-bold text-brand-800 dark:text-brand-400">{formatMoney(totalCollateral)}</p>
           </div>
         </Card>
 
         <Card className="space-y-4 lg:col-span-2">
-          <h2 className="flex items-center gap-2 font-semibold"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-600/15 dark:text-brand-300"><User className="h-4 w-4" /></span>Qarz oluvchi</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><User className="h-4 w-4" /></span>Qarz oluvchi</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="F.I.O" required icon={User}><Input value={form.borrower.fullName} onChange={(e) => setB({ fullName: e.target.value })} /></Field>
             <Field label="PINFL" icon={Hashtag} hint="14 ta raqam"><Input inputMode="numeric" maxLength={14} value={form.borrower.pinfl ?? ''} onChange={(e) => setB({ pinfl: digitsOnly(e.target.value, 14) })} placeholder="12345678901234" /></Field>
@@ -202,9 +202,9 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
           </div>
 
           {/* Borrower passport + extra documents (uploaded right after the case is saved) */}
-          <div className="space-y-2 border-t border-hairline pt-4 dark:border-white/10">
+          <div className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-800">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="flex items-center gap-2 text-sm font-semibold"><IdCard className="h-4 w-4 text-slate-400" /> Hujjatlar</h3>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white"><IdCard className="h-4 w-4 text-gray-400" /> Hujjatlar</h3>
               <div className="flex gap-2">
                 <input ref={passportRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={(e) => { addDocs(e.target.files, DocumentType.PASSPORT); e.target.value = ''; }} />
                 <input ref={extraRef} type="file" multiple className="hidden" onChange={(e) => { addDocs(e.target.files, DocumentType.OTHER); e.target.value = ''; }} />
@@ -213,19 +213,19 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
               </div>
             </div>
             {docs.length === 0 ? (
-              <p className="text-xs text-muted">Qarz oluvchi pasporti va qo'shimcha hujjatlarni biriktiring (ixtiyoriy).</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Qarz oluvchi pasporti va qo'shimcha hujjatlarni biriktiring (ixtiyoriy).</p>
             ) : (
               <ul className="space-y-2">
                 {docs.map((d) => (
-                  <li key={d.localId} className="rounded-xl border border-hairline px-3 py-2.5 dark:border-white/10">
+                  <li key={d.localId} className="rounded-lg border border-gray-200 px-3 py-2.5 dark:border-gray-800">
                     <div className="flex items-center gap-2">
-                      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white', d.type === DocumentType.PASSPORT ? 'bg-brand-700' : 'bg-slate-400')}>
+                      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white', d.type === DocumentType.PASSPORT ? 'bg-brand-700' : 'bg-gray-400 dark:bg-gray-600')}>
                         {d.type === DocumentType.PASSPORT ? <IdCard className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
                       </span>
                       <Input className="flex-1" value={d.title} onChange={(e) => setDocTitle(d.localId, e.target.value)} placeholder={DOCUMENT_LABEL[d.type] + ' nomi'} />
-                      <Button variant="ghost" className="shrink-0 px-2 text-danger-600" onClick={() => removeDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button variant="ghost" aria-label="Hujjatni o'chirish" className="shrink-0 px-2 text-error-600 dark:text-error-500" onClick={() => removeDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
-                    <p className="mt-1 truncate pl-11 text-[11px] text-muted">{DOCUMENT_LABEL[d.type]} · {d.file.name}</p>
+                    <p className="mt-1 truncate pl-11 text-[11px] text-gray-500 dark:text-gray-400">{DOCUMENT_LABEL[d.type]} · {d.file.name}</p>
                   </li>
                 ))}
               </ul>
@@ -236,24 +236,24 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
 
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-semibold"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-50 text-success-700 dark:bg-success-600/15 dark:text-success-400"><People className="h-4 w-4" /></span>Kafillar <span className="text-muted">({form.guarantors.length})</span></h2>
+          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-50 text-success-700 dark:bg-success-600/15 dark:text-success-400"><People className="h-4 w-4" /></span>Kafillar <span className="text-gray-500 dark:text-gray-400">({form.guarantors.length})</span></h2>
           <Button variant="secondary" onClick={addGuarantor}><UserAdd className="h-4 w-4" /> Kafil qo'shish</Button>
         </div>
         {form.guarantors.length === 0 && (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-hairline py-8 text-center dark:border-white/10">
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-300 dark:bg-white/5"><People className="h-5 w-5" /></span>
-            <p className="text-sm text-muted">Kafil biriktirilmagan (ixtiyoriy, bir nechta bo'lishi mumkin)</p>
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-gray-200 py-8 text-center dark:border-gray-800">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500"><People className="h-5 w-5" /></span>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Kafil biriktirilmagan (ixtiyoriy, bir nechta bo'lishi mumkin)</p>
           </div>
         )}
         <div className="space-y-3">
           {form.guarantors.map((g, i) => (
-            <div key={i} className="rounded-xl border border-hairline p-4 dark:border-white/10">
+            <div key={i} className="rounded-lg border border-gray-200 p-4 dark:border-gray-800">
               <div className="mb-3 flex items-center justify-between">
-                <span className="flex items-center gap-2 text-sm font-semibold">
+                <span className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white">
                   <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-600 text-xs font-bold text-white">{i + 1}</span>
                   Kafil {i + 1}
                 </span>
-                <Button variant="ghost" className="px-2 text-danger-600" onClick={() => removeG(i)}><Trash2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" aria-label="Kafilni o'chirish" className="px-2 text-error-600 dark:text-error-500" onClick={() => removeG(i)}><Trash2 className="h-4 w-4" /></Button>
               </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <Field label="F.I.O" icon={User}><Input placeholder="To'liq ism" value={g.fullName} onChange={(e) => setG(i, { fullName: e.target.value })} /></Field>
@@ -268,7 +268,7 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
       </Card>
 
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Garovlar <span className="text-muted">({form.collaterals.length})</span></h2>
+        <h2 className="text-lg font-bold text-gray-800 dark:text-white">Garovlar <span className="text-gray-500 dark:text-gray-400">({form.collaterals.length})</span></h2>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => addCol(ProductType.REAL_ESTATE)}><House className="h-4 w-4" /> Uy-joy</Button>
           <Button variant="secondary" onClick={() => addCol(ProductType.AUTO)}><Car className="h-4 w-4" /> Avto</Button>
@@ -310,8 +310,8 @@ export function CaseForm() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{f.editing ? 'Arizani tahrirlash' : 'Yangi ariza'}</h1>
-          <p className="text-sm text-muted">Qarz oluvchi va garov(lar) — uy-joy va/yoki avtotransport</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{f.editing ? 'Arizani tahrirlash' : 'Yangi ariza'}</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Qarz oluvchi va garov(lar) — uy-joy va/yoki avtotransport</p>
         </div>
         <Button onClick={onSave} loading={f.saving} disabled={!f.valid}>
           {!f.saving && <Save className="h-4 w-4" />} Saqlash
@@ -373,7 +373,7 @@ function CollateralCard({ index, c, onChange, onRemove, canRemove, docs, onAddDo
           <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg text-white', isAuto ? 'bg-warning-600' : 'bg-brand-700')}>
             {isAuto ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
           </span>
-          <h3 className="font-semibold">Garov {index + 1} — {isAuto ? 'Avtotransport' : 'Uy-joy'}</h3>
+          <h3 className="font-semibold text-gray-800 dark:text-white">Garov {index + 1} — {isAuto ? 'Avtotransport' : 'Uy-joy'}</h3>
         </div>
         {canRemove && <Button variant="ghost" onClick={onRemove}><Trash2 className="h-4 w-4" /> O'chirish</Button>}
       </div>
@@ -408,55 +408,55 @@ function CollateralCard({ index, c, onChange, onRemove, canRemove, docs, onAddDo
         </div>
       )}
 
-      <div className="grid gap-4 border-t border-hairline pt-4 dark:border-white/10 sm:grid-cols-2">
+      <div className="grid gap-4 border-t border-gray-200 pt-4 dark:border-gray-800 sm:grid-cols-2">
         <Field label="Kelishilgan garov qiymati" icon={Money}><MoneyInput value={c.agreedValue ?? null} onChange={(v) => onChange({ agreedValue: v })} /></Field>
         <Field label="Qiymat (prописью)" icon={Tag}><Input value={c.agreedValueWords ?? ''} onChange={(e) => onChange({ agreedValueWords: e.target.value })} /></Field>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-sm font-semibold">Egalik huquqi (3 shaxsgacha)</h4>
+          <h4 className="text-sm font-semibold text-gray-800 dark:text-white">Egalik huquqi (3 shaxsgacha)</h4>
           <Button variant="secondary" onClick={() => c.owners.length < 3 && setOwners([...c.owners, { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, sharePercent: null }])}>
             <Plus className="h-4 w-4" /> Egasi
           </Button>
         </div>
         {c.owners.map((o, idx) => (
-          <div key={idx} className="grid gap-2 rounded-xl border border-slate-100 p-2 dark:border-white/10 sm:grid-cols-4">
+          <div key={idx} className="grid gap-2 rounded-lg border border-gray-200 p-2 dark:border-gray-800 sm:grid-cols-4">
             <Input placeholder="F.I.O" value={o.fullName} onChange={(e) => { const owners = [...c.owners]; owners[idx] = { ...o, fullName: e.target.value }; setOwners(owners); }} />
             <PassportInput value={o.passportNumber ?? null} onChange={(v) => { const owners = [...c.owners]; owners[idx] = { ...o, passportNumber: v }; setOwners(owners); }} />
             <Input placeholder="Ulush %" type="number" min={0} max={100} value={o.sharePercent ?? ''} onChange={(e) => { const owners = [...c.owners]; owners[idx] = { ...o, sharePercent: Math.min(100, Number(digitsOnly(e.target.value, 3)) || 0) || null }; setOwners(owners); }} />
-            <Button variant="ghost" onClick={() => setOwners(c.owners.filter((_, x) => x !== idx))}><Trash2 className="h-4 w-4" /></Button>
+            <Button variant="ghost" aria-label="Egasini o'chirish" onClick={() => setOwners(c.owners.filter((_, x) => x !== idx))}><Trash2 className="h-4 w-4" /></Button>
           </div>
         ))}
       </div>
 
       {/* Qo'shimcha: rasm/fayl biriktirish + izoh matn (har bir garovga) */}
-      <div className="space-y-2 border-t border-hairline pt-4 dark:border-white/10">
+      <div className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-800">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="flex items-center gap-2 text-sm font-semibold"><FileText className="h-4 w-4 text-slate-400" /> Qo'shimcha rasm va izohlar</h4>
+          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white"><FileText className="h-4 w-4 text-gray-400" /> Qo'shimcha rasm va izohlar</h4>
           <input ref={docRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { onAddDocs(e.target.files); e.target.value = ''; }} />
           <Button variant="secondary" onClick={() => docRef.current?.click()}><Upload className="h-4 w-4" /> Rasm/fayl biriktirish</Button>
         </div>
         {docs.length === 0 ? (
-          <p className="text-xs text-muted">Garovga oid rasmlar va hujjatlarni yuklang; har biriga nom va izoh yozishingiz mumkin (ixtiyoriy).</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Garovga oid rasmlar va hujjatlarni yuklang; har biriga nom va izoh yozishingiz mumkin (ixtiyoriy).</p>
         ) : (
           <ul className="space-y-2">
             {docs.map((d) => {
               const isImg = d.file.type.startsWith('image/');
               return (
-                <li key={d.localId} className="rounded-xl border border-hairline p-2.5 dark:border-white/10">
+                <li key={d.localId} className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-800">
                   <div className="flex items-start gap-2.5">
                     {isImg ? (
                       <img src={URL.createObjectURL(d.file)} alt={d.file.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                     ) : (
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400 dark:bg-white/10"><FileText className="h-5 w-5" /></span>
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500"><FileText className="h-5 w-5" /></span>
                     )}
                     <div className="min-w-0 flex-1 space-y-1.5">
                       <Input value={d.title} onChange={(e) => onSetDocField(d.localId, { title: e.target.value })} placeholder="Nomi (masalan: Old tomondan)" />
                       <Input value={d.description} onChange={(e) => onSetDocField(d.localId, { description: e.target.value })} placeholder="Izoh matni (ixtiyoriy)" />
-                      <p className="truncate text-[11px] text-muted">{d.file.name}</p>
+                      <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">{d.file.name}</p>
                     </div>
-                    <Button variant="ghost" className="shrink-0 px-2 text-danger-600" onClick={() => onRemoveDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" aria-label="Hujjatni o'chirish" className="shrink-0 px-2 text-error-600 dark:text-error-500" onClick={() => onRemoveDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </li>
               );

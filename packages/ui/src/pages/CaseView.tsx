@@ -1,21 +1,23 @@
 import { useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  CheckCircle2, Download, FileDown, FileText, Pencil, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip,
+  ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X,
 } from '../lib/icons';
 import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import { CaseChat } from '../components/CaseChat';
 import {
-  CaseStatus, DocumentType, DOCUMENT_LABEL, PRODUCT_LABEL, Role,
-  TRANSITIONS, WorkflowDecision, type CreditCaseDto,
+  CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, PRODUCT_LABEL, Role,
+  TRANSITIONS, WorkflowDecision, type CreditCaseDto, type DocumentDto,
 } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Field, Input, StatusBadge } from '../components/primitives';
+import { ConfirmDialog, Modal } from '../components/Modal';
+import { DeadlineBadge } from '../components/DeadlineBadge';
 import { Select, MoneyInput } from '../components/forms';
 import { CaseTimeline } from '../components/CaseTimeline';
 import { useToast } from '../components/Toast';
-import { formatMoney } from '../lib/cn';
+import { cn, formatMoney } from '../lib/cn';
 
 const uploadTypes: DocumentType[] = [
   DocumentType.NOTARY, DocumentType.SCAN, DocumentType.COLLATERAL_PHOTO, DocumentType.TECH_PASSPORT,
@@ -23,10 +25,13 @@ const uploadTypes: DocumentType[] = [
 
 export function CaseView() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
   const [comment, setComment] = useState('');
   const [katm, setKatm] = useState('');
+  const [confirmDecision, setConfirmDecision] = useState<WorkflowDecision | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadType, setUploadType] = useState<DocumentType>(DocumentType.NOTARY);
 
@@ -47,7 +52,11 @@ export function CaseView() {
     onSuccess: refresh,
   });
 
-  if (isLoading || !c) return <p className="text-slate-400">Yuklanmoqda…</p>;
+  const { data: appCfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
+  const pauseMut = useMutation({ mutationFn: () => api.pauseCase(id!), onSuccess: refresh });
+  const resumeMut = useMutation({ mutationFn: () => api.resumeCase(id!), onSuccess: refresh });
+
+  if (isLoading || !c) return <p className="text-gray-500 dark:text-gray-400">Yuklanmoqda…</p>;
 
   const role = user!.role;
   const myTransitions = TRANSITIONS.filter((t) => t.from === c.status && t.role === role);
@@ -55,78 +64,135 @@ export function CaseView() {
   const isDirectorReview = role === Role.DIRECTOR && c.status === CaseStatus.DIRECTOR_REVIEW;
   const isAdminFinalize = role === Role.ADMIN && c.status === CaseStatus.ADMIN_FINALIZE;
   const canUpload = isOperatorDraft || isDirectorReview;
+  const canManageDocs = canUpload || role === Role.ADMIN;
   const currentUploadTypes = isDirectorReview ? [DocumentType.DIRECTOR_FINAL] : uploadTypes;
+  const activeStep = c.status === CaseStatus.MODERATION || c.status === CaseStatus.DIRECTOR_REVIEW || c.status === CaseStatus.ADMIN_FINALIZE;
+  const canPauseResume = (role === Role.MODERATOR || role === Role.DIRECTOR || role === Role.ADMIN) && (activeStep || !!c.pausedAt);
+  const loan = appCfg ? computeLoan(c.amount, c.termMonths, appCfg) : null;
+  const showFinance = role !== Role.OPERATOR;
 
   const decisionLabel: Record<WorkflowDecision, string> = {
     [WorkflowDecision.SUBMIT]: 'Yuborish', [WorkflowDecision.APPROVE]: 'Tasdiqlash',
     [WorkflowDecision.RETURN]: 'Qaytarish', [WorkflowDecision.FINALIZE]: 'Yakunlash',
+    [WorkflowDecision.CANCEL]: 'Bekor qilish', [WorkflowDecision.REOPEN]: 'Qayta to‘ldirishga qaytarish',
   };
   const decisionIcon: Record<WorkflowDecision, React.ComponentType<{ className?: string }>> = {
     [WorkflowDecision.SUBMIT]: Send, [WorkflowDecision.APPROVE]: CheckCircle2,
     [WorkflowDecision.RETURN]: RotateCcw, [WorkflowDecision.FINALIZE]: Flag,
+    [WorkflowDecision.CANCEL]: X, [WorkflowDecision.REOPEN]: RotateCcw,
   };
+  type Rule = (typeof myTransitions)[number];
+  const buttonLabel = (t: Rule) =>
+    t.override && t.decision === WorkflowDecision.FINALIZE ? 'Majburiy yakunlash' : decisionLabel[t.decision];
+  // Cancel + reopen are routed through one "Bekor qilish" choice dialog, not direct buttons.
+  const inlineTransitions = myTransitions.filter(
+    (t) => t.decision !== WorkflowDecision.CANCEL && t.decision !== WorkflowDecision.REOPEN,
+  );
+  const canCancel = myTransitions.some((t) => t.decision === WorkflowDecision.CANCEL);
+  const canReopen = myTransitions.some((t) => t.decision === WorkflowDecision.REOPEN);
 
   return (
     <div className="space-y-6">
+      <button
+        onClick={() => navigate(-1)}
+        className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 -ml-2 text-sm font-medium text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-800 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-100"
+      >
+        <ArrowRight className="h-4 w-4 rotate-180" /> Orqaga
+      </button>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{c.number}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{c.number}</h1>
             <StatusBadge status={c.status} />
+            <DeadlineBadge deadlineAt={c.stepDeadlineAt} paused={!!c.pausedAt} />
           </div>
-          <p className="text-sm text-slate-500">{PRODUCT_LABEL[c.productType]} • {c.branch?.name ?? '—'}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{PRODUCT_LABEL[c.productType]} • {c.branch?.name ?? '—'}</p>
         </div>
         {isOperatorDraft && (
-          <Link to={`/cases/${c.id}/edit`}><Button variant="secondary"><Pencil className="h-4 w-4" /> Tahrirlash</Button></Link>
+          <Link to={`/cases/${c.id}/edit`}><Button variant="secondary"><Pencil className="h-5 w-5" /> Tahrirlash</Button></Link>
         )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
-          <Detail c={c} canUpload={canUpload} />
+          <Detail c={c} canUpload={canUpload} canManage={canManageDocs} />
+
+          {showFinance && loan && (
+            <Card className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><Banknote className="h-5 w-5" /></span>
+                <h2 className="font-semibold text-gray-800 dark:text-white">Moliyaviy hisob-kitob</h2>
+                <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-gray-300">ustama {Math.round(loan.markupPercent * 100)}% · {loan.termMonths} oy</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <FinTile label="Kredit summasi" value={formatMoney(loan.principal)} />
+                <FinTile label="Klient jami to‘lovi" value={formatMoney(loan.clientTotal)} accent />
+                <FinTile label="Oylik to‘lov" value={formatMoney(loan.monthlyPayment)} />
+                <FinTile label="Ustama (foyda)" value={formatMoney(loan.markupAmount)} />
+              </div>
+              {(role === Role.DIRECTOR || role === Role.ADMIN) && (
+                <div className="grid gap-3 border-t border-gray-200 pt-4 sm:grid-cols-2 lg:grid-cols-3 dark:border-gray-800">
+                  <FinTile label={`Bank oylik (${Math.round(loan.bankRate * 100)}%)`} value={formatMoney(loan.bankMonthly)} />
+                  <FinTile label="Bank foiz xarajati" value={formatMoney(loan.bankInterest)} />
+                  <FinTile label="Yalpi foyda" value={formatMoney(loan.grossProfit)} />
+                  <FinTile label="NPL yo‘qotish" value={formatMoney(loan.nplLoss)} />
+                  <FinTile label="Daromad solig‘i" value={formatMoney(loan.tax)} />
+                  <FinTile label="Sof foyda" value={formatMoney(loan.netProfit)} accent />
+                </div>
+              )}
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-brand-700 outline-none dark:text-brand-400">
+                  <ArrowRight className="h-4 w-4 transition-transform group-open:rotate-90" /> To‘lov jadvali ({loan.termMonths} oy)
+                </summary>
+                <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-800">
+                  <table className="w-full text-sm">
+                    <thead className="sticky top-0 bg-gray-50 text-xs uppercase tracking-wider text-gray-500 dark:bg-white/5 dark:text-gray-400">
+                      <tr><th className="px-3 py-2 text-left font-medium">Oy</th><th className="px-3 py-2 text-right font-medium">To‘lov</th><th className="px-3 py-2 text-right font-medium">Qoldiq</th></tr>
+                    </thead>
+                    <tbody>
+                      {loan.schedule.map((r) => (
+                        <tr key={r.month} className="border-t border-gray-100 dark:border-gray-800">
+                          <td className="px-3 py-1.5 text-gray-700 dark:text-gray-200">{r.month}</td>
+                          <td className="nums px-3 py-1.5 text-right text-gray-700 dark:text-gray-200">{formatMoney(Math.round(r.payment))}</td>
+                          <td className="nums px-3 py-1.5 text-right text-gray-500 dark:text-gray-400">{formatMoney(Math.round(r.balance))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            </Card>
+          )}
 
           <Card>
-            <h2 className="mb-1 font-semibold">Umumiy hujjatlar</h2>
-            <p className="mb-3 text-xs text-muted">Garovga bog‘lanmagan hujjatlar (garov hujjatlari yuqorida har bir garov ostida).</p>
+            <h2 className="mb-1 font-semibold text-gray-800 dark:text-white">Umumiy hujjatlar</h2>
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Garovga bog‘lanmagan hujjatlar (garov hujjatlari yuqorida har bir garov ostida).</p>
             {(() => {
               const general = c.documents.filter((d) => !d.collateralId);
               const images = general.filter((d) => (d.mimeType ?? '').startsWith('image/'));
               const files = general.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
-              if (general.length === 0 && !canUpload) return <p className="text-sm text-slate-400">Hujjatlar yo‘q</p>;
+              if (general.length === 0 && !canUpload) return <p className="text-sm text-gray-400 dark:text-gray-500">Hujjatlar yo‘q</p>;
               return (
                 <div className="space-y-3">
                   {images.length > 0 && (
                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {images.map((d) => (
-                        <button key={d.id} onClick={() => viewDocument(d.id, d.fileName)}
-                          className="group relative aspect-square overflow-hidden rounded-xl border border-hairline dark:border-white/10" title={`${DOCUMENT_LABEL[d.type]} · ${d.fileName}`}>
-                          <img src={documentInlineUrl(d.id)} alt={d.fileName} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
-                          <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-0.5 text-[10px] text-white">{DOCUMENT_LABEL[d.type]}</span>
-                        </button>
-                      ))}
+                      {images.map((d) => <ImgThumb key={d.id} doc={d} canManage={canManageDocs} label={DOCUMENT_LABEL[d.type]} />)}
                     </div>
                   )}
                   <ul className="space-y-2">
                     {files.map((d) => (
-                      <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-hairline px-3 py-2 dark:border-white/10">
+                      <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
                         <div className="flex min-w-0 items-center gap-2.5 text-sm">
-                          <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                          <FileText className="h-5 w-5 shrink-0 text-gray-400" />
                           <div className="min-w-0">
-                            <p className="truncate font-medium">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-slate-400">· {d.fileName}</span></p>
-                            <p className="text-xs text-slate-400">
+                            <p className="truncate font-medium text-gray-700 dark:text-gray-200">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-gray-400 dark:text-gray-500">· {d.fileName}</span></p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">
                               {new Date(d.uploadedAt).toLocaleString('ru-RU')}
                               {d.uploadedByName ? ` · ${d.uploadedByName}` : ''}
                             </p>
                           </div>
                         </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <button onClick={() => viewDocument(d.id, d.fileName)} className="rounded-lg p-1.5 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10" title="Ko‘rish">
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button onClick={async () => downloadBlob(await api.downloadDocument(d.id), d.fileName)} className="rounded-lg p-1.5 text-brand-600 transition hover:bg-brand-50 dark:hover:bg-brand-600/15" title="Yuklab olish">
-                            <Download className="h-4 w-4" />
-                          </button>
-                        </div>
+                        <DocActions doc={d} canManage={canManageDocs} />
                       </li>
                     ))}
                   </ul>
@@ -135,47 +201,90 @@ export function CaseView() {
             })()}
 
             {canUpload && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-hairline pt-4 dark:border-white/10">
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4 dark:border-gray-800">
                 <div className="w-52">
                   <Select<DocumentType> value={uploadType} onChange={(v) => setUploadType(v)}
                     options={currentUploadTypes.map((t) => ({ value: t, label: DOCUMENT_LABEL[t] }))} />
                 </div>
                 <input ref={fileRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
                 <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-                  <Upload className="h-4 w-4" /> Hujjat yuklash
+                  <Upload className="h-5 w-5" /> Hujjat yuklash
                 </Button>
-                {isDirectorReview && <span className="text-xs text-warning-600 dark:text-warning-400">Tasdiqlash uchun yakuniy hujjat shart</span>}
+                {isDirectorReview && <span className="text-xs text-warning-600 dark:text-warning-500">Tasdiqlash uchun yakuniy hujjat shart</span>}
               </div>
             )}
           </Card>
 
           <Card>
-            <h2 className="mb-3 font-semibold">Harakatlar tarixi</h2>
+            <h2 className="mb-3 font-semibold text-gray-800 dark:text-white">Harakatlar tarixi</h2>
             <CaseTimeline events={c.events} />
           </Card>
         </div>
 
         <div className="space-y-6">
-          {myTransitions.length > 0 && (
-            <Card className="space-y-3">
-              <h2 className="font-semibold">Amallar</h2>
-              <Field label="Izoh (ixtiyoriy)">
-                <Input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Izoh…" />
-              </Field>
-              {myTransitions.map((t) => {
-                const Icon = decisionIcon[t.decision];
-                return (
-                  <Button
-                    key={t.decision}
-                    variant={t.decision === WorkflowDecision.RETURN ? 'danger' : 'primary'}
-                    className="w-full"
-                    loading={transition.isPending}
-                    onClick={() => transition.mutate(t.decision)}
-                  >
-                    {!transition.isPending && <Icon className="h-4 w-4" />} {decisionLabel[t.decision]}
-                  </Button>
-                );
-              })}
+          {(myTransitions.length > 0 || canPauseResume) && (
+            <Card className="space-y-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-semibold text-gray-800 dark:text-white">Amallar</h2>
+                {(c.stepDeadlineAt || c.pausedAt) && <DeadlineBadge deadlineAt={c.stepDeadlineAt} paused={!!c.pausedAt} />}
+              </div>
+
+              {c.pausedAt && (
+                <p className="flex items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">
+                  <Pause className="h-4 w-4 shrink-0 text-gray-400" /> Ariza pauzada — muddat to‘xtatilgan.
+                </p>
+              )}
+
+              {myTransitions.length > 0 && (
+                <>
+                  <div>
+                    <label htmlFor="case-comment" className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Izoh (ixtiyoriy)</label>
+                    <textarea
+                      id="case-comment"
+                      value={comment}
+                      rows={2}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Qarorga izoh qoldiring…"
+                      className="w-full resize-none rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    {inlineTransitions.map((t) => {
+                      const Icon = decisionIcon[t.decision];
+                      return (
+                        <Button
+                          key={t.decision}
+                          variant={t.decision === WorkflowDecision.RETURN ? 'secondary' : 'primary'}
+                          className="w-full"
+                          loading={transition.isPending}
+                          onClick={() => (t.override ? setConfirmDecision(t.decision) : transition.mutate(t.decision))}
+                        >
+                          {!transition.isPending && <Icon className="h-5 w-5" />} {buttonLabel(t)}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {(canCancel || canPauseResume) && (
+                <div className="flex flex-wrap gap-2 border-t border-gray-200 pt-3 dark:border-gray-800">
+                  {canPauseResume && (c.pausedAt ? (
+                    <Button variant="secondary" className="flex-1" loading={resumeMut.isPending} onClick={() => resumeMut.mutate()}>
+                      <Play className="h-5 w-5" /> Davom ettirish
+                    </Button>
+                  ) : (
+                    <Button variant="secondary" className="flex-1" loading={pauseMut.isPending} disabled={!activeStep} onClick={() => pauseMut.mutate()}>
+                      <Pause className="h-5 w-5" /> Pauza
+                    </Button>
+                  ))}
+                  {canCancel && (
+                    <Button variant="danger" className="flex-1" loading={transition.isPending} onClick={() => setCancelOpen(true)}>
+                      <X className="h-5 w-5" /> Bekor qilish
+                    </Button>
+                  )}
+                </div>
+              )}
             </Card>
           )}
 
@@ -185,14 +294,113 @@ export function CaseView() {
       </div>
 
       <Card>
-        <h2 className="mb-3 font-semibold">Muloqot (chat)</h2>
+        <h2 className="mb-3 font-semibold text-gray-800 dark:text-white">Muloqot (chat)</h2>
         <CaseChat caseId={c.id} />
       </Card>
+
+      <ConfirmDialog
+        open={confirmDecision !== null}
+        onClose={() => setConfirmDecision(null)}
+        onConfirm={() => confirmDecision && transition.mutate(confirmDecision, { onSettled: () => setConfirmDecision(null) })}
+        loading={transition.isPending}
+        tone={confirmDecision === WorkflowDecision.CANCEL ? 'danger' : 'primary'}
+        title={confirmDecision === WorkflowDecision.CANCEL ? 'Arizani bekor qilasizmi?' : 'Arizani majburiy yakunlaysizmi?'}
+        message={
+          confirmDecision === WorkflowDecision.CANCEL
+            ? 'Ariza "Bekor qilingan" holatiga o‘tadi. Bu amalni qaytarib bo‘lmaydi.'
+            : 'Ariza to‘g‘ridan-to‘g‘ri "Yakunlangan" holatiga o‘tadi — qolgan bosqichlar o‘tkazib yuboriladi.'
+        }
+        confirmLabel={confirmDecision === WorkflowDecision.CANCEL ? 'Bekor qilish' : 'Yakunlash'}
+      />
+
+      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} size="sm" title="Arizani bekor qilish" description="Qanday davom etamiz?">
+        <div className="space-y-2.5">
+          {canReopen && (
+            <button
+              type="button"
+              disabled={transition.isPending}
+              onClick={() => transition.mutate(WorkflowDecision.REOPEN, { onSettled: () => setCancelOpen(false) })}
+              className="flex w-full items-start gap-3 rounded-xl border border-gray-200 p-3 text-left outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-white/5"
+            >
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning-50 text-warning-600 dark:bg-warning-500/12 dark:text-warning-500"><RotateCcw className="h-5 w-5" /></span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-gray-800 dark:text-white">Qayta to‘ldirishga qaytarish</span>
+                <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Ariza operatorga qaytariladi — hujjatlarni qayta kiritib, qayta yuboradi.</span>
+              </span>
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={transition.isPending}
+            onClick={() => transition.mutate(WorkflowDecision.CANCEL, { onSettled: () => setCancelOpen(false) })}
+            className="flex w-full items-start gap-3 rounded-xl border border-gray-200 p-3 text-left outline-none transition hover:bg-error-50/60 focus-visible:ring-2 focus-visible:ring-error-600/30 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-error-500/10"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-error-50 text-error-600 dark:bg-error-500/12 dark:text-error-500"><X className="h-5 w-5" /></span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-gray-800 dark:text-white">To‘liq bekor qilish</span>
+              <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Ariza butunlay bekor qilinadi. Buni qaytarib bo‘lmaydi.</span>
+            </span>
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
 
-function Detail({ c, canUpload }: { c: CreditCaseDto; canUpload: boolean }) {
+function FinTile({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className={cn('rounded-lg border p-3', accent ? 'border-brand-200 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10' : 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-white/5')}>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      <p className={cn('nums mt-0.5 text-sm font-bold', accent ? 'text-brand-700 dark:text-brand-300' : 'text-gray-800 dark:text-white')}>{value}</p>
+    </div>
+  );
+}
+
+/** View / download + (when allowed) replace / delete a document file row. */
+function DocActions({ doc, canManage }: { doc: DocumentDto; canManage: boolean }) {
+  const { id } = useParams();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const replaceRef = useRef<HTMLInputElement>(null);
+  const refresh = () => qc.invalidateQueries({ queryKey: ['case', id] });
+  const del = useMutation({ mutationFn: () => api.deleteDocument(doc.id), onSuccess: () => { toast.success('Hujjat o‘chirildi'); refresh(); }, onError: () => toast.error('Xatolik', 'O‘chirib bo‘lmadi') });
+  const rep = useMutation({ mutationFn: (f: File) => api.replaceDocument(doc.id, f), onSuccess: () => { toast.success('Hujjat almashtirildi'); refresh(); }, onError: () => toast.error('Xatolik', 'Almashtirib bo‘lmadi') });
+  return (
+    <div className="flex shrink-0 items-center gap-1">
+      <button onClick={() => viewDocument(doc.id, doc.fileName)} aria-label="Ko‘rish" title="Ko‘rish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-gray-400 dark:hover:bg-white/10"><Eye className="h-5 w-5" /></button>
+      <button onClick={async () => downloadBlob(await api.downloadDocument(doc.id), doc.fileName)} aria-label="Yuklab olish" title="Yuklab olish" className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/12"><Download className="h-5 w-5" /></button>
+      {canManage && (
+        <>
+          <input ref={replaceRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) rep.mutate(f); e.target.value = ''; }} />
+          <button onClick={() => replaceRef.current?.click()} disabled={rep.isPending} aria-label="Almashtirish" title="Almashtirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-white/10"><Upload className="h-[18px] w-[18px]" /></button>
+          <button onClick={() => del.mutate()} disabled={del.isPending} aria-label="O‘chirish" title="O‘chirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-error-50 hover:text-error-600 focus-visible:ring-2 focus-visible:ring-error-600/30 disabled:opacity-50 dark:hover:bg-error-500/12"><Trash2 className="h-[18px] w-[18px]" /></button>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Image thumbnail with view + (when allowed) a delete overlay. */
+function ImgThumb({ doc, canManage, label, rounded = 'rounded-xl' }: { doc: DocumentDto; canManage: boolean; label?: string; rounded?: string }) {
+  const { id } = useParams();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const del = useMutation({ mutationFn: () => api.deleteDocument(doc.id), onSuccess: () => { toast.success('O‘chirildi'); qc.invalidateQueries({ queryKey: ['case', id] }); }, onError: () => toast.error('Xatolik', 'O‘chirib bo‘lmadi') });
+  const caption = label ?? doc.title ?? undefined;
+  return (
+    <div className={cn('group relative aspect-square overflow-hidden border border-gray-200 dark:border-gray-800', rounded)}>
+      <button onClick={() => viewDocument(doc.id, doc.fileName)} aria-label={caption ? `${caption} · ${doc.fileName}` : doc.fileName} title={caption ? `${caption} · ${doc.fileName}` : doc.fileName} className="block h-full w-full outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-600/30">
+        <img src={documentInlineUrl(doc.id)} alt={doc.fileName} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
+      </button>
+      {caption && <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-0.5 text-[10px] text-white">{caption}</span>}
+      {canManage && (
+        <button onClick={() => del.mutate()} disabled={del.isPending} aria-label="O‘chirish" title="O‘chirish" className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-md bg-black/55 text-white opacity-0 transition hover:bg-error-600 focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" /></button>
+      )}
+    </div>
+  );
+}
+
+function Detail({ c, canUpload, canManage }: { c: CreditCaseDto; canUpload: boolean; canManage: boolean }) {
   const totalCollateral = c.collaterals.reduce((s, x) => s + (x.agreedValue ?? 0), 0);
   const base: [string, string][] = [
     ['Qarz oluvchi', c.borrower?.fullName ?? '—'],
@@ -207,35 +415,35 @@ function Detail({ c, canUpload }: { c: CreditCaseDto; canUpload: boolean }) {
   return (
     <Card className="space-y-5">
       <div>
-        <h2 className="mb-3 font-semibold">Qarz oluvchi va kredit</h2>
+        <h2 className="mb-3 font-semibold text-gray-800 dark:text-white">Qarz oluvchi va kredit</h2>
         <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
           {base.map(([k, v]) => (
             <div key={k}>
-              <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
-              <dd className="nums text-sm font-medium text-ink dark:text-slate-200">{v}</dd>
+              <dt className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">{k}</dt>
+              <dd className="nums text-sm font-medium text-gray-800 dark:text-gray-200">{v}</dd>
             </div>
           ))}
         </dl>
       </div>
 
       {c.guarantors.length > 0 && (
-        <div className="border-t border-hairline pt-4 dark:border-white/10">
-          <h2 className="mb-2 font-semibold">Kafillar ({c.guarantors.length})</h2>
+        <div className="border-t border-gray-200 pt-4 dark:border-gray-800">
+          <h2 className="mb-2 font-semibold text-gray-800 dark:text-white">Kafillar ({c.guarantors.length})</h2>
           <div className="space-y-1.5">
             {c.guarantors.map((g, i) => (
-              <div key={g.id ?? i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-slate-50 px-3 py-2 text-sm dark:bg-white/5">
-                <span className="font-medium">{g.fullName}</span>
-                {g.relation && <span className="text-muted">· {g.relation}</span>}
-                {g.passportNumber && <span className="nums text-muted">· {g.passportNumber}</span>}
-                {g.phone && <span className="nums text-muted">· {g.phone}</span>}
+              <div key={g.id ?? i} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-lg bg-gray-50 px-3 py-2 text-sm dark:bg-white/5">
+                <span className="font-medium text-gray-700 dark:text-gray-200">{g.fullName}</span>
+                {g.relation && <span className="text-gray-500 dark:text-gray-400">· {g.relation}</span>}
+                {g.passportNumber && <span className="nums text-gray-500 dark:text-gray-400">· {g.passportNumber}</span>}
+                {g.phone && <span className="nums text-gray-500 dark:text-gray-400">· {g.phone}</span>}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="space-y-3 border-t border-hairline pt-4 dark:border-white/10">
-        <h2 className="font-semibold">Garovlar ({c.collaterals.length})</h2>
+      <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+        <h2 className="font-semibold text-gray-800 dark:text-white">Garovlar ({c.collaterals.length})</h2>
         {c.collaterals.map((col, i) => {
           const isAuto = col.type === 'AUTO';
           const rows: [string, string][] = isAuto
@@ -256,23 +464,23 @@ function Detail({ c, canUpload }: { c: CreditCaseDto; canUpload: boolean }) {
                 ['Garov qiymati', formatMoney(col.agreedValue)],
               ];
           return (
-            <div key={col.id ?? i} className="rounded-xl border border-hairline p-4 dark:border-white/10">
+            <div key={col.id ?? i} className="rounded-xl border border-gray-200 p-4 dark:border-gray-800">
               <div className="mb-2 flex items-center gap-2">
                 <span className={`flex h-7 w-7 items-center justify-center rounded-lg text-white ${isAuto ? 'bg-warning-600' : 'bg-brand-700'}`}>
                   {isAuto ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
                 </span>
-                <p className="text-sm font-semibold">Garov {i + 1} — {isAuto ? 'Avtotransport' : 'Uy-joy'}</p>
+                <p className="text-sm font-semibold text-gray-800 dark:text-white">Garov {i + 1} — {isAuto ? 'Avtotransport' : 'Uy-joy'}</p>
               </div>
               <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
                 {rows.map(([k, v]) => (
                   <div key={k}>
-                    <dt className="text-xs uppercase tracking-wide text-slate-400">{k}</dt>
-                    <dd className="nums text-sm font-medium text-ink dark:text-slate-200">{v}</dd>
+                    <dt className="text-xs uppercase tracking-wide text-gray-400 dark:text-gray-500">{k}</dt>
+                    <dd className="nums text-sm font-medium text-gray-800 dark:text-gray-200">{v}</dd>
                   </div>
                 ))}
               </dl>
               {col.owners?.length ? (
-                <p className="mt-2 text-xs text-slate-500">Egalar: {col.owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}</p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Egalar: {col.owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}</p>
               ) : null}
               {col.id && (
                 <CollateralDocs
@@ -280,6 +488,7 @@ function Detail({ c, canUpload }: { c: CreditCaseDto; canUpload: boolean }) {
                   collateralId={col.id}
                   docs={c.documents.filter((d) => d.collateralId === col.id)}
                   canUpload={canUpload}
+                  canManage={canManage}
                 />
               )}
             </div>
@@ -295,8 +504,8 @@ const COLLATERAL_DOC_TYPES: DocumentType[] = [
 ];
 
 function CollateralDocs({
-  caseId, collateralId, docs, canUpload,
-}: { caseId: string; collateralId: string; docs: CreditCaseDto['documents']; canUpload: boolean }) {
+  caseId, collateralId, docs, canUpload, canManage,
+}: { caseId: string; collateralId: string; docs: CreditCaseDto['documents']; canUpload: boolean; canManage: boolean }) {
   const qc = useQueryClient();
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -317,51 +526,42 @@ function CollateralDocs({
   const files = docs.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
 
   return (
-    <div className="mt-3 border-t border-hairline pt-3 dark:border-white/10">
+    <div className="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Garov hujjatlari ({docs.length})</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Garov hujjatlari ({docs.length})</p>
         {canUpload && !open && (
-          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:text-brand-300 dark:hover:bg-brand-600/15">
+          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/12">
             <Upload className="h-3.5 w-3.5" /> Hujjat biriktirish
           </button>
         )}
       </div>
 
-      {docs.length === 0 && !open && <p className="text-xs text-slate-400">Hali hujjat biriktirilmagan</p>}
+      {docs.length === 0 && !open && <p className="text-xs text-gray-400 dark:text-gray-500">Hali hujjat biriktirilmagan</p>}
 
       {images.length > 0 && (
         <div className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-6">
-          {images.map((d) => (
-            <button key={d.id} onClick={() => viewDocument(d.id, d.fileName)}
-              className="group relative aspect-square overflow-hidden rounded-lg border border-hairline dark:border-white/10" title={[d.title, d.fileName].filter(Boolean).join(' · ')}>
-              <img src={documentInlineUrl(d.id)} alt={d.fileName} loading="lazy" className="h-full w-full object-cover transition group-hover:scale-105" />
-              {d.title && <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1 py-0.5 text-[9px] text-white">{d.title}</span>}
-            </button>
-          ))}
+          {images.map((d) => <ImgThumb key={d.id} doc={d} canManage={canManage} rounded="rounded-lg" />)}
         </div>
       )}
       {files.length > 0 && (
         <ul className="mb-2 space-y-1.5">
           {files.map((d) => (
-            <li key={d.id} className="flex items-start justify-between gap-2 rounded-lg border border-hairline px-2.5 py-1.5 dark:border-white/10">
+            <li key={d.id} className="flex items-start justify-between gap-2 rounded-lg border border-gray-200 px-2.5 py-1.5 dark:border-gray-800">
               <div className="flex min-w-0 items-start gap-2 text-sm">
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                <FileText className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium">{d.title || DOCUMENT_LABEL[d.type]} <span className="font-normal text-slate-400">· {d.fileName}</span></p>
-                  {d.description && <p className="text-xs text-slate-500">{d.description}</p>}
+                  <p className="truncate font-medium text-gray-700 dark:text-gray-200">{d.title || DOCUMENT_LABEL[d.type]} <span className="font-normal text-gray-400 dark:text-gray-500">· {d.fileName}</span></p>
+                  {d.description && <p className="text-xs text-gray-500 dark:text-gray-400">{d.description}</p>}
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <button onClick={() => viewDocument(d.id, d.fileName)} className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 dark:hover:bg-white/10" title="Ko‘rish"><Eye className="h-4 w-4" /></button>
-                <button onClick={async () => downloadBlob(await api.downloadDocument(d.id), d.fileName)} className="rounded-lg p-1 text-brand-600 transition hover:bg-brand-50 dark:hover:bg-brand-600/15" title="Yuklab olish"><Download className="h-4 w-4" /></button>
-              </div>
+              <DocActions doc={d} canManage={canManage} />
             </li>
           ))}
         </ul>
       )}
 
       {open && (
-        <div className="space-y-2 rounded-xl border border-dashed border-hairline bg-slate-50/60 p-3 dark:border-white/15 dark:bg-white/5">
+        <div className="space-y-2 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3 dark:border-gray-700 dark:bg-white/5">
           <div className="grid gap-2 sm:grid-cols-2">
             <Field label="Hujjat nomi"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="masalan: Kadastr ko‘chirmasi" /></Field>
             <Field label="Turi">
@@ -371,11 +571,11 @@ function CollateralDocs({
           <Field label="Izoh (ixtiyoriy)"><Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Qo‘shimcha tavsif…" /></Field>
           <input ref={fileRef} type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="secondary" onClick={() => fileRef.current?.click()}><Paperclip className="h-4 w-4" /> {file ? 'Faylni almashtirish' : 'Fayl tanlash'}</Button>
-            {file && <span className="truncate text-xs text-muted">{file.name}</span>}
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}><Paperclip className="h-5 w-5" /> {file ? 'Faylni almashtirish' : 'Fayl tanlash'}</Button>
+            {file && <span className="truncate text-xs text-gray-500 dark:text-gray-400">{file.name}</span>}
             <div className="ml-auto flex items-center gap-2">
-              <Button variant="ghost" onClick={reset}>Bekor</Button>
-              <Button disabled={!file} loading={upload.isPending} onClick={() => upload.mutate()}><Upload className="h-4 w-4" /> Biriktirish</Button>
+              <Button variant="ghost" onClick={reset}>Bekor qilish</Button>
+              <Button disabled={!file} loading={upload.isPending} onClick={() => upload.mutate()}><Upload className="h-5 w-5" /> Biriktirish</Button>
             </div>
           </div>
         </div>
@@ -390,7 +590,7 @@ function AdminPanel({
   const saveKatm = useMutation({ mutationFn: () => api.setKatmPrice(c.id, Number(katm)), onSuccess: onChange });
   return (
     <Card className="space-y-3">
-      <h2 className="font-semibold">Yakunlash (Admin)</h2>
+      <h2 className="font-semibold text-gray-800 dark:text-white">Yakunlash (Admin)</h2>
       <Field label="KATM narxi">
         <div className="flex gap-2">
           <MoneyInput value={katm ? Number(katm) : null} onChange={(v) => setKatm(v == null ? '' : String(v))} />
@@ -398,10 +598,10 @@ function AdminPanel({
         </div>
       </Field>
       <Button variant="secondary" className="w-full" onClick={async () => downloadBlob(await api.generatePdf(c.id), `Akt_${c.number}.pdf`)}>
-        <FileDown className="h-4 w-4" /> PDF generatsiya (Akt)
+        <FileDown className="h-5 w-5" /> PDF generatsiya (Akt)
       </Button>
       <Button variant="secondary" className="w-full" onClick={async () => downloadBlob(await api.exportExcel(c.id), `Garov_${c.number}.xlsx`)}>
-        <Download className="h-4 w-4" /> Excel eksport
+        <Download className="h-5 w-5" /> Excel eksport
       </Button>
     </Card>
   );
@@ -415,10 +615,10 @@ function KatmInputs() {
   return (
     <Card className="space-y-3 border-dashed">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold">KATM hisobotlari</h2>
-        <span className="rounded-full bg-warning-100 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-600/15 dark:text-warning-400">Qo‘lda · tez kunda avto</span>
+        <h2 className="font-semibold text-gray-800 dark:text-white">KATM hisobotlari</h2>
+        <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/12 dark:text-warning-500">Qo‘lda · tez kunda avto</span>
       </div>
-      <p className="text-xs text-slate-500">PINFL bo‘yicha 2–3 hisobot qiymatini kiriting (integratsiya tayyor bo‘lguncha).</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">PINFL bo‘yicha 2–3 hisobot qiymatini kiriting (integratsiya tayyor bo‘lguncha).</p>
       <Field label="Kredit tarixi">
         <Input value={history} onChange={(e) => setHistory(e.target.value)} placeholder="masalan: yaxshi / muddati o‘tgan yo‘q" />
       </Field>

@@ -25,6 +25,7 @@ class StatsController {
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('branchId') branchId?: string,
+    @Query('region') region?: string,
   ): Promise<StatsResponse> {
     const where = await scopeFor(this.prisma, user);
     if (from || to) {
@@ -33,9 +34,12 @@ class StatsController {
         ...(to ? { lte: new Date(to) } : {}),
       };
     }
-    // Branch filter — general roles (admin/director) can drill into one branch.
-    if (branchId && (user.role === Role.ADMIN || user.role === Role.DIRECTOR)) {
+    // Branch / region filter — general roles (admin/director) can drill in.
+    const canDrill = user.role === Role.ADMIN || user.role === Role.DIRECTOR;
+    if (canDrill && branchId) {
       where.branchId = branchId;
+    } else if (canDrill && region) {
+      where.branch = { region };
     }
 
     const [byStatusRaw, all, branches, collaterals] = await Promise.all([
@@ -118,6 +122,7 @@ class StatsController {
         amount: c.amount ? Number(c.amount) : null,
         borrowerName: c.borrower?.fullName ?? null,
         branchSymbol: c.branch?.symbol ?? null,
+        stepDeadlineAt: c.stepDeadlineAt ? c.stepDeadlineAt.toISOString() : null,
         updatedAt: c.updatedAt.toISOString(),
       })),
     };

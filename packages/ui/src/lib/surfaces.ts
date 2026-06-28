@@ -12,14 +12,14 @@ import { cn } from './cn';
  *   <div className={cn(surface, cardPad, className)} />
  */
 
-/** Base card surface: radius + hairline border + card shadow + dark mode. */
+/** Base card surface (TailAdmin): rounded-2xl + gray border + soft shadow + dark mode. */
 export const surface =
-  'rounded-2xl border border-hairline bg-surface shadow-card dark:border-white/10 dark:bg-navy-800';
+  'rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900';
 
-/** Clickable card: same surface + a subtle hover lift. */
+/** Clickable card: same surface + a subtle hover lift to the medium shadow. */
 export const surfaceInteractive = cn(
   surface,
-  'transition duration-150 hover:-translate-y-0.5 hover:shadow-soft',
+  'transition duration-200 hover:-translate-y-0.5 hover:shadow-theme-md',
 );
 
 /** Standard inner padding for cards (responsive). */

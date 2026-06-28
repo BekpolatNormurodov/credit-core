@@ -112,6 +112,9 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
       comment: e.comment,
       createdAt: e.createdAt.toISOString(),
     })),
+    stepStartedAt: iso(c.stepStartedAt),
+    stepDeadlineAt: iso(c.stepDeadlineAt),
+    pausedAt: iso(c.pausedAt),
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -128,6 +131,7 @@ export function toListItem(
     amount: num(c.amount),
     borrowerName: c.borrower?.fullName ?? null,
     branchSymbol: c.branch?.symbol ?? null,
+    stepDeadlineAt: iso(c.stepDeadlineAt),
     updatedAt: c.updatedAt.toISOString(),
   };
 }

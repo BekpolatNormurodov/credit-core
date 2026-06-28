@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { CaseStatus, DocumentType, ProductType, Role } from '@credit-core/shared';
+import { addBusinessDays, CaseStatus, DocumentType, hasDeadline, ProductType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { WorkflowService } from './workflow.service';
@@ -119,7 +119,7 @@ export class CreditCasesService {
     } else if (user.role === Role.MODERATOR) {
       where.status = mineOnly
         ? CaseStatus.MODERATION
-        : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
+        : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED, CaseStatus.CANCELLED] };
       // A moderator only sees cases from the branches assigned to them.
       const assigned = await this.prisma.branch.findMany({
         where: { moderators: { some: { id: user.id } } },
@@ -127,9 +127,10 @@ export class CreditCasesService {
       });
       where.branchId = { in: assigned.map((b) => b.id) };
     } else if (user.role === Role.DIRECTOR) {
+      // Director oversees the whole active pipeline (may force-finalize/cancel any step).
       where.status = mineOnly
         ? CaseStatus.DIRECTOR_REVIEW
-        : { in: [CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] };
+        : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED, CaseStatus.CANCELLED] };
     } else if (user.role === Role.ADMIN && mineOnly) {
       where.status = CaseStatus.ADMIN_FINALIZE;
     }
@@ -152,11 +153,11 @@ export class CreditCasesService {
       });
       return {
         branchId: { in: assigned.map((b) => b.id) },
-        status: { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] },
+        status: { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED, CaseStatus.CANCELLED] },
       };
     }
     if (user.role === Role.DIRECTOR) {
-      return { status: { in: [CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED] } };
+      return { status: { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED, CaseStatus.CANCELLED] } };
     }
     return {}; // ADMIN — all
   }
@@ -197,6 +198,48 @@ export class CreditCasesService {
     return toCaseDto(c);
   }
 
+  /** Deadline/timer fields to write when a case enters `to` (any transition clears a pause). */
+  private async stepTimerData(to: CaseStatus): Promise<Prisma.CreditCaseUpdateInput> {
+    const now = new Date();
+    if (!hasDeadline(to)) {
+      // Terminal / draft — no timer.
+      return { stepStartedAt: now, stepDeadlineAt: null, overdueNotified: false, pausedAt: null };
+    }
+    const setting = await this.prisma.stepSetting.findUnique({ where: { step: to } });
+    const enabled = setting?.enabled ?? true;
+    const days = setting?.businessDays ?? 2;
+    if (!enabled) {
+      // Step timer switched off by admin — no deadline.
+      return { stepStartedAt: now, stepDeadlineAt: null, overdueNotified: false, pausedAt: null };
+    }
+    return { stepStartedAt: now, stepDeadlineAt: addBusinessDays(now, days), overdueNotified: false, pausedAt: null };
+  }
+
+  /** Put an active case on hold — suspends its SLA timer (moderator/director/admin). */
+  async pause(id: string) {
+    const c = await this.prisma.creditCase.findUnique({ where: { id } });
+    if (!c) throw new NotFoundException('Ariza topilmadi');
+    if (!hasDeadline(c.status)) throw new ForbiddenException('Faqat aktiv bosqichdagi arizani pauzaga qo‘yish mumkin');
+    if (!c.pausedAt) await this.prisma.creditCase.update({ where: { id }, data: { pausedAt: new Date() } });
+    return this.getOne(id);
+  }
+
+  /** Resume a paused case — shifts its deadline forward by the paused time (capped at maxPauseDays). */
+  async resume(id: string) {
+    const c = await this.prisma.creditCase.findUnique({ where: { id } });
+    if (!c) throw new NotFoundException('Ariza topilmadi');
+    if (!c.pausedAt) return this.getOne(id);
+    const cfg = await this.prisma.appConfig.findUnique({ where: { id: 'default' } });
+    const maxMs = (cfg?.maxPauseDays ?? 5) * 24 * 60 * 60 * 1000;
+    const ext = Math.min(Date.now() - c.pausedAt.getTime(), maxMs);
+    const newDeadline = c.stepDeadlineAt ? new Date(c.stepDeadlineAt.getTime() + ext) : null;
+    await this.prisma.creditCase.update({
+      where: { id },
+      data: { pausedAt: null, stepDeadlineAt: newDeadline, overdueNotified: false },
+    });
+    return this.getOne(id);
+  }
+
   async transition(id: string, user: RequestUser, dto: TransitionDto) {
     const c = await this.prisma.creditCase.findUnique({ where: { id }, include: { documents: true } });
     if (!c) throw new NotFoundException('Ariza topilmadi');
@@ -208,8 +251,10 @@ export class CreditCasesService {
       documentTypes: c.documents.map((d) => d.type as DocumentType),
     });
 
+    const timer = await this.stepTimerData(rule.to);
+
     await this.prisma.$transaction([
-      this.prisma.creditCase.update({ where: { id }, data: { status: rule.to } }),
+      this.prisma.creditCase.update({ where: { id }, data: { status: rule.to, ...timer } }),
       this.prisma.workflowEvent.create({
         data: {
           caseId: id,

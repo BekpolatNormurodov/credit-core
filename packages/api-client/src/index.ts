@@ -1,7 +1,9 @@
 import axios, { AxiosInstance } from 'axios';
 import type {
+  AppConfigDto,
   AuthUser,
   BranchDto,
+  CaseUnread,
   CreditCaseDto,
   CreditCaseListItem,
   DirectoryUser,
@@ -11,6 +13,7 @@ import type {
   NotificationItem,
   Role,
   StatsResponse,
+  StepDeadlineSetting,
   TransitionPayload,
   UpsertCasePayload,
 } from '@credit-core/shared';
@@ -110,6 +113,18 @@ export const api = {
     const { data } = await http.put<CreditCaseDto>(`/cases/${id}/katm-price`, { katmPrice });
     return data;
   },
+  async pauseCase(id: string): Promise<CreditCaseDto> {
+    const { data } = await http.post<CreditCaseDto>(`/cases/${id}/pause`);
+    return data;
+  },
+  async resumeCase(id: string): Promise<CreditCaseDto> {
+    const { data } = await http.post<CreditCaseDto>(`/cases/${id}/resume`);
+    return data;
+  },
+  async exportAllCases(): Promise<Blob> {
+    const { data } = await http.get('/cases/export/excel', { responseType: 'blob' });
+    return data as Blob;
+  },
   async parseExcel(file: File): Promise<ImportParseResult> {
     const fd = new FormData();
     fd.append('file', file);
@@ -151,11 +166,19 @@ export const api = {
     const { data } = await http.get(`/documents/${id}/download`, { responseType: 'blob' });
     return data as Blob;
   },
+  async deleteDocument(id: string): Promise<void> {
+    await http.delete(`/documents/${id}`);
+  },
+  async replaceDocument(id: string, file: File): Promise<void> {
+    const fd = new FormData();
+    fd.append('file', file);
+    await http.put(`/documents/${id}/file`, fd);
+  },
 
   // ── Analytics / monitoring ──
-  async stats(range?: { from?: string; to?: string; branchId?: string }): Promise<StatsResponse> {
+  async stats(range?: { from?: string; to?: string; branchId?: string; region?: string }): Promise<StatsResponse> {
     const { data } = await http.get<StatsResponse>('/stats', {
-      params: { from: range?.from, to: range?.to, branchId: range?.branchId || undefined },
+      params: { from: range?.from, to: range?.to, branchId: range?.branchId || undefined, region: range?.region || undefined },
     });
     return data;
   },
@@ -173,11 +196,11 @@ export const api = {
     const { data } = await http.get('/users');
     return data as any[];
   },
-  async createUser(payload: { fullName: string; login: string; password: string; role: Role; branchId?: string }) {
+  async createUser(payload: { fullName: string; login: string; password: string; role: Role; branchId?: string; moderatedBranchIds?: string[] }) {
     const { data } = await http.post('/users', payload);
     return data;
   },
-  async updateUser(id: string, payload: { fullName?: string; role?: Role; branchId?: string; isActive?: boolean; password?: string }) {
+  async updateUser(id: string, payload: { fullName?: string; role?: Role; branchId?: string; moderatedBranchIds?: string[]; isActive?: boolean; password?: string }) {
     const { data } = await http.put(`/users/${id}`, payload);
     return data;
   },
@@ -205,12 +228,40 @@ export const api = {
     const { data } = await http.get<{ count: number }>('/messages/unread');
     return data.count;
   },
+  async unreadByCase(): Promise<CaseUnread[]> {
+    const { data } = await http.get<CaseUnread[]>('/messages/unread-by-case');
+    return data;
+  },
+  async editMessage(caseId: string, msgId: string, text: string): Promise<void> {
+    await http.patch(`/cases/${caseId}/messages/${msgId}`, { text });
+  },
+  async deleteMessage(caseId: string, msgId: string): Promise<void> {
+    await http.delete(`/cases/${caseId}/messages/${msgId}`);
+  },
   async notifications(): Promise<NotificationItem[]> {
     const { data } = await http.get<NotificationItem[]>('/messages/feed');
     return data;
   },
   async directory(role?: Role, q?: string): Promise<DirectoryUser[]> {
     const { data } = await http.get<DirectoryUser[]>('/directory', { params: { role, q } });
+    return data;
+  },
+
+  // ── Admin: SLA deadline settings (business days per step) ──
+  async getDeadlineSettings(): Promise<StepDeadlineSetting[]> {
+    const { data } = await http.get<StepDeadlineSetting[]>('/settings/deadlines');
+    return data;
+  },
+  async updateDeadlineSettings(items: StepDeadlineSetting[]): Promise<StepDeadlineSetting[]> {
+    const { data } = await http.put<StepDeadlineSetting[]>('/settings/deadlines', { items });
+    return data;
+  },
+  async getConfig(): Promise<AppConfigDto> {
+    const { data } = await http.get<AppConfigDto>('/settings/config');
+    return data;
+  },
+  async updateConfig(payload: AppConfigDto): Promise<AppConfigDto> {
+    const { data } = await http.put<AppConfigDto>('/settings/config', payload);
     return data;
   },
 };

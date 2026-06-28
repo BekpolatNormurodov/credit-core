@@ -15,6 +15,7 @@ export const STATUS_LABEL: Record<CaseStatus, string> = {
   [CaseStatus.ADMIN_FINALIZE]: 'Yakunlash (admin)',
   [CaseStatus.FINALIZED]: 'Yakunlangan',
   [CaseStatus.REJECTED]: 'Rad etilgan',
+  [CaseStatus.CANCELLED]: 'Bekor qilingan',
 };
 
 export const PRODUCT_LABEL: Record<ProductType, string> = {

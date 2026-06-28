@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FilePlus2, House, Car, Layers, FileCheck2, Banknote } from '../lib/icons';
-import { api } from '@credit-core/api-client';
+import { FilePlus2, House, Car, Layers, FileCheck2, Banknote, FileSpreadsheet } from '../lib/icons';
+import { api, downloadBlob } from '@credit-core/api-client';
 import { ProductType, PRODUCT_LABEL, Role, type CreditCaseListItem } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Skeleton, StatusBadge } from '../components/primitives';
 import { MetricCard } from '../components/widgets';
+import { DeadlineBadge } from '../components/DeadlineBadge';
 import { DataTable, type Column } from '../components/DataTable';
 import { NewCaseModal } from './CaseForm';
 import { formatMoney } from '../lib/cn';
@@ -21,6 +23,11 @@ export function Dashboard() {
   const closeNew = () => setParams({});
   const { data: cases, isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => api.cases(false) });
   const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: () => api.stats() });
+  const [exporting, setExporting] = useState(false);
+  const exportExcel = async () => {
+    setExporting(true);
+    try { downloadBlob(await api.exportAllCases(), 'Arizalar.xlsx'); } finally { setExporting(false); }
+  };
 
   const columns: Column<CreditCaseListItem>[] = [
     {
@@ -30,7 +37,7 @@ export function Dashboard() {
           <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-white ${c.productType === ProductType.AUTO ? 'bg-warning-600' : 'bg-brand-700'}`}>
             {c.productType === ProductType.AUTO ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
           </span>
-          <span className="font-semibold text-ink">{c.number}</span>
+          <span className="font-semibold text-gray-800 dark:text-white">{c.number}</span>
         </div>
       ),
     },
@@ -38,19 +45,32 @@ export function Dashboard() {
     { key: 'product', header: 'Mahsulot', render: (c) => PRODUCT_LABEL[c.productType] },
     { key: 'branchSymbol', header: 'Filial', render: (c) => c.branchSymbol ?? '—' },
     { key: 'amount', header: 'Summa', align: 'right', className: 'nums font-medium', render: (c) => formatMoney(c.amount) },
-    { key: 'status', header: 'Holat', render: (c) => <StatusBadge status={c.status} /> },
+    {
+      key: 'status', header: 'Holat',
+      render: (c) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={c.status} />
+          <DeadlineBadge deadlineAt={c.stepDeadlineAt} compact />
+        </div>
+      ),
+    },
   ];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Arizalar</h1>
-          <p className="text-sm text-muted">{isOperator ? 'Sizning kredit arizalaringiz' : 'Navbatingizdagi arizalar'}</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Arizalar</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{isOperator ? 'Sizning kredit arizalaringiz' : 'Navbatingizdagi arizalar'}</p>
         </div>
-        {canCreate && (
-          <Button onClick={openNew}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" onClick={exportExcel} loading={exporting} disabled={!cases?.length}>
+            {!exporting && <FileSpreadsheet className="h-4 w-4" />} Excelga chiqarish
+          </Button>
+          {canCreate && (
+            <Button onClick={openNew}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
+          )}
+        </div>
       </div>
 
       {canCreate && <NewCaseModal open={newOpen} onClose={closeNew} />}
@@ -69,7 +89,7 @@ export function Dashboard() {
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-base font-semibold text-ink dark:text-white">So‘nggi arizalar</h3>
+        <h3 className="text-base font-semibold text-gray-800 dark:text-white">So‘nggi arizalar</h3>
         {isLoading ? (
           <Skeleton className="h-72 rounded-2xl" />
         ) : (

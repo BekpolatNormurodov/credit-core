@@ -5,6 +5,7 @@ import { Card, Field, Input } from '../components/primitives';
 import { MoneyInput } from '../components/forms';
 import { DataTable, type Column } from '../components/DataTable';
 import { formatMoney } from '../lib/cn';
+import { chartPalette } from '../lib/chartColors';
 
 interface Row { id: string; n: number; payment: number; principal: number; interest: number; balance: number }
 
@@ -58,8 +59,8 @@ export function CreditCalculator() {
   ];
 
   const pie = [
-    { name: 'Asosiy qarz', value: amount, fill: '#0369a1' },
-    { name: 'Foiz (ustama)', value: Math.round(totalInterest), fill: '#d97706' },
+    { name: 'Asosiy qarz', value: amount, fill: chartPalette.brand },
+    { name: 'Foiz (ustama)', value: Math.round(totalInterest), fill: chartPalette.warning },
   ];
 
   return (
@@ -67,8 +68,8 @@ export function CreditCalculator() {
       <div className="flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-700 text-white"><Calculator className="h-5 w-5" /></span>
         <div>
-          <h1 className="text-2xl font-bold">Kredit kalkulyatori</h1>
-          <p className="text-sm text-muted">To‘lov jadvali va ustama hisobi</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Kredit kalkulyatori</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">To‘lov jadvali va ustama hisobi</p>
         </div>
       </div>
 
@@ -80,8 +81,8 @@ export function CreditCalculator() {
           <Field label="To‘lov usuli">
             <div className="flex gap-2">
               {(['annuity', 'diff'] as const).map((m) => (
-                <button key={m} onClick={() => setMethod(m)}
-                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition ${method === m ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-600/15 dark:text-brand-300' : 'border-hairline text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-white/5'}`}>
+                <button key={m} onClick={() => setMethod(m)} aria-pressed={method === m}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 ${method === m ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/12 dark:text-brand-400' : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/5'}`}>
                   {m === 'annuity' ? 'Annuitet' : 'Differensial'}
                 </button>
               ))}
@@ -91,9 +92,9 @@ export function CreditCalculator() {
 
         <Card className="lg:col-span-2">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Stat label={method === 'annuity' ? 'Oylik to‘lov' : '1-oy to‘lovi'} value={formatMoney(Math.round(firstPay))} tone="text-brand-700 dark:text-brand-300" />
-            <Stat label="Jami ustama (foiz)" value={formatMoney(Math.round(totalInterest))} tone="text-warning-700 dark:text-warning-400" />
-            <Stat label="Jami to‘lov" value={formatMoney(Math.round(totalPay))} tone="text-ink dark:text-white" />
+            <Stat label={method === 'annuity' ? 'Oylik to‘lov' : '1-oy to‘lovi'} value={formatMoney(Math.round(firstPay))} tone="text-brand-700 dark:text-brand-400" />
+            <Stat label="Jami ustama (foiz)" value={formatMoney(Math.round(totalInterest))} tone="text-warning-600 dark:text-warning-500" />
+            <Stat label="Jami to‘lov" value={formatMoney(Math.round(totalPay))} tone="text-gray-800 dark:text-white" />
           </div>
           <div className="mt-4 h-52">
             <ResponsiveContainer width="100%" height="100%">
@@ -101,8 +102,11 @@ export function CreditCalculator() {
                 <Pie data={pie} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
                   {pie.map((p) => <Cell key={p.name} fill={p.fill} />)}
                 </Pie>
-                <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
-                <Legend />
+                <Tooltip
+                  formatter={(v: any) => formatMoney(Number(v))}
+                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 1px 3px rgba(16,24,40,.1)', fontSize: 13 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 13 }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
@@ -116,8 +120,8 @@ export function CreditCalculator() {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="rounded-xl bg-slate-50 p-3 dark:bg-white/5">
-      <p className="text-xs uppercase tracking-wide text-muted">{label}</p>
+    <div className="rounded-xl bg-gray-50 p-3 dark:bg-white/5">
+      <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{label}</p>
       <p className={`nums text-lg font-bold ${tone}`}>{value}</p>
     </div>
   );

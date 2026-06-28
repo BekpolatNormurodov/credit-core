@@ -74,6 +74,11 @@ export const Tag = make(Iso.Tag);
 export const Camera = make(Iso.Camera);
 export const People = make(Iso.People ?? Iso.User);
 export const Palette = make(Iso.Colorfilter ?? Iso.Brush);
+export const Minus = make(Iso.Minus);
+export const Volume = make(Iso.VolumeHigh ?? Iso.Volume);
+export const VolumeOff = make(Iso.VolumeSlash ?? Iso.VolumeCross);
+export const Pause = make(Iso.Pause ?? Iso.PauseCircle);
+export const Play = make(Iso.Play ?? Iso.PlayCircle);
 
 // Aliases matching prior (lucide) names so call sites need no JSX changes.
 export const CheckCircle2 = Check;

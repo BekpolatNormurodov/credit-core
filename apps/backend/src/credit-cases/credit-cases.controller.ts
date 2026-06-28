@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { Role } from '@credit-core/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { CreditCasesService } from './credit-cases.service';
+import { exportCasesListToExcel } from '../output/excel-export.util';
 import { SetKatmPriceDto, TransitionDto, UpsertCaseDto } from './dto';
 
 @UseGuards(JwtAuthGuard)
@@ -21,6 +23,16 @@ export class CreditCasesController {
   @Get('search')
   search(@CurrentUser() user: RequestUser, @Query('q') q?: string) {
     return this.service.search(user, q ?? '');
+  }
+
+  /** Export all visible cases (role-scoped) to a single .xlsx. */
+  @Get('export/excel')
+  async exportExcel(@CurrentUser() user: RequestUser, @Res() res: Response) {
+    const rows = await this.service.list(user, false);
+    const buffer = await exportCasesListToExcel(rows);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="Arizalar.xlsx"');
+    res.send(buffer);
   }
 
   @Get(':id')
@@ -49,6 +61,20 @@ export class CreditCasesController {
     @Body() dto: TransitionDto,
   ) {
     return this.service.transition(id, user, dto);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.MODERATOR, Role.DIRECTOR, Role.ADMIN)
+  @Post(':id/pause')
+  pause(@Param('id') id: string) {
+    return this.service.pause(id);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.MODERATOR, Role.DIRECTOR, Role.ADMIN)
+  @Post(':id/resume')
+  resume(@Param('id') id: string) {
+    return this.service.resume(id);
   }
 
   @UseGuards(RolesGuard)

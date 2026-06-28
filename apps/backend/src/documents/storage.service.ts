@@ -38,4 +38,12 @@ export class StorageService {
   stream(storagePath: string): ReadStream {
     return createReadStream(this.resolvePath(storagePath));
   }
+
+  async remove(storagePath: string): Promise<void> {
+    try {
+      await fs.unlink(this.resolvePath(storagePath));
+    } catch {
+      /* already gone — ignore */
+    }
+  }
 }
