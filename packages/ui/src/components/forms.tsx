@@ -201,7 +201,7 @@ export function Select<T extends string>({
           {filtered.length === 0 && <p className="px-3 py-2 text-sm text-slate-400">Topilmadi</p>}
           {filtered.map((o) => (
             <button key={o.value} type="button" onClick={() => { onChange(o.value); close(); }}
-              className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-brand-50 dark:hover:bg-white/5', o.value === value && 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/15 dark:text-brand-300')}>
+              className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-brand-50 dark:hover:bg-white/5', o.value === value && 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/20 dark:text-brand-300')}>
               {o.icon && <o.icon className="h-4 w-4" />}
               {o.label}
             </button>
@@ -226,7 +226,7 @@ export function MultiSelect<T extends string>({
         <span className="flex flex-wrap items-center gap-1.5">
           {selected.length === 0 && <span className="text-slate-400">{placeholder}</span>}
           {selected.map((o) => (
-            <span key={o.value} className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-600/15 dark:text-brand-300">
+            <span key={o.value} className="inline-flex items-center gap-1 rounded-md bg-brand-50 px-1.5 py-0.5 text-xs font-medium text-brand-700 dark:bg-brand-600/20 dark:text-brand-300">
               {o.label}
               <span role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); toggle(o.value); }} className="text-brand-500 hover:text-danger-600">✕</span>
             </span>

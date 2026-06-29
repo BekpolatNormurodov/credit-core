@@ -30,7 +30,7 @@ export function NotificationsPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Hamkasblardan kelgan xabarlar va fayllar</p>
         </div>
         {unreadCount > 0 && (
-          <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
             {unreadCount} yangi
           </span>
         )}
@@ -64,7 +64,7 @@ export function NotificationsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-semibold text-gray-800 dark:text-white">{n.senderName}</p>
-                      <span className="ml-auto shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">{n.caseNumber}</span>
+                      <span className="ml-auto shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">{n.caseNumber}</span>
                       <ChevronDown className={cn('h-4 w-4 shrink-0 text-gray-400 transition-transform', open && 'rotate-180')} />
                     </div>
                     <p className={cn('mt-1 text-sm text-gray-600 dark:text-gray-300', !open && 'line-clamp-2')}>

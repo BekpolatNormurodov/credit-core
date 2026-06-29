@@ -137,11 +137,11 @@ export function Skeleton({ className }: { className?: string }) {
 
 const statusStyles: Record<CaseStatus, string> = {
   [CaseStatus.DRAFT]: 'bg-gray-100 text-gray-700 ring-gray-200 dark:bg-white/10 dark:text-gray-200 dark:ring-white/10',
-  [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-700 ring-warning-100 dark:bg-warning-600/15 dark:text-warning-400 dark:ring-warning-600/20',
-  [CaseStatus.DIRECTOR_REVIEW]: 'bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-600/15 dark:text-violet-300 dark:ring-violet-600/20',
-  [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-50 text-brand-800 ring-brand-100 dark:bg-brand-500/12 dark:text-brand-400 dark:ring-brand-600/20',
-  [CaseStatus.FINALIZED]: 'bg-success-50 text-success-700 ring-success-100 dark:bg-success-600/15 dark:text-success-400 dark:ring-success-600/20',
-  [CaseStatus.REJECTED]: 'bg-error-50 text-error-700 ring-error-100 dark:bg-error-600/15 dark:text-error-400 dark:ring-error-600/20',
+  [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-700 ring-warning-100 dark:bg-warning-600/20 dark:text-warning-400 dark:ring-warning-600/20',
+  [CaseStatus.DIRECTOR_REVIEW]: 'bg-violet-50 text-violet-700 ring-violet-100 dark:bg-violet-600/20 dark:text-violet-300 dark:ring-violet-600/20',
+  [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-50 text-brand-800 ring-brand-100 dark:bg-brand-500/10 dark:text-brand-400 dark:ring-brand-600/20',
+  [CaseStatus.FINALIZED]: 'bg-success-50 text-success-700 ring-success-100 dark:bg-success-600/20 dark:text-success-400 dark:ring-success-600/20',
+  [CaseStatus.REJECTED]: 'bg-error-50 text-error-700 ring-error-100 dark:bg-error-600/20 dark:text-error-400 dark:ring-error-600/20',
   [CaseStatus.CANCELLED]: 'bg-gray-100 text-gray-600 ring-gray-200 dark:bg-white/10 dark:text-gray-300 dark:ring-white/10',
 };
 

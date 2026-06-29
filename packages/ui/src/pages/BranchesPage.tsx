@@ -55,7 +55,7 @@ export function BranchesPage() {
 
   const columns: Column<BranchDto>[] = [
     { key: 'name', header: 'Filial', render: (x) => <span className="font-medium text-gray-800 dark:text-white">{x.name}</span> },
-    { key: 'symbol', header: 'Simvol', render: (x) => <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">{x.symbol}</span> },
+    { key: 'symbol', header: 'Simvol', render: (x) => <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">{x.symbol}</span> },
     { key: 'region', header: 'Hudud', render: (x) => x.region ?? '—' },
     { key: 'caseCount', header: 'Arizalar', align: 'right', render: (x) => <span className="nums font-medium text-gray-800 dark:text-gray-100">{x.caseCount ?? 0}</span> },
     { key: 'totalAmount', header: 'Summa', align: 'right', render: (x) => <span className="nums text-gray-700 dark:text-gray-300">{formatMoney(x.totalAmount ?? 0)}</span> },
@@ -76,7 +76,7 @@ export function BranchesPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><Building className="h-5 w-5" /></span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><Building className="h-5 w-5" /></span>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Filiallar</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Filiallar va ularga biriktirilgan moderatorlar</p>

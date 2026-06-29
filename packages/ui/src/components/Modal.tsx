@@ -133,7 +133,7 @@ export function ConfirmDialog({
     >
       <div className="flex gap-3.5">
         <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
-          tone === 'danger' ? 'bg-error-50 text-error-600 dark:bg-error-500/12' : 'bg-brand-50 text-brand-700 dark:bg-brand-500/12')}>
+          tone === 'danger' ? 'bg-error-50 text-error-600 dark:bg-error-500/10' : 'bg-brand-50 text-brand-700 dark:bg-brand-500/10')}>
           <Warning className="h-6 w-6" />
         </span>
         <div className="pt-0.5">

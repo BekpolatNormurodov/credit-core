@@ -22,9 +22,9 @@ interface ToastApi {
 const ToastCtx = createContext<ToastApi | null>(null);
 
 const toneMap: Record<ToastTone, { icon: React.ComponentType<{ className?: string }>; ring: string; chip: string }> = {
-  success: { icon: Check, ring: 'border-l-success-500', chip: 'bg-success-50 text-success-600 dark:bg-success-500/12' },
-  error: { icon: Warning, ring: 'border-l-error-500', chip: 'bg-error-50 text-error-600 dark:bg-error-500/12' },
-  info: { icon: Info, ring: 'border-l-brand-500', chip: 'bg-brand-50 text-brand-700 dark:bg-brand-500/12' },
+  success: { icon: Check, ring: 'border-l-success-500', chip: 'bg-success-50 text-success-600 dark:bg-success-500/10' },
+  error: { icon: Warning, ring: 'border-l-error-500', chip: 'bg-error-50 text-error-600 dark:bg-error-500/10' },
+  info: { icon: Info, ring: 'border-l-brand-500', chip: 'bg-brand-50 text-brand-700 dark:bg-brand-500/10' },
 };
 
 let counter = 0;

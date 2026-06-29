@@ -257,7 +257,7 @@ export function AnalyticsPage() {
               {topBranches.map((b, i) => (
                 <li key={b.branch}>
                   <div className="mb-1 flex items-center gap-2 text-sm">
-                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-50 text-xs font-bold text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">{i + 1}</span>
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand-50 text-xs font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">{i + 1}</span>
                     <span className="flex items-center gap-1.5 font-medium text-gray-700 dark:text-gray-200"><Building className="h-4 w-4 text-gray-400" /> {b.branch}</span>
                     <span className="ml-auto shrink-0 text-gray-500 dark:text-gray-400"><span className="nums font-semibold text-gray-700 dark:text-gray-200">{b.count}</span> ta · {compactSom(b.amount)}</span>
                   </div>

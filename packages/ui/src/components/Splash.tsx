@@ -24,8 +24,8 @@ export function Splash({ title, subtitle }: { title: string; subtitle: string })
       className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden bg-canvas dark:bg-gray-950"
     >
       {/* Ambient brand glows */}
-      <div className="pointer-events-none absolute -top-32 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-brand-400/15 blur-[120px] dark:bg-brand-500/20" />
-      <div className="pointer-events-none absolute -bottom-40 left-[22%] h-80 w-80 rounded-full bg-brand-700/10 blur-[120px] dark:bg-brand-500/15" />
+      <div className="pointer-events-none absolute -top-32 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-brand-400/20 blur-[120px] dark:bg-brand-500/20" />
+      <div className="pointer-events-none absolute -bottom-40 left-[22%] h-80 w-80 rounded-full bg-brand-700/10 blur-[120px] dark:bg-brand-500/20" />
 
       {/* Masked dotted grid (matches the login brand stage) */}
       <div

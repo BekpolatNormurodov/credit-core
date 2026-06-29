@@ -132,7 +132,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
                 <span className={cn('flex h-6 w-6 items-center justify-center rounded-md text-[10px] font-bold text-white', roleTone[u.role])}>{initials(u.fullName)}</span>
                 {u.fullName} <span className="text-gray-400">· {u.branchName ?? '—'}</span>
               </span>
-              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">{ROLE_LABEL[u.role]}</span>
+              <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">{ROLE_LABEL[u.role]}</span>
             </button>
           ))}
         </div>
@@ -168,7 +168,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
                 {m.mine && m.editable && !editing && (
                   <div className="mb-4 flex items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
                     <button onClick={() => startEdit(m)} aria-label="Tahrirlash" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-gray-100 hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:bg-white/10 dark:hover:text-gray-200"><Pencil className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => setConfirmDeleteId(m.id)} aria-label="O‘chirish" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-error-50 hover:text-error-600 focus-visible:ring-2 focus-visible:ring-error-600/30 dark:hover:bg-error-500/12"><Trash2 className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => setConfirmDeleteId(m.id)} aria-label="O‘chirish" className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-error-50 hover:text-error-600 focus-visible:ring-2 focus-visible:ring-error-600/30 dark:hover:bg-error-500/10"><Trash2 className="h-3.5 w-3.5" /></button>
                   </div>
                 )}
 
@@ -260,7 +260,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
         {(files.length > 0 || targetLabel) && (
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {targetLabel && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 font-medium text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-1 font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
                 {target.kind === 'user' && <UserIcon className="h-3 w-3" />} → {targetLabel}
                 <button onClick={() => setTarget({ kind: 'all' })} aria-label="Yo‘naltirishni olib tashlash" className="rounded outline-none transition hover:text-error-600 focus-visible:ring-2 focus-visible:ring-brand-600/30"><X className="h-3 w-3" /></button>
               </span>

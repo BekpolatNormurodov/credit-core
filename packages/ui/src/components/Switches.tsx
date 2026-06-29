@@ -79,7 +79,7 @@ export function LangSwitch() {
                 onMouseDown={(e) => { e.preventDefault(); setLang(l.value); setOpen(false); }}
                 className={cn(
                   'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5',
-                  l.value === lang && 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-500/12 dark:text-brand-400',
+                  l.value === lang && 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-500/10 dark:text-brand-400',
                 )}
               >
                 <l.Flag className="h-4 w-6 rounded-[3px]" />

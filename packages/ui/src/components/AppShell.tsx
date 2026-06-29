@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, LogOut, Menu, Search, X, ArrowRight, FileText } from '../lib/icons';
+import { Bell, LogOut, Menu, Search, X, FileText } from '../lib/icons';
 import { api, userAvatarUrl } from '@credit-core/api-client';
 import { ROLE_LABEL, STATUS_LABEL } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
@@ -51,7 +51,7 @@ function GlobalSearch({ className }: { className?: string }) {
             {results?.map((c) => (
               <li key={c.id}>
                 <button onClick={() => go(c.id)} className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-gray-50 dark:hover:bg-white/5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><FileText className="h-4 w-4" /></span>
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><FileText className="h-4 w-4" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">{c.number} <span className="font-normal text-gray-400">· {c.borrowerName ?? '—'}</span></span>
                     <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{c.branchSymbol ?? '—'} · {STATUS_LABEL[c.status]}</span>
@@ -75,6 +75,18 @@ export interface NavItem {
   section?: string;
 }
 
+/** Sidebar-panel glyph (not a directional arrow). The left strip fills when the
+ *  panel is expanded, hollow when collapsed — conveys state without an L/R arrow. */
+function PanelToggle({ className, open }: { className?: string; open: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <line x1="9" y1="4" x2="9" y2="20" />
+      {open && <rect x="4.2" y="5.2" width="3.6" height="13.6" rx="1" fill="currentColor" stroke="none" opacity={0.22} />}
+    </svg>
+  );
+}
+
 export function AppShell({ title, nav, children }: { title: string; nav: NavItem[]; children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -83,7 +95,6 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
     () => typeof window !== 'undefined' && localStorage.getItem('cc.sidebar.collapsed') === '1',
   ); // desktop rail (persisted)
   const [confirmLogout, setConfirmLogout] = useState(false);
-  const [hovered, setHovered] = useState(false); // hover temporarily expands the collapsed rail
 
   useEffect(() => {
     localStorage.setItem('cc.sidebar.collapsed', collapsed ? '1' : '0');
@@ -113,8 +124,8 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
     else sections.push({ label, items: [item] });
   }
 
-  // Narrow rail at xl when collapsed — but expand on hover (overlay, doesn't push content).
-  const rail = collapsed && !hovered;
+  // Narrow icon-rail at xl when collapsed (pinned; toggled via the edge handle).
+  const rail = collapsed;
 
   const navItem = (item: NavItem) => {
     const active = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to));
@@ -164,14 +175,11 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
 
       {/* Sidebar — fixed; off-canvas below xl, persistent rail at xl */}
       <aside
-        onMouseEnter={() => collapsed && setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex w-[290px] flex-col border-r border-gray-200 bg-white px-5 py-6 transition-all duration-300 ease-in-out dark:border-gray-800 dark:bg-gray-900',
           'xl:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
           rail ? 'xl:w-[90px] xl:px-3' : 'xl:w-[290px]',
-          collapsed && hovered && 'xl:shadow-theme-md', // overlay shadow while hover-expanded
         )}
       >
         {/* Logo */}
@@ -230,6 +238,24 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
             <LogOut className="h-5 w-5 shrink-0" /> <span className={cn(rail && 'xl:hidden')}>Chiqish</span>
           </button>
         </div>
+
+        {/* Desktop collapse handle — sits centered on the sidebar's right border */}
+        <button
+          onClick={() => setCollapsed((c) => !c)}
+          aria-label={collapsed ? 'Yon panelni ochish' : 'Yon panelni yig‘ish'}
+          aria-expanded={!collapsed}
+          title={collapsed ? 'Ochish' : 'Yig‘ish'}
+          className={cn(
+            'absolute right-0 top-1/2 z-20 hidden h-7 w-7 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full',
+            'border border-gray-200 bg-white text-gray-400 shadow-theme-sm transition duration-200',
+            'hover:scale-110 hover:border-brand-300 hover:text-brand-700',
+            'outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
+            'dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500 dark:hover:border-brand-500/50 dark:hover:text-brand-400',
+            'xl:flex',
+          )}
+        >
+          <PanelToggle className="h-[15px] w-[15px]" open={!collapsed} />
+        </button>
       </aside>
 
       {/* Content column, offset by the rail at xl */}
@@ -242,15 +268,6 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
             aria-label="Menyuni ochish"
           >
             <Menu className="h-5 w-5" />
-          </button>
-          {/* desktop: collapse rail */}
-          <button
-            className="hidden h-10 w-10 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5 xl:flex"
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? 'Menyuni kengaytirish' : 'Menyuni yig‘ish'}
-            title={collapsed ? 'Menyuni kengaytirish' : 'Menyuni yig‘ish'}
-          >
-            <ArrowRight className={cn('h-[18px] w-[18px] transition-transform duration-300', collapsed ? 'rotate-0' : 'rotate-180')} />
           </button>
 
           <h2 className="hidden text-base font-semibold text-gray-800 dark:text-white sm:block">{current?.label ?? title}</h2>

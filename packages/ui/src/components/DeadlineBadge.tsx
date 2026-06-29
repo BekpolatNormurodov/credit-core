@@ -66,9 +66,9 @@ export function DeadlineBadge({
   if (compact && !overdue && !soon) return null;
 
   const tone = overdue
-    ? 'bg-error-50 text-error-600 dark:bg-error-500/12 dark:text-error-500'
+    ? 'bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-500'
     : soon
-      ? 'bg-warning-50 text-warning-600 dark:bg-warning-500/12 dark:text-warning-500'
+      ? 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-500'
       : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300';
 
   const label = overdue

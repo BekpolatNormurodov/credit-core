@@ -190,17 +190,17 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="space-y-4 lg:col-span-1">
-          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><Money className="h-4 w-4" /></span>Kredit</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><Money className="h-4 w-4" /></span>Kredit</h2>
           <Field label="Summa" icon={Money}><MoneyInput value={form.amount} onChange={(v) => setForm((s) => ({ ...s, amount: v }))} /></Field>
           <Field label="Muddat (oy)" icon={Clock}><Input type="number" value={form.termMonths ?? ''} onChange={(e) => setForm((s) => ({ ...s, termMonths: num(e.target.value) }))} /></Field>
-          <div className="rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/12">
+          <div className="rounded-lg bg-brand-50 p-3 text-sm dark:bg-brand-500/10">
             <p className="text-gray-500 dark:text-gray-400">Jami garov qiymati</p>
             <p className="nums text-lg font-bold text-brand-800 dark:text-brand-400">{formatMoney(totalCollateral)}</p>
           </div>
         </Card>
 
         <Card className="space-y-4 lg:col-span-2">
-          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><User className="h-4 w-4" /></span>Qarz oluvchi</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><User className="h-4 w-4" /></span>Qarz oluvchi</h2>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="F.I.O" required icon={User} error={attempted ? errors.fullName : undefined}><Input value={form.borrower.fullName} onChange={(e) => setB({ fullName: e.target.value })} /></Field>
             <Field label="PINFL" icon={Hashtag} hint="14 ta raqam"><Input inputMode="numeric" maxLength={14} value={form.borrower.pinfl ?? ''} onChange={(e) => setB({ pinfl: digitsOnly(e.target.value, 14) })} placeholder="12345678901234" /></Field>
@@ -245,7 +245,7 @@ export function CaseFormFields({ f, showImport = true }: { f: FormApi; showImpor
 
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-50 text-success-700 dark:bg-success-600/15 dark:text-success-400"><People className="h-4 w-4" /></span>Kafillar <span className="text-gray-500 dark:text-gray-400">({form.guarantors.length})</span></h2>
+          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-success-50 text-success-700 dark:bg-success-600/20 dark:text-success-400"><People className="h-4 w-4" /></span>Kafillar <span className="text-gray-500 dark:text-gray-400">({form.guarantors.length})</span></h2>
           <Button variant="secondary" onClick={addGuarantor}><UserAdd className="h-4 w-4" /> Kafil qo'shish</Button>
         </div>
         {form.guarantors.length === 0 && (

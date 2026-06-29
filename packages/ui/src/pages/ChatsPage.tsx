@@ -38,7 +38,7 @@ export function ChatsPage() {
               const on = selected?.kind === c.kind && selected?.key === c.key;
               return (
                 <button key={`${c.kind}:${c.key}`} onClick={() => setActive({ kind: c.kind, key: c.key, title: c.title })}
-                  className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30', on ? 'bg-brand-50 dark:bg-brand-500/12' : 'hover:bg-gray-50 dark:hover:bg-white/5')}>
+                  className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30', on ? 'bg-brand-50 dark:bg-brand-500/10' : 'hover:bg-gray-50 dark:hover:bg-white/5')}>
                   <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm text-white', c.kind === 'saved' ? 'bg-brand-700' : c.kind === 'dm' ? 'bg-violet-600' : 'bg-gray-500')}>
                     {c.kind === 'saved' ? '★' : c.kind === 'dm' ? '@' : '#'}
                   </span>

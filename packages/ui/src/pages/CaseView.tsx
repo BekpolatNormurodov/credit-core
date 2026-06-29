@@ -124,7 +124,7 @@ export function CaseView() {
           {showFinance && loan && (
             <Card className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><Banknote className="h-5 w-5" /></span>
+                <span className="grid h-9 w-9 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><Banknote className="h-5 w-5" /></span>
                 <h2 className="font-semibold text-gray-800 dark:text-white">Moliyaviy hisob-kitob</h2>
                 <span className="ml-auto rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-gray-300">ustama {Math.round(loan.markupPercent * 100)}% · {loan.termMonths} oy</span>
               </div>
@@ -263,7 +263,7 @@ export function CaseView() {
                   </div>
                   <div className="space-y-2">
                     {isDirectorReview && !hasFinalDoc && (
-                      <p className="flex items-center gap-2 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-600 dark:bg-warning-500/12 dark:text-warning-500">
+                      <p className="flex items-center gap-2 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">
                         <FileText className="h-4 w-4 shrink-0" /> Tasdiqlash uchun yakuniy hujjat biriktiring.
                       </p>
                     )}
@@ -328,7 +328,7 @@ export function CaseView() {
               onClick={() => transition.mutate(WorkflowDecision.REOPEN, { onSettled: () => setCancelOpen(false) })}
               className="flex w-full items-start gap-3 rounded-xl border border-gray-200 p-3 text-left outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-white/5"
             >
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning-50 text-warning-600 dark:bg-warning-500/12 dark:text-warning-500"><RotateCcw className="h-5 w-5" /></span>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-500"><RotateCcw className="h-5 w-5" /></span>
               <span className="min-w-0">
                 <span className="block text-sm font-semibold text-gray-800 dark:text-white">Qayta to‘ldirishga qaytarish</span>
                 <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Ariza operatorga qaytariladi — hujjatlarni qayta kiritib, qayta yuboradi.</span>
@@ -341,7 +341,7 @@ export function CaseView() {
             onClick={() => transition.mutate(WorkflowDecision.CANCEL, { onSettled: () => setCancelOpen(false) })}
             className="flex w-full items-start gap-3 rounded-xl border border-gray-200 p-3 text-left outline-none transition hover:bg-error-50/60 focus-visible:ring-2 focus-visible:ring-error-600/30 disabled:opacity-50 dark:border-gray-800 dark:hover:bg-error-500/10"
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-error-50 text-error-600 dark:bg-error-500/12 dark:text-error-500"><X className="h-5 w-5" /></span>
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-error-50 text-error-600 dark:bg-error-500/10 dark:text-error-500"><X className="h-5 w-5" /></span>
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-gray-800 dark:text-white">To‘liq bekor qilish</span>
               <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">Ariza butunlay bekor qilinadi. Buni qaytarib bo‘lmaydi.</span>
@@ -463,12 +463,12 @@ function DocActions({ doc, canManage }: { doc: DocumentDto; canManage: boolean }
   return (
     <div className="flex shrink-0 items-center gap-1">
       <button onClick={() => viewDocument(doc.id, doc.fileName)} aria-label="Ko‘rish" title="Ko‘rish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-gray-400 dark:hover:bg-white/10"><Eye className="h-5 w-5" /></button>
-      <button onClick={async () => downloadBlob(await api.downloadDocument(doc.id), doc.fileName)} aria-label="Yuklab olish" title="Yuklab olish" className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/12"><Download className="h-5 w-5" /></button>
+      <button onClick={async () => downloadBlob(await api.downloadDocument(doc.id), doc.fileName)} aria-label="Yuklab olish" title="Yuklab olish" className="flex h-9 w-9 items-center justify-center rounded-lg text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/10"><Download className="h-5 w-5" /></button>
       {canManage && (
         <>
           <input ref={replaceRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) rep.mutate(f); e.target.value = ''; }} />
           <button onClick={() => replaceRef.current?.click()} disabled={rep.isPending} aria-label="Almashtirish" title="Almashtirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-white/10"><Upload className="h-[18px] w-[18px]" /></button>
-          <button onClick={() => del.mutate()} disabled={del.isPending} aria-label="O‘chirish" title="O‘chirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-error-50 hover:text-error-600 focus-visible:ring-2 focus-visible:ring-error-600/30 disabled:opacity-50 dark:hover:bg-error-500/12"><Trash2 className="h-[18px] w-[18px]" /></button>
+          <button onClick={() => del.mutate()} disabled={del.isPending} aria-label="O‘chirish" title="O‘chirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-error-50 hover:text-error-600 focus-visible:ring-2 focus-visible:ring-error-600/30 disabled:opacity-50 dark:hover:bg-error-500/10"><Trash2 className="h-[18px] w-[18px]" /></button>
         </>
       )}
     </div>
@@ -625,7 +625,7 @@ function CollateralDocs({
       <div className="mb-2 flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Garov hujjatlari ({docs.length})</p>
         {canUpload && !open && (
-          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/12">
+          <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/10">
             <Upload className="h-3.5 w-3.5" /> Hujjat biriktirish
           </button>
         )}
@@ -711,7 +711,7 @@ function KatmInputs() {
     <Card className="space-y-3 border-dashed">
       <div className="flex items-center justify-between">
         <h2 className="font-semibold text-gray-800 dark:text-white">KATM hisobotlari</h2>
-        <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/12 dark:text-warning-500">Qo‘lda · tez kunda avto</span>
+        <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Qo‘lda · tez kunda avto</span>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400">PINFL bo‘yicha 2–3 hisobot qiymatini kiriting (integratsiya tayyor bo‘lguncha).</p>
       <Field label="Kredit tarixi">
@@ -754,12 +754,12 @@ function GeneratedDocsPanel({ caseId, number, status }: { caseId: string; number
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{d.title}</p>
                 {d.watermarked && (
-                  <span className="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-600 dark:bg-warning-500/12 dark:text-warning-500">Tasdiqlanmagan</span>
+                  <span className="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Tasdiqlanmagan</span>
                 )}
               </div>
               <div className="flex shrink-0 gap-2">
                 <button onClick={() => open(d.key)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5">Ko‘rish</button>
-                <button onClick={async () => downloadBlob(await api.caseDocumentBlob(caseId, d.key), `${d.key}_${number}.pdf`)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-gray-700 dark:text-brand-400 dark:hover:bg-brand-500/12"><Download className="h-3.5 w-3.5" /> Yuklab olish</button>
+                <button onClick={async () => downloadBlob(await api.caseDocumentBlob(caseId, d.key), `${d.key}_${number}.pdf`)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-gray-700 dark:text-brand-400 dark:hover:bg-brand-500/10"><Download className="h-3.5 w-3.5" /> Yuklab olish</button>
               </div>
             </li>
           ))}

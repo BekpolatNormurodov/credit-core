@@ -10,9 +10,9 @@ import { cn } from '../lib/cn';
 
 /** Numbered node tint per step (mirrors the status badge hue). */
 const stepTone: Record<string, string> = {
-  [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-600 dark:bg-warning-500/12 dark:text-warning-500',
-  [CaseStatus.DIRECTOR_REVIEW]: 'bg-violet-50 text-violet-600 dark:bg-violet-500/12 dark:text-violet-400',
-  [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400',
+  [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-500',
+  [CaseStatus.DIRECTOR_REVIEW]: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400',
+  [CaseStatus.ADMIN_FINALIZE]: 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400',
 };
 
 const stepDesc: Record<string, string> = {
@@ -108,7 +108,7 @@ export function SettingsPage() {
 
       <Card className="max-w-2xl space-y-6">
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
             <Clock className="h-[22px] w-[22px]" />
           </span>
           <div>
@@ -170,7 +170,7 @@ export function SettingsPage() {
 
       <Card className="max-w-2xl space-y-5">
         <div className="flex items-start gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
             <Pause className="h-[22px] w-[22px]" />
           </span>
           <div>

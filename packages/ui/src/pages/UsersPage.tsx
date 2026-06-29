@@ -134,7 +134,7 @@ export function UsersPage() {
     { key: 'fullName', header: 'F.I.O', render: (x) => (
       <span className="flex items-center gap-2.5">
         <Avatar u={x} />
-        <span className="font-medium text-gray-800 dark:text-gray-100">{x.fullName}{!x.isActive && <span className="ml-1.5 rounded bg-error-50 px-1.5 py-0.5 text-[10px] font-semibold text-error-600 dark:bg-error-500/12 dark:text-error-500">bloklangan</span>}</span>
+        <span className="font-medium text-gray-800 dark:text-gray-100">{x.fullName}{!x.isActive && <span className="ml-1.5 rounded bg-error-50 px-1.5 py-0.5 text-[10px] font-semibold text-error-600 dark:bg-error-500/10 dark:text-error-500">bloklangan</span>}</span>
       </span>
     ) },
     { key: 'login', header: 'Login', render: (x) => <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">@{x.login}<CopyBtn value={x.login} label="Login" /><CopyBothBtn login={x.login} password={x.plainPassword} /></span> },
@@ -145,7 +145,7 @@ export function UsersPage() {
       <span className="inline-flex items-center justify-end gap-1">
         <button onClick={(e) => { e.stopPropagation(); openEdit(x); }} className="rounded-lg p-1.5 text-gray-500 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-gray-400 dark:hover:bg-white/10" title="Tahrirlash" aria-label="Tahrirlash"><Pencil className="h-4 w-4" /></button>
         <button onClick={(e) => { e.stopPropagation(); setBlockTarget(x); }}
-          className={`rounded-lg p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 ${x.isActive ? 'text-error-600 hover:bg-error-50 dark:text-error-500 dark:hover:bg-error-500/12' : 'text-success-600 hover:bg-success-50 dark:text-success-500 dark:hover:bg-success-500/12'}`}
+          className={`rounded-lg p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 ${x.isActive ? 'text-error-600 hover:bg-error-50 dark:text-error-500 dark:hover:bg-error-500/10' : 'text-success-600 hover:bg-success-50 dark:text-success-500 dark:hover:bg-success-500/10'}`}
           title={x.isActive ? 'Bloklash' : 'Faollashtirish'} aria-label={x.isActive ? 'Bloklash' : 'Faollashtirish'}>
           {x.isActive ? <Lock className="h-4 w-4" /> : <Check className="h-4 w-4" />}
         </button>
@@ -164,7 +164,7 @@ export function UsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><UserAdd className="h-5 w-5" /></span>
+        <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><UserAdd className="h-5 w-5" /></span>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Foydalanuvchilar</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">Boshqaruv: qo‘shish, tahrirlash, bloklash, parol</p>
