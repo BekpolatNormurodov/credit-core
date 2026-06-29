@@ -12,7 +12,7 @@ export function petitionTemplate(c: CaseDocData): TDocumentDefinitions {
     content: [
       orgHeader(c.organization),
       { text: `${c.organization?.directorFull ?? 'Ijrochi direktor'}ga`, alignment: 'right', margin: [0, 0, 0, 12] },
-      { text: "MIKROMOLIYA LINIYASINI OCHISH TO'G'RISIDA XODATAINOMA", style: 'h1', alignment: 'center', margin: [0, 0, 0, 14] },
+      { text: "MIKROMOLIYA LINIYASINI OCHISH TO'G'RISIDA MUROJAATNOMA", style: 'h1', alignment: 'center', margin: [0, 0, 0, 14] },
       { text: `Qarz oluvchi ${c.borrower?.fullName ?? '—'} uchun quyidagi shartlarda mikromoliya liniyasini ochishni so'rayman:`, margin: [0, 0, 0, 8] },
       { table: { widths: [180, '*'], body: [
         kv('Liniya raqami', line?.lineNumber ?? '—'),

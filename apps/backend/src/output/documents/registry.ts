@@ -8,6 +8,6 @@ export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
 
 export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; build: DocTemplate }> = {
   contract: { title: 'Mikroqarz shartnomasi', lang: 'uz', build: contractTemplate },
-  petition: { title: 'Xodatainoma', lang: 'uz', build: petitionTemplate },
+  petition: { title: 'Murojaatnoma', lang: 'uz', build: petitionTemplate },
   creditApplication: { title: 'Kredit arizasi', lang: 'uz', build: creditApplicationTemplate },
 };
