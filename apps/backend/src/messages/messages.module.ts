@@ -45,6 +45,17 @@ function visibleTo(user: RequestUser): Prisma.MessageWhereInput {
   };
 }
 
+/** Thread-identity helpers for case-independent DM + Saved threads. */
+export const dmPairKey = (a: string, b: string) => [a, b].sort().join(':');
+export const dmWhere = (me: string, other: string): Prisma.MessageWhereInput => ({
+  caseId: null,
+  OR: [
+    { senderId: me, toUserId: other },
+    { senderId: other, toUserId: me },
+  ],
+});
+export const savedWhere = (me: string): Prisma.MessageWhereInput => ({ caseId: null, senderId: me, toUserId: me });
+
 function docDto(d: any) {
   return {
     id: d.id,
@@ -91,15 +102,15 @@ class MessagesController {
   @Get('messages/feed')
   async feed(@CurrentUser() user: RequestUser) {
     const msgs = await this.prisma.message.findMany({
-      where: { AND: [{ senderId: { not: user.id } }, visibleTo(user)] },
+      where: { AND: [{ senderId: { not: user.id } }, { caseId: { not: null } }, visibleTo(user)] },
       include: { sender: true, case: { select: { number: true } }, document: true, attachments: true },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
     return msgs.map((m) => ({
       id: m.id,
-      caseId: m.caseId,
-      caseNumber: m.case.number,
+      caseId: m.caseId ?? '',
+      caseNumber: m.case?.number ?? '',
       senderName: m.sender.fullName,
       senderRole: m.sender.role,
       text: m.text,
@@ -130,7 +141,7 @@ class MessagesController {
     });
     const counts = new Map<string, number>();
     for (const m of msgs) {
-      if (!(m.readBy ?? '').split(',').includes(user.id)) counts.set(m.caseId, (counts.get(m.caseId) ?? 0) + 1);
+      if (m.caseId && !(m.readBy ?? '').split(',').includes(user.id)) counts.set(m.caseId, (counts.get(m.caseId) ?? 0) + 1);
     }
     return [...counts.entries()].map(([caseId, count]) => ({ caseId, count }));
   }
@@ -181,7 +192,7 @@ class MessagesController {
       const readers = readersOf(m);
       return {
         id: m.id,
-        caseId: m.caseId,
+        caseId: m.caseId ?? '',
         senderId: m.senderId,
         senderName: m.sender.fullName,
         senderRole: m.sender.role,
@@ -240,6 +251,124 @@ class MessagesController {
       );
     }
     return { id: created.id };
+  }
+
+  // ── DM + Saved threads (case-independent messaging) ──
+
+  /** Map raw messages (with msgInclude) → MessageDto[], marking unread→read for the viewer. */
+  private async hydrate(messages: any[], user: RequestUser): Promise<MessageDto[]> {
+    const toMarkIds = new Set(
+      messages.filter((m) => m.senderId !== user.id && !(m.readBy ?? '').split(',').includes(user.id)).map((m) => m.id),
+    );
+    const readersOf = (m: any): string[] => {
+      const set = new Set<string>((m.readBy ?? '').split(',').filter(Boolean));
+      if (toMarkIds.has(m.id)) set.add(user.id);
+      return [...set].filter((id) => id !== m.senderId);
+    };
+    const idsToResolve = new Set<string>();
+    for (const m of messages) { if (m.toUserId) idsToResolve.add(m.toUserId); for (const r of readersOf(m)) idsToResolve.add(r); }
+    const users = idsToResolve.size
+      ? await this.prisma.user.findMany({ where: { id: { in: [...idsToResolve] } }, select: { id: true, fullName: true } })
+      : [];
+    const nameById = new Map(users.map((u) => [u.id, u.fullName]));
+    if (toMarkIds.size) {
+      await Promise.all(messages.filter((m) => toMarkIds.has(m.id)).map((m) =>
+        this.prisma.message.update({ where: { id: m.id }, data: { readBy: [...(m.readBy ?? '').split(',').filter(Boolean), user.id].join(',') } })));
+    }
+    return messages.map((m) => {
+      const docs = [...(m.document ? [m.document] : []), ...m.attachments];
+      const readers = readersOf(m);
+      return {
+        id: m.id, caseId: m.caseId, senderId: m.senderId, senderName: m.sender.fullName, senderRole: m.sender.role,
+        text: m.text, toRole: m.toRole, toUserId: m.toUserId, toUserName: m.toUserId ? nameById.get(m.toUserId) ?? null : null,
+        mine: m.senderId === user.id, readByNames: readers.map((id) => nameById.get(id)).filter(Boolean) as string[],
+        editable: m.senderId === user.id && readers.length === 0, edited: !!m.editedAt,
+        document: m.document ? docDto(m.document) : null, documents: docs.map(docDto), createdAt: m.createdAt.toISOString(),
+      };
+    });
+  }
+
+  /** Create a message (case, DM or saved) + optional attachments. */
+  private async createMessage(opts: { senderId: string; caseId: string | null; toUserId: string | null; text?: string; files?: Express.Multer.File[]; dir: string }) {
+    const created = await this.prisma.message.create({
+      data: { caseId: opts.caseId, senderId: opts.senderId, text: opts.text || null, toUserId: opts.toUserId, readBy: opts.senderId },
+    });
+    // NOTE: chat attachments require Document.caseId; DM/saved (caseId null) are text-only
+    // in this slice. Making Document.caseId nullable is the follow-up to enable DM/saved files.
+    if (opts.files?.length && opts.caseId) {
+      const caseId = opts.caseId;
+      await Promise.all(opts.files.map(async (file) => {
+        const stored = await this.storage.save(file.buffer, file.originalname, file.mimetype, opts.dir);
+        await this.prisma.document.create({ data: { caseId, messageId: created.id, type: DocumentType.CHAT, fileName: stored.fileName, storagePath: stored.storagePath, mimeType: stored.mimeType, uploadedById: opts.senderId } });
+      }));
+    }
+    return created.id;
+  }
+
+  @Get('dm/:userId/messages')
+  async dmList(@Param('userId') other: string, @CurrentUser() user: RequestUser): Promise<MessageDto[]> {
+    const messages = await this.prisma.message.findMany({ where: dmWhere(user.id, other), include: msgInclude, orderBy: { createdAt: 'asc' } });
+    return this.hydrate(messages, user);
+  }
+
+  @Post('dm/:userId/messages')
+  @UseInterceptors(FilesInterceptor('files', 3))
+  async dmSend(@Param('userId') other: string, @CurrentUser() user: RequestUser, @Body('text') text: string | undefined, @UploadedFiles() files?: Express.Multer.File[]) {
+    const id = await this.createMessage({ senderId: user.id, caseId: null, toUserId: other, text, files, dir: `dm/${dmPairKey(user.id, other)}` });
+    return { id };
+  }
+
+  @Get('saved/messages')
+  async savedList(@CurrentUser() user: RequestUser): Promise<MessageDto[]> {
+    const messages = await this.prisma.message.findMany({ where: savedWhere(user.id), include: msgInclude, orderBy: { createdAt: 'asc' } });
+    return this.hydrate(messages, user);
+  }
+
+  @Post('saved/messages')
+  @UseInterceptors(FilesInterceptor('files', 3))
+  async savedSend(@CurrentUser() user: RequestUser, @Body('text') text: string | undefined, @UploadedFiles() files?: Express.Multer.File[]) {
+    const id = await this.createMessage({ senderId: user.id, caseId: null, toUserId: user.id, text, files, dir: `saved/${user.id}` });
+    return { id };
+  }
+
+  /** Copy a message I can see into my Saved thread (text copied; attachments are a follow-up). */
+  @Post('messages/:id/save-to-saved')
+  async saveToSaved(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    const src = await this.prisma.message.findUnique({ where: { id } });
+    if (!src) throw new NotFoundException('Xabar topilmadi');
+    const visible = src.senderId === user.id || src.toUserId === user.id || (src.toUserId === null && (src.toRole === null || src.toRole === (user.role as Role)));
+    if (!visible) throw new ForbiddenException('Ruxsat yo‘q');
+    const newId = await this.createMessage({ senderId: user.id, caseId: null, toUserId: user.id, text: src.text ?? undefined, dir: `saved/${user.id}` });
+    return { id: newId };
+  }
+
+  /** Unified inbox: Saved (pinned) + DM threads + case threads, newest first. */
+  @Get('conversations')
+  async conversations(@CurrentUser() user: RequestUser) {
+    const flat = await this.prisma.message.findMany({ where: { caseId: null, OR: [{ senderId: user.id }, { toUserId: user.id }] }, orderBy: { createdAt: 'desc' } });
+    const savedMsgs = flat.filter((m) => m.senderId === user.id && m.toUserId === user.id);
+    const saved = { kind: 'saved' as const, key: 'saved', title: 'Saqlangan xabarlar', lastText: savedMsgs[0]?.text ?? null, lastAt: savedMsgs[0]?.createdAt.toISOString() ?? null, unread: 0 };
+    const peers = new Map<string, { lastText: string | null; lastAt: string; unread: number }>();
+    for (const m of flat) {
+      if (m.senderId === user.id && m.toUserId === user.id) continue;
+      const peer = m.senderId === user.id ? m.toUserId : m.senderId;
+      if (!peer) continue;
+      if (!peers.has(peer)) peers.set(peer, { lastText: m.text, lastAt: m.createdAt.toISOString(), unread: 0 });
+      if (m.senderId !== user.id && !(m.readBy ?? '').split(',').includes(user.id)) peers.get(peer)!.unread++;
+    }
+    const peerIds = [...peers.keys()];
+    const peerUsers = peerIds.length ? await this.prisma.user.findMany({ where: { id: { in: peerIds } }, select: { id: true, fullName: true } }) : [];
+    const nameById = new Map(peerUsers.map((u) => [u.id, u.fullName]));
+    const dms = peerIds.map((pid) => ({ kind: 'dm' as const, key: pid, title: nameById.get(pid) ?? 'Foydalanuvchi', ...peers.get(pid)! }));
+    const caseMsgs = await this.prisma.message.findMany({ where: { AND: [{ caseId: { not: null } }, visibleTo(user)] }, include: { case: { select: { number: true } } }, orderBy: { createdAt: 'desc' } });
+    const caseMap = new Map<string, { kind: 'case'; key: string; title: string; lastText: string | null; lastAt: string; unread: number }>();
+    for (const m of caseMsgs) {
+      if (!m.caseId) continue;
+      if (!caseMap.has(m.caseId)) caseMap.set(m.caseId, { kind: 'case', key: m.caseId, title: `Ariza ${m.case?.number ?? ''}`, lastText: m.text, lastAt: m.createdAt.toISOString(), unread: 0 });
+      if (m.senderId !== user.id && !(m.readBy ?? '').split(',').includes(user.id)) caseMap.get(m.caseId)!.unread++;
+    }
+    const rest = [...dms, ...caseMap.values()].sort((a, b) => (b.lastAt ?? '').localeCompare(a.lastAt ?? ''));
+    return [saved, ...rest];
   }
 
   /** Sender-only guard: must own the message and nobody else may have read it. */
