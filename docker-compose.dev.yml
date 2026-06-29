@@ -1,0 +1,73 @@
+# Local DEV infrastructure for THIS machine.
+# Brings up: MySQL (app DB) + Redis + RabbitMQ.
+#
+# NOTE: The app uses MySQL (Prisma). Redis & RabbitMQ are started per request
+# and sit idle/ready for future work — no app code consumes them yet.
+#
+#   App DB:    mysql://root:root@localhost:3307/credit_core
+#   Redis:     redis://localhost:6379
+#   RabbitMQ:  amqp://guest:guest@localhost:5672   (mgmt UI: http://localhost:15672)
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d
+#   docker compose -f docker-compose.dev.yml down        # stop (keeps data)
+#   docker compose -f docker-compose.dev.yml down -v      # stop + wipe volumes
+name: credit-core-dev
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: credit-core-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: credit_core
+    # lower_case_table_names=1 matches Windows/dev MySQL (case-insensitive table names),
+    # so the project's migrations (which mix `Document`/`document` casing) replay cleanly.
+    command: ['--mysql-native-password=ON', '--lower-case-table-names=1']
+    ports:
+      - '3307:3306'   # host 3307 -> container 3306 (3306 is taken by a local MySQL)
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-proot']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: credit-core-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: credit-core-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - '5672:5672'    # AMQP
+      - '15672:15672'  # management UI
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
