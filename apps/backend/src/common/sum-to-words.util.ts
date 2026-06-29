@@ -58,3 +58,13 @@ export function sumToWordsUz(amount: number): string {
   const tiyinStr = String(tiyin).padStart(2, '0');
   return `${capitalized} so'm ${tiyinStr} tiyin`;
 }
+
+const UZ_MONTHS = [
+  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
+  'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr',
+];
+
+/** Format a date as Uzbek words, e.g. 2026-06-25 → "25 iyun 2026 yil" (UTC-based). */
+export function dateToUzbekWords(d: Date): string {
+  return `${d.getUTCDate()} ${UZ_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} yil`;
+}
