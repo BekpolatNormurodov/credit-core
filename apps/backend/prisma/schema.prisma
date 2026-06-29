@@ -327,8 +327,8 @@ model Document {
 
 model Message {
   id          String     @id @default(cuid())
-  case        CreditCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  caseId      String
+  case        CreditCase? @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId      String?
   sender      User       @relation("MessageSender", fields: [senderId], references: [id])
   senderId    String
   text        String?    @db.Text
@@ -342,6 +342,7 @@ model Message {
   createdAt   DateTime   @default(now())
 
   @@index([caseId])
+  @@index([toUserId])
 }
 
 model WorkflowEvent {
