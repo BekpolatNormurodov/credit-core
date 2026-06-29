@@ -63,6 +63,7 @@ http.interceptors.request.use((config) => {
 });
 
 export type CaseDocumentMeta = { key: string; title: string; lang: 'uz' | 'ru'; available: boolean; watermarked: boolean };
+export type Conversation = { kind: 'saved' | 'dm' | 'case'; key: string; title: string; lastText: string | null; lastAt: string | null; unread: number };
 
 export const api = {
   async login(login: string, password: string): Promise<LoginResponse> {
@@ -257,6 +258,33 @@ export const api = {
   async directory(role?: Role, q?: string): Promise<DirectoryUser[]> {
     const { data } = await http.get<DirectoryUser[]>('/directory', { params: { role, q } });
     return data;
+  },
+
+  // ── Unified inbox: DM + Saved threads (case-independent) ──
+  async conversations(): Promise<Conversation[]> {
+    const { data } = await http.get<Conversation[]>('/conversations');
+    return data;
+  },
+  async dmMessages(userId: string): Promise<MessageDto[]> {
+    const { data } = await http.get<MessageDto[]>(`/dm/${userId}/messages`);
+    return data;
+  },
+  async sendDm(userId: string, text: string): Promise<void> {
+    const fd = new FormData();
+    fd.append('text', text);
+    await http.post(`/dm/${userId}/messages`, fd);
+  },
+  async savedMessages(): Promise<MessageDto[]> {
+    const { data } = await http.get<MessageDto[]>('/saved/messages');
+    return data;
+  },
+  async sendSaved(text: string): Promise<void> {
+    const fd = new FormData();
+    fd.append('text', text);
+    await http.post('/saved/messages', fd);
+  },
+  async saveToSaved(msgId: string): Promise<void> {
+    await http.post(`/messages/${msgId}/save-to-saved`);
   },
 
   // ── Admin: SLA deadline settings (business days per step) ──
