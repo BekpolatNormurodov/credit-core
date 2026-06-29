@@ -1,0 +1,13 @@
+import type { TDocumentDefinitions } from 'pdfmake/interfaces';
+import { CaseDocData } from './case-document.loader';
+import { contractTemplate } from './templates/contract';
+import { petitionTemplate } from './templates/petition';
+import { creditApplicationTemplate } from './templates/credit-application';
+
+export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
+
+export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; build: DocTemplate }> = {
+  contract: { title: 'Mikroqarz shartnomasi', lang: 'uz', build: contractTemplate },
+  petition: { title: 'Xodatainoma', lang: 'uz', build: petitionTemplate },
+  creditApplication: { title: 'Kredit arizasi', lang: 'uz', build: creditApplicationTemplate },
+};
