@@ -142,6 +142,7 @@ class StatsController {
         status: c.status,
         amount: c.amount ? Number(c.amount) : null,
         borrowerName: c.borrower?.fullName ?? null,
+        createdByName: null,
         branchSymbol: c.branch?.symbol ?? null,
         stepDeadlineAt: c.stepDeadlineAt ? c.stepDeadlineAt.toISOString() : null,
         updatedAt: c.updatedAt.toISOString(),

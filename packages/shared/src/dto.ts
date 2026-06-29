@@ -220,6 +220,7 @@ export interface CreditCaseListItem {
   amount: number | null;
   borrowerName: string | null;
   branchSymbol: string | null;
+  createdByName: string | null;
   /** SLA deadline for the current step (null when the step has no timer). */
   stepDeadlineAt: string | null;
   updatedAt: string;

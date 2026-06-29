@@ -137,7 +137,7 @@ export class CreditCasesService {
 
     const cases = await this.prisma.creditCase.findMany({
       where,
-      include: { branch: true, borrower: true },
+      include: { branch: true, borrower: true, createdBy: true },
       orderBy: { updatedAt: 'desc' },
     });
     return cases.map(toListItem);
@@ -185,7 +185,7 @@ export class CreditCasesService {
           },
         ],
       },
-      include: { branch: true, borrower: true },
+      include: { branch: true, borrower: true, createdBy: true },
       orderBy: { updatedAt: 'desc' },
       take: 8,
     });

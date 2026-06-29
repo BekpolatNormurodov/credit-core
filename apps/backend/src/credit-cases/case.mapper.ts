@@ -122,7 +122,7 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
 }
 
 export function toListItem(
-  c: Prisma.CreditCaseGetPayload<{ include: { branch: true; borrower: true } }>,
+  c: Prisma.CreditCaseGetPayload<{ include: { branch: true; borrower: true; createdBy: true } }>,
 ): CreditCaseListItem {
   return {
     id: c.id,
@@ -132,6 +132,7 @@ export function toListItem(
     amount: num(c.amount),
     borrowerName: c.borrower?.fullName ?? null,
     branchSymbol: c.branch?.symbol ?? null,
+    createdByName: c.createdBy?.fullName ?? null,
     stepDeadlineAt: iso(c.stepDeadlineAt),
     updatedAt: c.updatedAt.toISOString(),
   };

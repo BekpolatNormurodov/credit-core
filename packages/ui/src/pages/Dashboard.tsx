@@ -44,6 +44,7 @@ export function Dashboard() {
     { key: 'borrowerName', header: 'Qarz oluvchi', sortable: true, render: (c) => c.borrowerName ?? '—' },
     { key: 'product', header: 'Mahsulot', sortable: true, sortValue: (c) => PRODUCT_LABEL[c.productType], render: (c) => PRODUCT_LABEL[c.productType] },
     { key: 'branchSymbol', header: 'Filial', sortable: true, render: (c) => c.branchSymbol ?? '—' },
+    { key: 'createdByName', header: 'Xodim', sortable: true, render: (c) => <span className="text-gray-600 dark:text-gray-300">{c.createdByName ?? '—'}</span> },
     { key: 'amount', header: 'Summa', align: 'right', className: 'nums font-medium', sortable: true, sortValue: (c) => c.amount ?? 0, render: (c) => formatMoney(c.amount) },
     {
       key: 'status', header: 'Holat', sortable: true, sortValue: (c) => c.status,
@@ -53,6 +54,10 @@ export function Dashboard() {
           <DeadlineBadge deadlineAt={c.stepDeadlineAt} compact />
         </div>
       ),
+    },
+    {
+      key: 'updatedAt', header: 'Oxirgi o‘zgarish', align: 'right', sortable: true, sortValue: (c) => c.updatedAt,
+      render: (c) => <span className="whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">{new Date(c.updatedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>,
     },
   ];
 
