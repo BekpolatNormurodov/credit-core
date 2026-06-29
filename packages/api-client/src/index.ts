@@ -208,11 +208,11 @@ export const api = {
     const { data } = await http.get('/users');
     return data as any[];
   },
-  async createUser(payload: { fullName: string; login: string; password: string; role: Role; branchId?: string; moderatedBranchIds?: string[] }) {
+  async createUser(payload: { fullName: string; login: string; password: string; role: Role; phone?: string; branchId?: string; moderatedBranchIds?: string[] }) {
     const { data } = await http.post('/users', payload);
     return data;
   },
-  async updateUser(id: string, payload: { fullName?: string; role?: Role; branchId?: string; moderatedBranchIds?: string[]; isActive?: boolean; password?: string }) {
+  async updateUser(id: string, payload: { fullName?: string; role?: Role; phone?: string; branchId?: string; moderatedBranchIds?: string[]; isActive?: boolean; password?: string }) {
     const { data } = await http.put(`/users/${id}`, payload);
     return data;
   },

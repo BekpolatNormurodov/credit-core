@@ -12,11 +12,11 @@ import { useAuth } from '../lib/auth';
 
 const ROLES: Role[] = [Role.OPERATOR, Role.MODERATOR, Role.DIRECTOR, Role.ADMIN];
 const roleTone: Record<Role, string> = {
-  [Role.OPERATOR]: 'bg-brand-600', [Role.MODERATOR]: 'bg-warning-600', [Role.DIRECTOR]: 'bg-violet-600', [Role.ADMIN]: 'bg-navy-800',
+  [Role.OPERATOR]: 'bg-brand-600', [Role.MODERATOR]: 'bg-warning-600', [Role.DIRECTOR]: 'bg-violet-600', [Role.ADMIN]: 'bg-gray-800 dark:bg-gray-600',
 };
 const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
-interface UserRow { id: string; fullName: string; login: string; role: Role; isActive: boolean; plainPassword?: string | null; avatarPath?: string | null; branchId?: string | null; branch?: { name: string } | null; moderatedBranches?: { id: string; name: string }[] }
+interface UserRow { id: string; fullName: string; login: string; phone?: string | null; role: Role; isActive: boolean; plainPassword?: string | null; avatarPath?: string | null; branchId?: string | null; branch?: { name: string } | null; moderatedBranches?: { id: string; name: string }[] }
 
 function Avatar({ u, size = 'h-9 w-9' }: { u: UserRow; size?: string }) {
   if (u.avatarPath) return <img src={userAvatarUrl(u.id)} alt={u.fullName} className={`${size} shrink-0 rounded-full object-cover`} />;
@@ -29,6 +29,18 @@ function CopyBtn({ value, label }: { value: string; label: string }) {
     <button onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(value); toast.success('Nusxalandi', `${label}: ${value}`); }}
       className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:bg-white/10 dark:hover:text-gray-100" aria-label="Nusxalash">
       <CopyIcon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function CopyBothBtn({ login, password }: { login: string; password?: string | null }) {
+  const toast = useToast();
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(password ? `${login}\n${password}` : login); toast.success('Nusxalandi', 'Login va parol'); }}
+      title="Login va parolni birga nusxalash" aria-label="Login va parolni nusxalash"
+      className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:bg-white/10 dark:hover:text-gray-100">
+      L+P
     </button>
   );
 }
@@ -47,8 +59,8 @@ function PasswordCell({ value }: { value?: string | null }) {
   );
 }
 
-type FormState = { fullName: string; login: string; password: string; role: Role; branchId: string; moderatedBranchIds: string[] };
-const emptyForm: FormState = { fullName: '', login: '', password: '', role: Role.OPERATOR, branchId: '', moderatedBranchIds: [] };
+type FormState = { fullName: string; login: string; phone: string; password: string; role: Role; branchId: string; moderatedBranchIds: string[] };
+const emptyForm: FormState = { fullName: '', login: '', phone: '', password: '', role: Role.OPERATOR, branchId: '', moderatedBranchIds: [] };
 
 export function UsersPage() {
   const qc = useQueryClient();
@@ -71,7 +83,7 @@ export function UsersPage() {
   const openCreate = () => { setForm(emptyForm); setAvatar(null); setModal({ mode: 'create' }); };
   const openEdit = (u: UserRow) => {
     setForm({
-      fullName: u.fullName, login: u.login, password: '', role: u.role,
+      fullName: u.fullName, login: u.login, phone: u.phone ?? '', password: '', role: u.role,
       branchId: u.branchId ?? '',
       moderatedBranchIds: u.moderatedBranches?.map((b) => b.id) ?? [],
     });
@@ -87,6 +99,7 @@ export function UsersPage() {
       if (modal?.mode === 'edit') {
         const updated = await api.updateUser(modal.id, {
           fullName: form.fullName, role: form.role,
+          phone: form.phone || undefined,
           branchId: isOp ? form.branchId : '', // '' clears branch for moderator/director/admin
           moderatedBranchIds,
           password: form.password || undefined,
@@ -96,6 +109,7 @@ export function UsersPage() {
       }
       const created = await api.createUser({
         fullName: form.fullName, login: form.login, password: form.password, role: form.role,
+        phone: form.phone || undefined,
         branchId: isOp ? form.branchId || undefined : undefined,
         moderatedBranchIds,
       });
@@ -123,7 +137,7 @@ export function UsersPage() {
         <span className="font-medium text-gray-800 dark:text-gray-100">{x.fullName}{!x.isActive && <span className="ml-1.5 rounded bg-error-50 px-1.5 py-0.5 text-[10px] font-semibold text-error-600 dark:bg-error-500/12 dark:text-error-500">bloklangan</span>}</span>
       </span>
     ) },
-    { key: 'login', header: 'Login', render: (x) => <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">@{x.login}<CopyBtn value={x.login} label="Login" /></span> },
+    { key: 'login', header: 'Login', render: (x) => <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">@{x.login}<CopyBtn value={x.login} label="Login" /><CopyBothBtn login={x.login} password={x.plainPassword} /></span> },
     { key: 'password', header: 'Parol', render: (x) => <PasswordCell value={x.plainPassword} /> },
     { key: 'role', header: 'Rol', render: (x) => <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-300">{ROLE_LABEL[x.role]}</span> },
     { key: 'branch', header: 'Filial', render: (x) => x.role === Role.MODERATOR ? (x.moderatedBranches?.map((b) => b.name).join(', ') || '—') : (x.branch?.name ?? '—') },
@@ -185,6 +199,7 @@ export function UsersPage() {
             </div>
           </div>
           <Field label="F.I.O" required icon={UserIcon}><Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} autoFocus /></Field>
+          <Field label="Telefon"><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+998 90 123 45 67" /></Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Login" required icon={Hashtag} hint={isEdit ? 'login o‘zgartirilmaydi' : undefined}>
               <Input value={form.login} onChange={(e) => setForm({ ...form, login: e.target.value })} disabled={isEdit} />

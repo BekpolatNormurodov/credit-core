@@ -34,6 +34,7 @@ class CreateUserDto {
   @IsString() @MinLength(3) login!: string;
   @IsString() @MinLength(4) password!: string;
   @IsEnum(Role) role!: Role;
+  @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsString() branchId?: string; // operator: single branch
   @IsOptional() @IsArray() @IsString({ each: true }) moderatedBranchIds?: string[]; // moderator: many
 }
@@ -41,6 +42,7 @@ class CreateUserDto {
 class UpdateUserDto {
   @IsOptional() @IsString() fullName?: string;
   @IsOptional() @IsEnum(Role) role?: Role;
+  @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsString() branchId?: string;
   @IsOptional() @IsArray() @IsString({ each: true }) moderatedBranchIds?: string[];
   @IsOptional() @IsBoolean() isActive?: boolean;
@@ -53,6 +55,7 @@ const userSelect = {
   id: true,
   fullName: true,
   login: true,
+  phone: true,
   plainPassword: true,
   avatarPath: true,
   role: true,
@@ -86,6 +89,7 @@ class UsersController {
         fullName: dto.fullName,
         login: dto.login,
         role: dto.role,
+        phone: dto.phone ?? null,
         // Operator → one personal branch; moderator → many moderatedBranches; director/admin → none.
         branchId: isModerator ? null : dto.branchId ?? null,
         moderatedBranches: isModerator && dto.moderatedBranchIds?.length
@@ -117,6 +121,7 @@ class UsersController {
       fullName: dto.fullName,
       role: dto.role,
       isActive: dto.isActive,
+      phone: dto.phone,
     };
     if (dto.role === Role.MODERATOR) {
       data.branchId = null; // moderator has no personal branch
