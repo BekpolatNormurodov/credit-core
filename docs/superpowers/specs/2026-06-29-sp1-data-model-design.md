@@ -15,10 +15,15 @@ only — the existing workflow (`CreditCase` status machine, SLA timers, chat, d
 
 **In scope (this spec):** Organization config; Borrower/Collateral/CollateralOwner field
 extensions; new models CreditLine, Tranche, PaymentSchedule, Installment, InsurancePolicy,
-Employment, Affordability, CreditHistory, ScoringResult, ScoringFactor; new enums; one migration.
+Employment, Affordability, CreditHistory, ScoringResult, ScoringFactor, IncomeCertificate,
+SalaryMonth; new enums; one migration.
 
-**Out of scope (later sub-projects):** MonitoringAct, ClaimLetter, IncomeCertificate/SalaryMonth
-(SP-6 generation); the parsing logic (SP-3); scoring/schedule computation (SP-4/SP-5); any UI.
+**Out of scope (later sub-projects):** MonitoringAct, ClaimLetter (post-finalization servicing/
+collections — added with their own sub-project); the parsing logic (SP-3); scoring/schedule
+computation (SP-4/SP-5); any UI.
+
+> IncomeCertificate/SalaryMonth were pulled into SP-1 (decision 2026-06-29) so SP-6 can generate the
+> Справка income-certificate document; MonitoringAct/ClaimLetter stay deferred.
 
 ## 3. Design decisions
 
@@ -265,6 +270,31 @@ model ScoringFactor {
 
   @@index([resultId])
 }
+
+/// Income certificate (Справка) — employer salary statement; 12 months → average net income.
+model IncomeCertificate {
+  id            String        @id @default(cuid())
+  case          CreditCase    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId        String        @unique
+  employer      String?
+  position      String?
+  certNo        String?
+  certDate      DateTime?
+  avgMonthlyNet Decimal?      @db.Decimal(18, 2) // = SUM(net)/12
+  months        SalaryMonth[]
+}
+
+model SalaryMonth {
+  id            String            @id @default(cuid())
+  certificate   IncomeCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+  certificateId String
+  monthIndex    Int               // 1..12
+  gross         Decimal?          @db.Decimal(18, 2)
+  tax           Decimal?          @db.Decimal(18, 2)
+  net           Decimal?          @db.Decimal(18, 2)
+
+  @@index([certificateId])
+}
 ```
 
 ## 6. Extensions to existing models
@@ -272,11 +302,12 @@ model ScoringFactor {
 `CreditCase` — add the back-relations (additive; no field removals):
 ```prisma
   // new SP-1 relations
-  creditLine    CreditLine?
-  employment    Employment?
-  affordability Affordability?
-  creditHistory CreditHistory?
-  scoring       ScoringResult?
+  creditLine        CreditLine?
+  employment        Employment?
+  affordability     Affordability?
+  creditHistory     CreditHistory?
+  scoring           ScoringResult?
+  incomeCertificate IncomeCertificate?
 ```
 
 `Borrower` — add fields (existing `fullName/passportSeries/passportNumber/pinfl/birthDate/address/phone` kept):

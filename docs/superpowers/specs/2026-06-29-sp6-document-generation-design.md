@@ -14,8 +14,9 @@ approves**, and render clean afterwards.
 
 ## 2. Scope
 
-**In scope:** the 15 documents (§5); on-demand PDF rendering (no persistence); conditional
-watermark; list + view + download API; a "Hujjatlar" panel in `CaseView`; Cyrillic/Uzbek fonts.
+**In scope:** 13 of the 15 documents (§5; the 2 servicing/collections docs — monitoring act, claim
+letter — land in SP-8); on-demand PDF rendering (no persistence); conditional watermark; list + view
++ download API; a "Hujjatlar" panel in `CaseView`; Cyrillic/Uzbek fonts.
 
 **Out of scope:** editable Word/Excel output (PDF only); persisting generated files; e-signatures;
 the Excel-workbook export (that is SP-7); data entry for the documents (SP-1/SP-3 own that).
@@ -93,29 +94,26 @@ Extend the existing **`output`** module (already renders the valuation-act PDF v
 | `creditApplication` | Кредитная заявка | UZ | Org, Borrower, CreditLine, Tranche | SP-1✓ |
 | `coverPage` | обложка | UZ | Organization, Borrower, CreditLine | SP-1✓ |
 | `fileChecklist` | перечень | UZ | static packet list + case meta | SP-1✓ |
-| `incomeCertificate` | Справка | RU | **IncomeCertificate + SalaryMonth** | model-gap |
+| `incomeCertificate` | Справка | RU | IncomeCertificate + SalaryMonth | SP-1✓ (pulled into SP-1) |
 | `monitoringAct` | Акт мониторинга | UZ | **MonitoringAct** (+180/+360/+540) | model-gap |
 | `claimLetter` | Претензион | RU | **ClaimLetter** | model-gap |
 
-**12 of 15 render off SP-1 as specced. 3 (`incomeCertificate`, `monitoringAct`, `claimLetter`) need
-models SP-1 deferred.** See §7.
+**13 of 15 render off SP-1 as specced. 2 (`monitoringAct`, `claimLetter`) need models still deferred.**
+See §7.
 
 ## 6. Dependencies & build order
 - **SP-1** (data model) — documents read its entities. Must be implemented first.
 - **SP-2** (number/date → words) — contracts/orders need amount & date in words (RU + UZ).
 - SP-6 is implemented after SP-1 + SP-2. The 12 SP-1✓ documents can ship before the 3 model-gap ones.
 
-## 7. Open question — the 3 model-gap documents
-To deliver all 15, the deferred models are needed:
-- `IncomeCertificate` + `SalaryMonth` (Справка — 12-month salary).
-- `MonitoringAct` (Акт мониторинга — post-disbursement, +180/+360/+540 days).
-- `ClaimLetter` (Претензион — collections / on default).
+## 7. The 2 deferred documents (resolved 2026-06-29)
+- ✅ `IncomeCertificate` + `SalaryMonth` (Справка) — **pulled into SP-1**, so the income certificate
+  ships with the other origination documents.
+- ⏳ `MonitoringAct` (Акт мониторинга — +180/+360/+540 days) and `ClaimLetter` (Претензион) — these
+  are **post-finalization** servicing/collections documents. Their models + templates land in a
+  separate later sub-project (call it **SP-8 — servicing & collections**), not in SP-6's first cut.
 
-**Decision needed at review:** (a) extend SP-1 now to include these three, or (b) ship SP-6 with the
-12 origination documents first and add the 3 in a fast-follow once their models land. Note that
-monitoring/claim are **post-finalization** documents (they belong to servicing/collections, not
-origination), so option (b) is the natural fit; income-certificate is origination data and is the
-strongest candidate to pull into SP-1.
+So SP-6 ships **13 documents** off SP-1; `monitoringAct` + `claimLetter` follow in SP-8.
 
 ## 8. Testing / verification
 - Each template renders to a non-empty valid PDF from the **TADJIYEV fixture** (SP-1 §8 fixture).
