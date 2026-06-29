@@ -269,18 +269,20 @@ export const api = {
     const { data } = await http.get<MessageDto[]>(`/dm/${userId}/messages`);
     return data;
   },
-  async sendDm(userId: string, text: string): Promise<void> {
+  async sendDm(userId: string, text: string, files?: File[]): Promise<void> {
     const fd = new FormData();
-    fd.append('text', text);
+    if (text) fd.append('text', text);
+    (files ?? []).slice(0, 3).forEach((f) => fd.append('files', f));
     await http.post(`/dm/${userId}/messages`, fd);
   },
   async savedMessages(): Promise<MessageDto[]> {
     const { data } = await http.get<MessageDto[]>('/saved/messages');
     return data;
   },
-  async sendSaved(text: string): Promise<void> {
+  async sendSaved(text: string, files?: File[]): Promise<void> {
     const fd = new FormData();
-    fd.append('text', text);
+    if (text) fd.append('text', text);
+    (files ?? []).slice(0, 3).forEach((f) => fd.append('files', f));
     await http.post('/saved/messages', fd);
   },
   async saveToSaved(msgId: string): Promise<void> {

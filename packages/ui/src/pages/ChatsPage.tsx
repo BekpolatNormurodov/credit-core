@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Messages, Plus, Send } from '../lib/icons';
-import { api, type Conversation } from '@credit-core/api-client';
+import { Messages, Plus, Send, Paperclip, X, Download } from '../lib/icons';
+import { api, documentInlineUrl, downloadBlob, type Conversation } from '@credit-core/api-client';
 import { DirectoryUser, MessageDto } from '@credit-core/shared';
 import { Card, Skeleton, Button, Input } from '../components/primitives';
 import { CaseChat } from '../components/CaseChat';
@@ -95,40 +95,71 @@ function NewDm({ onPick }: { onPick: (u: DirectoryUser) => void }) {
 function SimpleThread({ selected }: { selected: Selected }) {
   const qc = useQueryClient();
   const [text, setText] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const fileRef = useRef<HTMLInputElement>(null);
   const isSaved = selected.kind === 'saved';
   const key = isSaved ? ['saved'] : ['dm', selected.key];
   const { data: msgs } = useQuery({ queryKey: key, queryFn: () => (isSaved ? api.savedMessages() : api.dmMessages(selected.key)), refetchInterval: 8_000 });
   const refetch = () => { qc.invalidateQueries({ queryKey: key }); qc.invalidateQueries({ queryKey: ['conversations'] }); };
   const send = async () => {
     const t = text.trim();
-    if (!t) return;
-    setText('');
-    if (isSaved) await api.sendSaved(t); else await api.sendDm(selected.key, t);
+    if (!t && files.length === 0) return;
+    const fs = files;
+    setText(''); setFiles([]);
+    if (isSaved) await api.sendSaved(t, fs); else await api.sendDm(selected.key, t, fs);
     refetch();
   };
   const save = async (id: string) => { await api.saveToSaved(id); qc.invalidateQueries({ queryKey: ['conversations'] }); };
+  const time = (iso: string) => new Date(iso).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   return (
     <div className="flex h-[28rem] flex-col">
       <div className="mb-3 border-b border-gray-200 pb-3 dark:border-white/10">
         <p className="font-semibold text-gray-800 dark:text-white">{isSaved ? '★ Saqlangan xabarlar' : selected.title}</p>
       </div>
       <div className="flex-1 space-y-2 overflow-y-auto pr-1">
-        {(msgs ?? []).map((m: MessageDto) => (
-          <div key={m.id} className={cn('flex', m.mine ? 'justify-end' : 'justify-start')}>
-            <div className={cn('group max-w-[80%] rounded-2xl px-3 py-2 text-sm', m.mine ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-100')}>
-              {!m.mine && !isSaved && <p className="mb-0.5 text-xs font-medium opacity-70">{m.senderName}</p>}
-              <p className="whitespace-pre-wrap break-words">{m.text}</p>
-              {!isSaved && (
-                <button onClick={() => save(m.id)} className="mt-1 block text-[10px] underline opacity-0 transition group-hover:opacity-70">Saqlanganlarga</button>
-              )}
+        {(msgs ?? []).map((m: MessageDto) => {
+          const imgs = (m.documents ?? []).filter((d) => (d.mimeType ?? '').startsWith('image/'));
+          const otherDocs = (m.documents ?? []).filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+          return (
+            <div key={m.id} className={cn('flex', m.mine ? 'justify-end' : 'justify-start')}>
+              <div className={cn('group max-w-[80%] rounded-2xl px-3 py-2 text-sm', m.mine ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-800 dark:bg-white/10 dark:text-gray-100')}>
+                {!m.mine && !isSaved && <p className="mb-0.5 text-xs font-medium opacity-70">{m.senderName}</p>}
+                {m.text && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
+                {imgs.length > 0 && (
+                  <div className="mt-1 grid grid-cols-2 gap-1">
+                    {imgs.map((d) => <img key={d.id} src={documentInlineUrl(d.id)} alt={d.fileName} className="h-24 w-full cursor-pointer rounded-lg object-cover" onClick={() => window.open(documentInlineUrl(d.id), '_blank', 'noopener')} />)}
+                  </div>
+                )}
+                {otherDocs.map((d) => (
+                  <button key={d.id} onClick={async () => downloadBlob(await api.downloadDocument(d.id), d.fileName)} className="mt-1 flex items-center gap-1.5 rounded-lg bg-black/10 px-2 py-1 text-xs hover:bg-black/20 dark:bg-white/10">
+                    <Download className="h-3.5 w-3.5" /> <span className="max-w-[12rem] truncate">{d.fileName}</span>
+                  </button>
+                ))}
+                <div className="mt-1 flex items-center gap-2">
+                  <span className="text-[10px] opacity-60">{time(m.createdAt)}{m.edited ? ' · tahrirlandi' : ''}</span>
+                  {!isSaved && <button onClick={() => save(m.id)} className="text-[10px] underline opacity-0 transition group-hover:opacity-70">Saqlanganlarga</button>}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {!msgs?.length && <p className="py-10 text-center text-sm text-gray-400">Xabar yo‘q</p>}
       </div>
+      {files.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {files.map((f, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-200">
+              <span className="max-w-[10rem] truncate">{f.name}</span>
+              <button onClick={() => setFiles(files.filter((_, x) => x !== i))} aria-label="Olib tashlash"><X className="h-3 w-3" /></button>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="mt-3 flex gap-2">
+        <input ref={fileRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { setFiles((p) => [...p, ...Array.from(e.target.files ?? [])].slice(0, 3)); e.target.value = ''; }} />
+        <Button variant="ghost" className="px-2.5" onClick={() => fileRef.current?.click()} aria-label="Fayl biriktirish"><Paperclip className="h-4 w-4" /></Button>
         <Input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }} placeholder="Xabar yozing…" />
-        <Button onClick={send} disabled={!text.trim()}><Send className="h-4 w-4" /></Button>
+        <Button onClick={send} disabled={!text.trim() && files.length === 0}><Send className="h-4 w-4" /></Button>
       </div>
     </div>
   );
