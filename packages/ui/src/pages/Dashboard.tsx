@@ -19,7 +19,6 @@ export function Dashboard() {
   const isOperator = user?.role === Role.OPERATOR;
   const canCreate = user?.role === Role.OPERATOR || user?.role === Role.ADMIN;
   const newOpen = canCreate && params.get('new') === '1';
-  const openNew = () => setParams({ new: '1' });
   const closeNew = () => setParams({});
   const { data: cases, isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => api.cases(false) });
   const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: () => api.stats() });
@@ -73,7 +72,7 @@ export function Dashboard() {
             {!exporting && <FileSpreadsheet className="h-4 w-4" />} Excelga chiqarish
           </Button>
           {canCreate && (
-            <Button onClick={openNew}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
+            <Button onClick={() => nav('/cases/new')}><FilePlus2 className="h-4 w-4" /> Yangi ariza</Button>
           )}
         </div>
       </div>

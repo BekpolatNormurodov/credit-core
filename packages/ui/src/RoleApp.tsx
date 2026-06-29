@@ -24,6 +24,7 @@ import { Button } from './components/primitives';
 import { Dashboard } from './pages/Dashboard';
 import { CaseForm } from './pages/CaseForm';
 import { CaseView } from './pages/CaseView';
+import { OriginationWizard } from './pages/origination/OriginationWizard';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CreditCalculator } from './pages/CreditCalculator';
@@ -71,7 +72,8 @@ function Shell({ role, title }: { role: Role; title: string }) {
     <AppShell title={title} nav={navFor(role, t)}>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/new" element={<Navigate to="/?new=1" replace />} />}
+        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/new" element={<OriginationWizard />} />}
+        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/:id/origination" element={<OriginationWizard />} />}
         {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/:id/edit" element={<CaseForm />} />}
         <Route path="/cases/:id" element={<CaseView />} />
         <Route path="/calculator" element={<CreditCalculator />} />

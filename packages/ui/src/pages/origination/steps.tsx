@@ -1,0 +1,223 @@
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@credit-core/api-client';
+import {
+  SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
+  type UpsertCasePayload,
+} from '@credit-core/shared';
+import { Button, Card, Field, Input } from '../../components/primitives';
+import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/forms';
+import { Toggle } from '../../components/Switches';
+import { House, Car } from '../../lib/icons';
+import { formatMoney } from '../../lib/cn';
+import { CollateralCard } from '../CaseForm';
+import type { OriginationForm } from './useOriginationForm';
+
+const numv = (s: string): number | null => (s === '' ? null : Number(s));
+const opt = (vals: string[]) => vals.map((v) => ({ value: v, label: v }));
+
+type Borrower = UpsertCasePayload['borrower'];
+type Emp = NonNullable<UpsertCasePayload['employment']>;
+type Aff = NonNullable<UpsertCasePayload['affordability']>;
+type Line = NonNullable<UpsertCasePayload['creditLine']>;
+type Tr = NonNullable<NonNullable<UpsertCasePayload['creditLine']>['tranche']>;
+type Ins = NonNullable<NonNullable<UpsertCasePayload['creditLine']>['insurance']>;
+type Hist = NonNullable<UpsertCasePayload['creditHistory']>;
+
+/** Step 1 — Qarz oluvchi: identity + demographics. */
+export function Step1({ f }: { f: OriginationForm }) {
+  const b = f.form.borrower;
+  const set = (p: Partial<Borrower>) => f.setBorrower(p);
+  return (
+    <Card className="space-y-4">
+      <h2 className="font-semibold text-gray-800 dark:text-white">Qarz oluvchi</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="F.I.O" required error={f.attempted ? f.errors.fullName : undefined}><Input value={b.fullName} onChange={(e) => set({ fullName: e.target.value })} /></Field>
+        <Field label="PINFL"><Input inputMode="numeric" maxLength={14} value={b.pinfl ?? ''} onChange={(e) => set({ pinfl: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></Field>
+        <Field label="INN (STIR)"><Input value={b.inn ?? ''} onChange={(e) => set({ inn: e.target.value })} /></Field>
+        <Field label="Pasport seriya"><Input maxLength={2} value={b.passportSeries ?? ''} onChange={(e) => set({ passportSeries: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2) })} placeholder="AA" /></Field>
+        <Field label="Pasport raqami"><Input inputMode="numeric" maxLength={7} value={b.passportNumber ?? ''} onChange={(e) => set({ passportNumber: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></Field>
+        <Field label="Jinsi"><Select value={(b.gender ?? '') as 'MALE' | 'FEMALE' | ''} onChange={(v) => set({ gender: v })} options={[{ value: 'MALE', label: 'Erkak' }, { value: 'FEMALE', label: 'Ayol' }]} /></Field>
+        <Field label="Fuqarolik"><Input value={b.citizenship ?? ''} onChange={(e) => set({ citizenship: e.target.value })} placeholder="Ўзбекистон Республикаси" /></Field>
+        <Field label="Tug‘ilgan joy"><Input value={b.placeOfBirth ?? ''} onChange={(e) => set({ placeOfBirth: e.target.value })} /></Field>
+        <Field label="Tug‘ilgan sana"><DatePicker value={b.birthDate ?? null} onChange={(iso) => set({ birthDate: iso })} /></Field>
+        <Field label="Avvalgi F.I.O"><Input value={b.previousName ?? ''} onChange={(e) => set({ previousName: e.target.value })} placeholder="yo‘q" /></Field>
+        <Field label="Pasport kim bergan"><Input value={b.passportIssuer ?? ''} onChange={(e) => set({ passportIssuer: e.target.value })} /></Field>
+        <Field label="Berilgan sana"><DatePicker value={b.passportIssueDate ?? null} onChange={(iso) => set({ passportIssueDate: iso })} /></Field>
+        <Field label="Amal qilish muddati"><DatePicker value={b.passportExpiry ?? null} onChange={(iso) => set({ passportExpiry: iso })} /></Field>
+        <Field label="Telefon"><PhoneInput value={b.phone ?? null} onChange={(v) => set({ phone: v })} /></Field>
+        <Field label="Oilaviy holat"><Select value={(b.maritalStatus ?? '') as string} onChange={(v) => set({ maritalStatus: v })} options={opt(['турмуш курган', 'ажрашган', 'бўйдоқ', 'бева'])} /></Field>
+        <Field label="Oila a'zolari soni"><Input type="number" value={b.familySize ?? ''} onChange={(e) => set({ familySize: numv(e.target.value) })} /></Field>
+        <Field label="Bolalar soni"><Input type="number" value={b.childrenCount ?? ''} onChange={(e) => set({ childrenCount: numv(e.target.value) })} /></Field>
+        <Field label="Ma'lumoti"><Select value={(b.education ?? '') as string} onChange={(v) => set({ education: v })} options={opt(['олий', 'урта махсус', 'урта'])} /></Field>
+        <Field label="Yashash davomiyligi"><Select value={(b.residenceDuration ?? '') as string} onChange={(v) => set({ residenceDuration: v })} options={opt(['до 3 лет', '1-5 лет', '5-10 лет', 'иное'])} /></Field>
+        <Field label="Uy egaligi"><Select value={(b.ownsHome ?? '') as string} onChange={(v) => set({ ownsHome: v })} options={opt(['мулкий хукук', 'ижара/ётокхона', 'иш берувчи берган'])} /></Field>
+        <Field label="Depozit darajasi"><Select value={(b.depositsBand ?? '') as string} onChange={(v) => set({ depositsBand: v })} options={opt(['мавжуд эмас', '500$ кам', '500-1000$', '1000-3000$', '3000$+'])} /></Field>
+      </div>
+      <div className="grid gap-4 border-t border-gray-200 pt-4 dark:border-gray-800 sm:grid-cols-2">
+        <Field label="Propiska manzili"><Input value={b.regAddress ?? ''} onChange={(e) => set({ regAddress: e.target.value })} /></Field>
+        <Field label="Propiska orientiri"><Input value={b.regLandmark ?? ''} onChange={(e) => set({ regLandmark: e.target.value })} /></Field>
+        <Field label="Faktik manzil"><Input value={b.actualAddress ?? ''} onChange={(e) => set({ actualAddress: e.target.value })} /></Field>
+        <Field label="Faktik orientir"><Input value={b.actualLandmark ?? ''} onChange={(e) => set({ actualLandmark: e.target.value })} /></Field>
+      </div>
+    </Card>
+  );
+}
+
+/** Step 2 — Ish & daromad: employment + actual income/expense. */
+export function Step2({ f }: { f: OriginationForm }) {
+  const e = f.form.employment ?? ({} as Emp);
+  const a = f.form.affordability ?? ({} as Aff);
+  const setEmp = (p: Partial<Emp>) => f.patch({ employment: { ...e, ...p } as Emp });
+  const setAff = (p: Partial<Aff>) => f.patch({ affordability: { ...a, ...p } as Aff });
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-4">
+        <h2 className="font-semibold text-gray-800 dark:text-white">Ish joyi</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Ish joyi"><Input value={e.employer ?? ''} onChange={(ev) => setEmp({ employer: ev.target.value })} /></Field>
+          <Field label="Ish joyi manzili"><Input value={e.employerAddress ?? ''} onChange={(ev) => setEmp({ employerAddress: ev.target.value })} /></Field>
+          <Field label="Soha" className="sm:col-span-2"><Select searchable value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })} options={SECTOR_RISK.map((s) => ({ value: s.label, label: s.label }))} /></Field>
+          <Field label="Lavozim"><Input value={e.position ?? ''} onChange={(ev) => setEmp({ position: ev.target.value })} /></Field>
+          <Field label="Ish staji (sana)"><Input value={e.employedSince ?? ''} onChange={(ev) => setEmp({ employedSince: ev.target.value })} placeholder="2024 й." /></Field>
+          <Field label="Umumiy staj"><Select value={(e.experienceBand ?? '') as string} onChange={(v) => setEmp({ experienceBand: v })} options={opt(['до 3 лет', '3-5 лет', '5-9 лет', '10 и более'])} /></Field>
+        </div>
+      </Card>
+      <Card className="space-y-4">
+        <h2 className="font-semibold text-gray-800 dark:text-white">Daromad va xarajat</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Asosiy daromad"><MoneyInput value={a.mainActivityIncome ?? null} onChange={(v) => setAff({ mainActivityIncome: v })} /></Field>
+          <Field label="Qo‘shimcha daromad"><MoneyInput value={a.secondaryIncome ?? null} onChange={(v) => setAff({ secondaryIncome: v })} /></Field>
+          <Field label="Oila a'zolari daromadi"><MoneyInput value={a.familyIncome ?? null} onChange={(v) => setAff({ familyIncome: v })} /></Field>
+          <Field label="Boshqa daromad"><MoneyInput value={a.otherIncome ?? null} onChange={(v) => setAff({ otherIncome: v })} /></Field>
+          <Field label="Kommunal xarajat"><MoneyInput value={a.utilitiesExpense ?? null} onChange={(v) => setAff({ utilitiesExpense: v })} /></Field>
+          <Field label="Oilaviy xarajat"><MoneyInput value={a.familyExpense ?? null} onChange={(v) => setAff({ familyExpense: v })} /></Field>
+          <Field label="Boshqa xarajat"><MoneyInput value={a.otherExpense ?? null} onChange={(v) => setAff({ otherExpense: v })} /></Field>
+          <Field label="Mavjud kredit to‘lovi" hint="KATM o‘rtacha oylik"><MoneyInput value={a.existingCreditBurden ?? null} onChange={(v) => setAff({ existingCreditBurden: v })} /></Field>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Step 3 — Liniya & garov & sug‘urta. */
+export function Step3({ f }: { f: OriginationForm }) {
+  const { data: cfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
+  const minRate = cfg?.minRate ?? 0.55;
+  const l = f.form.creditLine ?? ({} as Line);
+  const ins = l.insurance ?? ({} as Ins);
+  const setLine = (p: Partial<Line>) => {
+    const merged = { ...l, ...p } as Line;
+    const amountTotal = (merged.amountAuto ?? 0) + (merged.amountPolis ?? 0) || null;
+    f.patch({ creditLine: { ...merged, amountTotal, loanType: loanTypeFor(amountTotal), interestRate: merged.interestRate ?? minRate, penaltyRate: merged.penaltyRate ?? 1.05 } });
+  };
+  const setIns = (p: Partial<Ins>) => setLine({ insurance: { ...ins, ...p } as Ins });
+  const collateralTotal = f.form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
+  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, insuranceRate: ins.insuranceRate, policyTermMonths: ins.policyTermMonths });
+  const amountTotal = l.amountTotal ?? null;
+  return (
+    <div className="space-y-6">
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 dark:text-white">Kredit liniyasi (РКЛ)</h2>
+          <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
+            {loanTypeFor(amountTotal) === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz'}
+          </span>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Field label="Liniya №"><Input value={l.lineNumber ?? ''} onChange={(e) => setLine({ lineNumber: e.target.value })} /></Field>
+          <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
+          <Field label="Summa — polis"><MoneyInput value={l.amountPolis ?? null} onChange={(v) => setLine({ amountPolis: v })} /></Field>
+          <Field label="Jami summa" hint="auto = avto + polis"><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+          <Field label="Liniya muddati (oy)"><Input type="number" value={l.termMonths ?? ''} onChange={(e) => setLine({ termMonths: numv(e.target.value) })} /></Field>
+          <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
+          <Field label="Yillik foiz" hint="admin belgilaydi"><Input readOnly value={`${Math.round((l.interestRate ?? minRate) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+          <Field label="Jarima foizi"><Input readOnly value={`${Math.round((l.penaltyRate ?? 1.05) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+          <Field label="Prikaz №"><Input value={l.orderNumber ?? ''} onChange={(e) => setLine({ orderNumber: e.target.value })} /></Field>
+        </div>
+      </Card>
+
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 dark:text-white">Garovlar <span className="text-gray-500 dark:text-gray-400">({f.form.collaterals.length})</span></h2>
+          <div className="flex gap-2">
+            <Button variant="secondary" onClick={() => f.addCol(ProductType.REAL_ESTATE)}><House className="h-4 w-4" /> Uy-joy</Button>
+            <Button variant="secondary" onClick={() => f.addCol(ProductType.AUTO)}><Car className="h-4 w-4" /> Avto</Button>
+          </div>
+        </div>
+        <div className="space-y-4">
+          {f.form.collaterals.map((c, i) => (
+            <CollateralCard key={i} index={i} c={c} onChange={(p) => f.setCol(i, p)} onRemove={() => f.removeCol(i)} canRemove={f.form.collaterals.length > 1}
+              docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
+          ))}
+        </div>
+      </div>
+
+      <Card className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi</h2>
+          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns({ insured: v })} label="Sug‘urtalangan" />
+        </div>
+        {ins.insured && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <Field label="Kompaniya"><Input value={ins.company ?? ''} onChange={(e) => setIns({ company: e.target.value })} /></Field>
+            <Field label="Polis №"><Input value={ins.policyNo ?? ''} onChange={(e) => setIns({ policyNo: e.target.value })} /></Field>
+            <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
+            <Field label="Polis muddati (oy)"><Input type="number" value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
+            <Field label="Polis ostidagi kredit"><MoneyInput value={ins.loanUnderPolicy ?? null} onChange={(v) => setIns({ loanUnderPolicy: v })} /></Field>
+            <Field label="Sug‘urta stavkasi (%)"><Input type="number" step="0.1" value={ins.insuranceRate != null ? ins.insuranceRate * 100 : ''} onChange={(e) => setIns({ insuranceRate: e.target.value === '' ? null : Number(e.target.value) / 100 })} /></Field>
+            <Field label="Sug‘urta summasi" hint="×1.3 auto"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Sug‘urta puli" hint="auto"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+          </div>
+        )}
+      </Card>
+      {amountTotal != null && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">Garov qoplami: <b className="nums text-gray-800 dark:text-white">{((collateralTotal / amountTotal) * 100).toFixed(0)}%</b> (maqsad ≥ 140%)</p>
+      )}
+    </div>
+  );
+}
+
+/** Step 4 — Transh. */
+export function Step4({ f }: { f: OriginationForm }) {
+  const l = f.form.creditLine ?? ({} as Line);
+  const t = l.tranche ?? ({} as Tr);
+  const setTr = (p: Partial<Tr>) => f.patch({ creditLine: { ...l, tranche: { ...t, ...p } as Tr } });
+  return (
+    <Card className="space-y-4">
+      <h2 className="font-semibold text-gray-800 dark:text-white">Transh (drawdown)</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="Transh №"><Input type="number" value={t.trancheNo ?? ''} onChange={(e) => setTr({ trancheNo: numv(e.target.value) })} placeholder="1" /></Field>
+        <Field label="Ariza №"><Input value={t.applicationNo ?? ''} onChange={(e) => setTr({ applicationNo: e.target.value })} /></Field>
+        <Field label="Ariza sanasi"><DatePicker value={t.applicationDate ?? null} onChange={(iso) => setTr({ applicationDate: iso })} /></Field>
+        <Field label="Asosiy summa"><MoneyInput value={t.principal ?? null} onChange={(v) => setTr({ principal: v })} /></Field>
+        <Field label="Jadval turi"><Select value={(t.scheduleType ?? '') as 'ANNUITY' | 'DIFFERENTIATED' | ''} onChange={(v) => setTr({ scheduleType: v })} options={[{ value: 'ANNUITY', label: 'Annuitet (max 30 oy)' }, { value: 'DIFFERENTIATED', label: 'Differensial (max 48 oy)' }]} /></Field>
+        <Field label="Muddat (oy)" error={f.attempted ? f.errors.termCap : (f.errors.termCap)}><Input type="number" value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} /></Field>
+        <Field label="Oylik to‘lov"><MoneyInput value={t.monthlyPayment ?? null} onChange={(v) => setTr({ monthlyPayment: v })} /></Field>
+        <Field label="Sug‘urta to‘lovi"><MoneyInput value={t.insurancePayment ?? null} onChange={(v) => setTr({ insurancePayment: v })} /></Field>
+      </div>
+    </Card>
+  );
+}
+
+/** Step 5 — KATM (credit history). */
+export function Step5({ f }: { f: OriginationForm }) {
+  const h = f.form.creditHistory ?? ({} as Hist);
+  const set = (p: Partial<Hist>) => f.patch({ creditHistory: { ...h, ...p } as Hist });
+  return (
+    <Card className="space-y-4">
+      <h2 className="font-semibold text-gray-800 dark:text-white">KATM — kredit tarixi</h2>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="To‘langan kreditlar soni"><Input type="number" value={h.repaidLoansCount ?? ''} onChange={(e) => set({ repaidLoansCount: numv(e.target.value) })} /></Field>
+        <Field label="Aktiv kreditlar soni"><Input type="number" value={h.activeLoansCount ?? ''} onChange={(e) => set({ activeLoansCount: numv(e.target.value) })} /></Field>
+        <Field label="Muddati o‘tgan (0/1)"><Input type="number" value={h.overdueSubstandardFlag ?? ''} onChange={(e) => set({ overdueSubstandardFlag: numv(e.target.value) })} /></Field>
+        <Field label="Boshqa majburiyatlar"><Input type="number" value={h.otherObligations ?? ''} onChange={(e) => set({ otherObligations: numv(e.target.value) })} /></Field>
+        <Field label="5 mln+ kredit"><Select value={(h.loansOver5MFlag ?? '') as string} onChange={(v) => set({ loansOver5MFlag: v })} options={opt(['Мавжуд', 'Мавжуд эмас'])} /></Field>
+        <Field label="MKO/lombard tarixi"><Select value={(h.priorMfiPawnshopFlag ?? '') as string} onChange={(v) => set({ priorMfiPawnshopFlag: v })} options={opt(['Мавжуд', 'Мавжуд эмас'])} /></Field>
+        <Field label="Jami qarz"><MoneyInput value={h.totalOutstandingDebt ?? null} onChange={(v) => set({ totalOutstandingDebt: v })} /></Field>
+        <Field label="O‘rtacha oylik to‘lov"><MoneyInput value={h.avgMonthlyPaymentExisting ?? null} onChange={(v) => set({ avgMonthlyPaymentExisting: v })} /></Field>
+        <Field label="Komitet protokoli"><Input value={h.committeeProtocolRef ?? ''} onChange={(e) => set({ committeeProtocolRef: e.target.value })} /></Field>
+        <Field label="Komitet qarori sanasi"><DatePicker value={h.committeeDecisionDate ?? null} onChange={(iso) => set({ committeeDecisionDate: iso })} /></Field>
+      </div>
+    </Card>
+  );
+}

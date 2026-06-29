@@ -373,7 +373,7 @@ export function NewCaseModal({ open, onClose }: { open: boolean; onClose: () => 
   );
 }
 
-function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField }: {
+export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField }: {
   index: number; c: CollateralDto; error?: string; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
   docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
   onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;

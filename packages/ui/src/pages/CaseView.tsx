@@ -7,7 +7,7 @@ import {
 import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import { CaseChat } from '../components/CaseChat';
 import {
-  CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, PRODUCT_LABEL, Role,
+  CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role,
   TRANSITIONS, WorkflowDecision, type CreditCaseDto, type DocumentDto,
 } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
@@ -310,7 +310,7 @@ export function CaseView() {
           )}
 
           {isAdminFinalize && <AdminPanel c={c} onChange={refresh} katm={katm} setKatm={setKatm} />}
-          {role === Role.ADMIN && <KatmInputs />}
+          <CapturePanel c={c} role={role} onChange={refresh} />
         </div>
       </div>
 
@@ -702,27 +702,65 @@ function AdminPanel({
   );
 }
 
-function KatmInputs() {
-  // KATM integratsiyasi tayyor emas — qiymatlarni qo'lda kiritish inputlari.
-  const [history, setHistory] = useState('');
-  const [score, setScore] = useState('');
-  const [pledge, setPledge] = useState('');
+/** Captured 4-tab data (read-only) + operator edit link + moderator rate control. */
+function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onChange: () => void }) {
+  const navigate = useNavigate();
+  const toast = useToast();
+  const cfg = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
+  const line = c.creditLine;
+  const af = c.affordability;
+  const calc = originationCalc({
+    mainActivityIncome: af?.mainActivityIncome, secondaryIncome: af?.secondaryIncome, familyIncome: af?.familyIncome, otherIncome: af?.otherIncome,
+    utilitiesExpense: af?.utilitiesExpense, familyExpense: af?.familyExpense, otherExpense: af?.otherExpense, existingCreditBurden: af?.existingCreditBurden,
+    newLoanPayment: line?.tranche?.monthlyPayment,
+    amountTotal: line?.amountTotal ?? c.amount, collateralTotal: c.collaterals.reduce((s, col) => s + (col.agreedValue ?? 0), 0),
+  });
+  const canEdit = (role === Role.OPERATOR || role === Role.ADMIN) && c.status === CaseStatus.DRAFT;
+  const canSetRate = role === Role.MODERATOR && c.status === CaseStatus.MODERATION;
+
+  const minPct = Math.round((cfg.data?.minRate ?? 0.55) * 100);
+  const maxPct = Math.round((cfg.data?.maxRate ?? 0.6) * 100);
+  const [pct, setPct] = useState<number>(Math.round((line?.interestRate ?? cfg.data?.minRate ?? 0.55) * 100));
+  const rate = useMutation({
+    mutationFn: () => api.setCaseRate(c.id, pct / 100),
+    onSuccess: () => { onChange(); toast.success('Saqlandi', `Foiz ${pct}%`); },
+    onError: () => toast.error('Xatolik', `Foiz ${minPct}–${maxPct}% oralig‘ida bo‘lishi kerak`),
+  });
+
+  const row = (label: string, value: string) => (
+    <div className="flex items-center justify-between gap-3 py-1 text-sm">
+      <span className="text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="nums font-medium text-gray-800 dark:text-white">{value}</span>
+    </div>
+  );
+
   return (
-    <Card className="space-y-3 border-dashed">
+    <Card className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-gray-800 dark:text-white">KATM hisobotlari</h2>
-        <span className="rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Qo‘lda · tez kunda avto</span>
+        <h2 className="font-semibold text-gray-800 dark:text-white">Ariza ma'lumotlari</h2>
+        {canEdit && (
+          <Button variant="secondary" onClick={() => navigate(`/cases/${c.id}/origination`)}>
+            <Pencil className="h-4 w-4" /> To‘ldirish
+          </Button>
+        )}
       </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400">PINFL bo‘yicha 2–3 hisobot qiymatini kiriting (integratsiya tayyor bo‘lguncha).</p>
-      <Field label="Kredit tarixi">
-        <Input value={history} onChange={(e) => setHistory(e.target.value)} placeholder="masalan: yaxshi / muddati o‘tgan yo‘q" />
-      </Field>
-      <Field label="Skoring bali">
-        <Input type="number" value={score} onChange={(e) => setScore(e.target.value)} placeholder="0–1000" />
-      </Field>
-      <Field label="Garov reestri holati">
-        <Input value={pledge} onChange={(e) => setPledge(e.target.value)} placeholder="band emas / band" />
-      </Field>
+      {row('Kredit turi', line?.loanType ? (line.loanType === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz') : '—')}
+      {row('Yillik foiz', line?.interestRate != null ? `${Math.round(line.interestRate * 100)}%` : '—')}
+      {row('Jami daromad', calc.totalIncome ? formatMoney(calc.totalIncome) : '—')}
+      {row('DTI', calc.totalIncome ? `${(calc.dtiRatio * 100).toFixed(1)}%` : '—')}
+      {row('Aktiv kreditlar', c.creditHistory?.activeLoansCount != null ? String(c.creditHistory.activeLoansCount) : '—')}
+      {row('Jadval turi', line?.tranche?.scheduleType ? (line.tranche.scheduleType === 'ANNUITY' ? 'Annuitet' : 'Differensial') : '—')}
+
+      {canSetRate && (
+        <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 dark:border-white/10">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Foizni sozlash ({minPct}–{maxPct}%) — risk uchun ko‘tarish mumkin</p>
+          <div className="flex items-center gap-2">
+            <Input type="number" min={minPct} max={maxPct} value={pct} onChange={(e) => setPct(Number(e.target.value))} className="nums w-24" />
+            <span className="text-sm text-gray-500 dark:text-gray-400">%</span>
+            <Button className="ml-auto" loading={rate.isPending} onClick={() => rate.mutate()}>Saqlash</Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

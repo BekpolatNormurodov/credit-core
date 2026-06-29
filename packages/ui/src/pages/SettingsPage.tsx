@@ -80,7 +80,7 @@ export function SettingsPage() {
 
   // Global config (pause limit + loan rates). Percentages shown as whole numbers.
   const { data: appCfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
-  const [conf, setConf] = useState<{ maxPauseDays: number; markup: number; bank: number; tax: number; npl: number } | null>(null);
+  const [conf, setConf] = useState<{ maxPauseDays: number; markup: number; bank: number; tax: number; npl: number; min: number; max: number } | null>(null);
   useEffect(() => {
     if (appCfg) setConf({
       maxPauseDays: appCfg.maxPauseDays,
@@ -88,12 +88,15 @@ export function SettingsPage() {
       bank: Math.round(appCfg.bankRate * 100),
       tax: Math.round(appCfg.taxRate * 100),
       npl: Math.round(appCfg.nplRate * 100),
+      min: Math.round(appCfg.minRate * 100),
+      max: Math.round(appCfg.maxRate * 100),
     });
   }, [appCfg]);
   const saveConfig = useMutation({
     mutationFn: () => api.updateConfig({
       maxPauseDays: Math.max(0, Math.min(60, Math.round(conf!.maxPauseDays))),
       markupPercent: conf!.markup / 100, bankRate: conf!.bank / 100, taxRate: conf!.tax / 100, nplRate: conf!.npl / 100,
+      minRate: conf!.min / 100, maxRate: conf!.max / 100,
     }),
     onSuccess: (res) => { qc.setQueryData(['app-config'], res); toast.success('Saqlandi', 'Sozlamalar yangilandi'); },
     onError: () => toast.error('Xatolik', 'Saqlab bo‘lmadi'),
@@ -191,6 +194,12 @@ export function SettingsPage() {
             </Field>
             <Field label="Bank yillik stavkasi (%)">
               <Input type="number" min={0} max={500} value={conf.bank} onChange={(e) => setConf({ ...conf, bank: Number(e.target.value) })} className="nums" />
+            </Field>
+            <Field label="Min yillik foiz (%)" hint="standart 55 — kredit pastki chegarasi">
+              <Input type="number" min={0} max={500} value={conf.min} onChange={(e) => setConf({ ...conf, min: Number(e.target.value) })} className="nums" />
+            </Field>
+            <Field label="Max yillik foiz (%)" hint="moderator shu gacha ko‘taradi">
+              <Input type="number" min={0} max={500} value={conf.max} onChange={(e) => setConf({ ...conf, max: Number(e.target.value) })} className="nums" />
             </Field>
             <Field label="Daromad solig‘i (%)">
               <Input type="number" min={0} max={100} value={conf.tax} onChange={(e) => setConf({ ...conf, tax: Number(e.target.value) })} className="nums" />
