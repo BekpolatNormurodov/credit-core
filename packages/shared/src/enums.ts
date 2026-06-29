@@ -60,6 +60,14 @@ export const DocumentType = {
 } as const;
 export type DocumentType = (typeof DocumentType)[keyof typeof DocumentType];
 
+/** Product subtype by amount: ≤100M микроқарз, >100M микрокредит. */
+export const LoanType = { MICROLOAN: 'MICROLOAN', MICROCREDIT: 'MICROCREDIT' } as const;
+export type LoanType = (typeof LoanType)[keyof typeof LoanType];
+
+/** Repayment method — drives the schedule and the term cap. */
+export const RepaymentMethod = { ANNUITY: 'ANNUITY', DIFFERENTIATED: 'DIFFERENTIATED' } as const;
+export type RepaymentMethod = (typeof RepaymentMethod)[keyof typeof RepaymentMethod];
+
 /** KATM report kinds — placeholder for the future integration (2–3 reports). */
 export const KatmReportType = {
   CREDIT_HISTORY: 'CREDIT_HISTORY',
