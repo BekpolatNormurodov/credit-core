@@ -364,7 +364,11 @@ export function NewCaseModal({ open, onClose }: { open: boolean; onClose: () => 
         </>
       }
     >
-      <CaseFormFields f={f} />
+      {/* Full-bleed the modal body to the page canvas so the gray-900 form Cards
+          read as raised (the modal panel itself is the lighter elevated layer). */}
+      <div className="-mx-6 -my-5 min-h-full bg-canvas px-6 py-5 dark:bg-gray-950">
+        <CaseFormFields f={f} />
+      </div>
     </Modal>
   );
 }
@@ -377,6 +381,7 @@ function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, 
   const isAuto = c.type === ProductType.AUTO;
   const setOwners = (owners: CollateralDto['owners']) => onChange({ owners });
   const docRef = useRef<HTMLInputElement>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   return (
     <Card className="space-y-4">
@@ -443,39 +448,51 @@ function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, 
       </div>
 
       {/* Qo'shimcha: rasm/fayl biriktirish + izoh matn (har bir garovga) */}
-      <div className="space-y-2 border-t border-gray-200 pt-4 dark:border-gray-800">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white"><FileText className="h-4 w-4 text-gray-400" /> Qo'shimcha rasm va izohlar</h4>
-          <input ref={docRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { onAddDocs(e.target.files); e.target.value = ''; }} />
-          <Button variant="secondary" onClick={() => docRef.current?.click()}><Upload className="h-4 w-4" /> Rasm/fayl biriktirish</Button>
-        </div>
-        {docs.length === 0 ? (
-          <p className="text-xs text-gray-500 dark:text-gray-400">Garovga oid rasmlar va hujjatlarni yuklang; har biriga nom va izoh yozishingiz mumkin (ixtiyoriy).</p>
-        ) : (
-          <ul className="space-y-2">
+      <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+        <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white"><FileText className="h-4 w-4 text-gray-400" /> Qo'shimcha rasm va izohlar</h4>
+        <input ref={docRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { onAddDocs(e.target.files); e.target.value = ''; }} />
+        <button
+          type="button"
+          onClick={() => docRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => { e.preventDefault(); onAddDocs(e.dataTransfer.files); }}
+          className="flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50/60 px-4 py-6 text-center outline-none transition hover:border-brand-400 hover:bg-brand-50/50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:border-gray-700 dark:bg-white/5 dark:hover:border-brand-500"
+        >
+          <Upload className="h-6 w-6 text-gray-400" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Rasm yoki hujjat tashlang, yoki tanlang</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">JPG, PNG, PDF, DOC · har biriga nom va izoh yozish mumkin</span>
+        </button>
+        {docs.length > 0 && (
+          <div className="grid gap-3 sm:grid-cols-2">
             {docs.map((d) => {
               const isImg = d.file.type.startsWith('image/');
+              const url = isImg ? URL.createObjectURL(d.file) : null;
               return (
-                <li key={d.localId} className="rounded-lg border border-gray-200 p-2.5 dark:border-gray-800">
-                  <div className="flex items-start gap-2.5">
-                    {isImg ? (
-                      <img src={URL.createObjectURL(d.file)} alt={d.file.name} className="h-12 w-12 shrink-0 rounded-lg object-cover" />
-                    ) : (
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500"><FileText className="h-5 w-5" /></span>
-                    )}
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <Input value={d.title} onChange={(e) => onSetDocField(d.localId, { title: e.target.value })} placeholder="Nomi (masalan: Old tomondan)" />
-                      <Input value={d.description} onChange={(e) => onSetDocField(d.localId, { description: e.target.value })} placeholder="Izoh matni (ixtiyoriy)" />
-                      <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">{d.file.name}</p>
-                    </div>
-                    <Button variant="ghost" aria-label="Hujjatni o'chirish" className="shrink-0 px-2 text-error-600 dark:text-error-500" onClick={() => onRemoveDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
+                <div key={d.localId} className="flex gap-3 rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+                  {isImg && url ? (
+                    <button type="button" onClick={() => setLightbox(url)} className="shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30" aria-label="Rasmni kattalashtirish">
+                      <img src={url} alt={d.file.name} className="h-16 w-16 rounded-lg object-cover" />
+                    </button>
+                  ) : (
+                    <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-400 dark:bg-white/10 dark:text-gray-500"><FileText className="h-6 w-6" /></span>
+                  )}
+                  <div className="min-w-0 flex-1 space-y-1.5">
+                    <Input value={d.title} onChange={(e) => onSetDocField(d.localId, { title: e.target.value })} placeholder="Nomi (masalan: Old tomondan)" />
+                    <Input value={d.description} onChange={(e) => onSetDocField(d.localId, { description: e.target.value })} placeholder="Izoh matni (ixtiyoriy)" />
+                    <p className="truncate text-[11px] text-gray-500 dark:text-gray-400">{d.file.name}</p>
                   </div>
-                </li>
+                  <Button variant="ghost" aria-label="Hujjatni o'chirish" className="shrink-0 px-2 text-error-600 dark:text-error-500" onClick={() => onRemoveDoc(d.localId)}><Trash2 className="h-4 w-4" /></Button>
+                </div>
               );
             })}
-          </ul>
+          </div>
         )}
       </div>
+      {lightbox && (
+        <div onClick={() => setLightbox(null)} role="dialog" aria-modal className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <img src={lightbox} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />
+        </div>
+      )}
     </Card>
   );
 }
