@@ -68,6 +68,7 @@ export function CaseView() {
   const myTransitions = TRANSITIONS.filter((t) => t.from === c.status && t.role === role);
   const isOperatorDraft = role === Role.OPERATOR && c.status === CaseStatus.DRAFT;
   const isDirectorReview = role === Role.DIRECTOR && c.status === CaseStatus.DIRECTOR_REVIEW;
+  const hasFinalDoc = c.documents.some((d) => d.type === DocumentType.DIRECTOR_FINAL);
   const isAdminFinalize = role === Role.ADMIN && c.status === CaseStatus.ADMIN_FINALIZE;
   const canUpload = isOperatorDraft || isDirectorReview;
   const canManageDocs = canUpload || role === Role.ADMIN;
@@ -230,7 +231,7 @@ export function CaseView() {
           {(myTransitions.length > 0 || canPauseResume) && (
             <Card className="space-y-4">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="font-semibold text-gray-800 dark:text-white">Amallar</h2>
+                <h2 className="font-semibold text-gray-800 dark:text-white">Amaliyot</h2>
                 {(c.stepDeadlineAt || c.pausedAt) && <DeadlineBadge deadlineAt={c.stepDeadlineAt} paused={!!c.pausedAt} pauseUntil={c.pauseUntil} />}
               </div>
 
@@ -261,17 +262,25 @@ export function CaseView() {
                     />
                   </div>
                   <div className="space-y-2">
+                    {isDirectorReview && !hasFinalDoc && (
+                      <p className="flex items-center gap-2 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-600 dark:bg-warning-500/12 dark:text-warning-500">
+                        <FileText className="h-4 w-4 shrink-0" /> Tasdiqlash uchun yakuniy hujjat biriktiring.
+                      </p>
+                    )}
                     {inlineTransitions.map((t) => {
                       const Icon = decisionIcon[t.decision];
+                      const busy = transition.isPending && transition.variables === t.decision;
+                      const blockApprove = isDirectorReview && t.decision === WorkflowDecision.APPROVE && !hasFinalDoc;
                       return (
                         <Button
                           key={t.decision}
                           variant={t.decision === WorkflowDecision.RETURN ? 'secondary' : 'primary'}
                           className="w-full"
-                          loading={transition.isPending}
+                          loading={busy}
+                          disabled={blockApprove}
                           onClick={() => transition.mutate(t.decision)}
                         >
-                          {!transition.isPending && <Icon className="h-5 w-5" />} {decisionLabel[t.decision]}
+                          {!busy && <Icon className="h-5 w-5" />} {decisionLabel[t.decision]}
                         </Button>
                       );
                     })}
