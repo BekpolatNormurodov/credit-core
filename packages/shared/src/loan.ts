@@ -1,42 +1,48 @@
 /**
- * Loan economics — the formulas from the source workbook (kredit_liniya_hisob,
- * "BITTA KREDIT" tab) implemented as a pure function so the UI and exports share
- * one source of truth. Verified against the workbook: amount 1 000 000, ustama 41%,
- * bank 28%, 12 oy → jami 1 410 000, oylik 117 500, bank foizi 222 881, sof foyda 120 664.
+ * Loan economics — annual-rate (annuity) model so the math stays sound for any term.
+ *
+ * The client pays an **annual** interest rate (`markupPercent`, e.g. 0.41 = 41%/yil) as a
+ * monthly annuity on the declining principal — exactly like the bank charges its annual
+ * `bankRate`. Both sides scale with the term, so company profit stays positive for short AND
+ * long loans (the earlier "flat markup vs annual bank rate" model went negative past ~18 months).
+ *
+ * Example: principal 150 000 000, markup 41%/yil, bank 28%/yil, 60 oy →
+ *   oylik ≈ 5 911 000, klient jami ≈ 354 700 000, bank xarajati ≈ 130 000 000,
+ *   yalpi foyda ≈ 74 700 000, sof foyda ≈ 59 100 000 (musbat).
  */
 
 export interface LoanConfig {
-  markupPercent: number; // klient ustama foizi (e.g. 0.41)
-  bankRate: number; // bank yillik foiz stavkasi (e.g. 0.28)
+  markupPercent: number; // klient YILLIK foiz stavkasi (e.g. 0.41)
+  bankRate: number; // bank YILLIK foiz stavkasi (e.g. 0.28)
   taxRate: number; // daromad solig'i (e.g. 0.12)
   nplRate: number; // NPL (to'lanmaslik) foizi (e.g. 0.05)
 }
 
 export interface LoanScheduleRow {
   month: number;
-  payment: number; // oylik to'lov
-  principal: number; // shu oyda asosiy qism (annuitetda teng)
-  balance: number; // qoldiq
+  payment: number; // oylik to'lov (annuitet)
+  principal: number; // shu oyda asosiy qism (payment − foiz)
+  balance: number; // qoldiq (asosiy qarz)
 }
 
 export interface LoanCalc {
   principal: number;
   termMonths: number;
   markupPercent: number;
-  clientTotal: number; // amount * (1 + markup)
-  markupAmount: number; // amount * markup
-  monthlyPayment: number; // clientTotal / term (annuitet)
+  clientTotal: number; // monthlyPayment * term
+  markupAmount: number; // clientTotal − principal (klient to'laydigan jami foiz)
+  monthlyPayment: number; // PMT(markupPercent/12, term, principal)
   schedule: LoanScheduleRow[];
   // Kompaniya / bank tomoni
   bankRate: number;
-  bankMonthly: number; // PMT(bankRate/12, term, clientTotal)
+  bankMonthly: number; // PMT(bankRate/12, term, principal)
   bankTotal: number;
-  bankInterest: number; // bankTotal - clientTotal
-  grossProfit: number; // markupAmount - bankInterest
-  nplLoss: number; // amount * nplRate
-  ebt: number; // grossProfit - nplLoss
+  bankInterest: number; // bankTotal − principal
+  grossProfit: number; // markupAmount − bankInterest
+  nplLoss: number; // principal * nplRate
+  ebt: number; // grossProfit − nplLoss
   tax: number; // max(0, ebt) * taxRate
-  netProfit: number; // ebt - tax
+  netProfit: number; // ebt − tax
 }
 
 /** Excel PMT — annuity payment for a present value at a per-period rate. */
@@ -50,21 +56,29 @@ export function pmt(ratePerPeriod: number, nper: number, pv: number): number {
 export function computeLoan(amount: number | null | undefined, termMonths: number | null | undefined, cfg: LoanConfig): LoanCalc | null {
   if (!amount || amount <= 0 || !termMonths || termMonths <= 0) return null;
   const principal = amount;
-  const markupAmount = principal * cfg.markupPercent;
-  const clientTotal = principal + markupAmount;
-  const monthlyPayment = clientTotal / termMonths;
-  const monthlyPrincipal = principal / termMonths;
 
+  // Client side: annuity on the principal at the annual markup rate.
+  const cRate = cfg.markupPercent / 12;
+  const monthlyPayment = pmt(cRate, termMonths, principal);
+  const clientTotal = monthlyPayment * termMonths;
+  const markupAmount = clientTotal - principal;
+
+  // Amortization schedule (interest on the declining balance; principal = payment − interest).
   const schedule: LoanScheduleRow[] = [];
-  let balance = clientTotal;
+  let balance = principal;
   for (let m = 1; m <= termMonths; m++) {
-    balance = Math.max(0, balance - monthlyPayment);
-    schedule.push({ month: m, payment: monthlyPayment, principal: monthlyPrincipal, balance });
+    const interest = balance * cRate;
+    let principalPortion = monthlyPayment - interest;
+    if (m === termMonths) principalPortion = balance; // close out rounding on the last row
+    balance = Math.max(0, balance - principalPortion);
+    schedule.push({ month: m, payment: monthlyPayment, principal: principalPortion, balance });
   }
 
-  const bankMonthly = pmt(cfg.bankRate / 12, termMonths, clientTotal);
+  // Bank side: the company funds the principal and repays the bank at its annual rate.
+  const bankMonthly = pmt(cfg.bankRate / 12, termMonths, principal);
   const bankTotal = bankMonthly * termMonths;
-  const bankInterest = bankTotal - clientTotal;
+  const bankInterest = bankTotal - principal;
+
   const grossProfit = markupAmount - bankInterest;
   const nplLoss = principal * cfg.nplRate;
   const ebt = grossProfit - nplLoss;
