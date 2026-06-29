@@ -71,7 +71,7 @@ export function LangSwitch() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.14 }}
-            className="absolute right-0 z-50 mt-1.5 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white p-1 shadow-pop dark:border-gray-800 dark:bg-gray-900"
+            className="absolute right-0 z-50 mt-1.5 w-40 overflow-hidden rounded-xl border border-gray-200 bg-white p-1 shadow-pop dark:border-gray-700 dark:bg-gray-800 dark:ring-1 dark:ring-white/10"
           >
             {LANGS.map((l) => (
               <button
@@ -105,7 +105,7 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
       onClick={() => onChange(!checked)}
       className={cn(
         'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
-        checked ? 'bg-brand-600' : 'bg-gray-200 dark:bg-gray-700',
+        checked ? 'bg-brand-600' : 'bg-gray-200 dark:bg-gray-600',
       )}
     >
       <span className={cn('inline-block h-5 w-5 transform rounded-full bg-white shadow-theme-sm transition-transform', checked ? 'translate-x-[22px]' : 'translate-x-0.5')} />

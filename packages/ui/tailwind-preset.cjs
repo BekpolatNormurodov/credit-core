@@ -28,10 +28,15 @@ const gray = {
   950: '#0c111d',
 };
 
-// Status ramps: skill values for 50/500/600, kept 100/700 for existing call sites.
-const success = { 50: '#ecfdf3', 100: '#d1fae5', 500: '#12b76a', 600: '#039855', 700: '#047857' };
-const warning = { 50: '#fffaeb', 100: '#fef3c7', 500: '#f79009', 600: '#dc6803', 700: '#b45309' };
-const error = { 50: '#fef3f2', 100: '#fee2e2', 500: '#f04438', 600: '#d92d20', 700: '#b91c1c' };
+// Status ramps. The 400 step is required for dark mode: `dark:text-{status}-400`
+// reads brighter on dark surfaces than -500/-600 (which fail the 4.5:1 floor).
+const success = { 50: '#ecfdf3', 100: '#d1fae5', 400: '#32d583', 500: '#12b76a', 600: '#039855', 700: '#047857' };
+const warning = { 50: '#fffaeb', 100: '#fef3c7', 400: '#fdb022', 500: '#f79009', 600: '#dc6803', 700: '#b45309' };
+const error = { 50: '#fef3f2', 100: '#fee2e2', 400: '#f97066', 500: '#f04438', 600: '#d92d20', 700: '#b91c1c' };
+// Violet — the DIRECTOR_REVIEW status hue. Promoted to a first-class token (was
+// relying on stock Tailwind violet) so it's intentional and dark-tunable; values
+// mirror Tailwind violet so existing violet-* usages are unchanged.
+const violet = { 50: '#f5f3ff', 100: '#ede9fe', 200: '#ddd6fe', 300: '#c4b5fd', 400: '#a78bfa', 500: '#8b5cf6', 600: '#7c3aed', 700: '#6d28d9' };
 
 module.exports = {
   darkMode: 'class',
@@ -62,6 +67,7 @@ module.exports = {
         success,
         warning,
         error,
+        violet, // DIRECTOR_REVIEW status hue (now a real token)
         danger: error, // legacy alias — same red as `error`
         // Semantic neutral aliases mapped onto the gray ramp.
         surface: '#ffffff',

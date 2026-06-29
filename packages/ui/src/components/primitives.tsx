@@ -48,7 +48,7 @@ export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInp
       className={cn(
         'h-11 w-full rounded-lg border border-gray-200 bg-white px-3.5 text-sm text-gray-800 outline-none transition',
         'placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10',
-        'dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500',
+        'dark:border-gray-700 dark:bg-white/5 dark:text-gray-100 dark:placeholder:text-gray-500',
         'aria-[invalid=true]:border-error-400 aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-error-500/10 dark:aria-[invalid=true]:border-error-500/50',
         className,
       )}
@@ -132,7 +132,7 @@ export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 }
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn('skeleton rounded-lg bg-gray-200/70 dark:bg-gray-800', className)} />;
+  return <div aria-hidden className={cn('skeleton rounded-lg bg-gray-200/70 dark:bg-gray-700', className)} />;
 }
 
 const statusStyles: Record<CaseStatus, string> = {

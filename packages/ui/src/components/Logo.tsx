@@ -29,8 +29,8 @@ export function Logo({ className, subtitle }: { className?: string; subtitle?: s
       <div className="flex items-center gap-2.5">
         <LogoMark className="h-10 w-10 shrink-0" />
         <div className="leading-tight">
-          <p className="text-sm font-bold tracking-tight">credit<span className="text-brand-500">-core</span></p>
-          {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
+          <p className="text-sm font-bold tracking-tight text-gray-900 dark:text-white">credit<span className="text-brand-700 dark:text-brand-400">-core</span></p>
+          {subtitle && <p className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</p>}
         </div>
       </div>
     </div>

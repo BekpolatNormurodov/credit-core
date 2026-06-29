@@ -15,7 +15,7 @@ import { useAuth } from '../lib/auth';
 import { MetricCard, WidgetCard } from '../components/widgets';
 import { useTheme } from '../lib/theme';
 import { cn, formatMoney } from '../lib/cn';
-import { chartPalette, chartAxis, productColor, statusColor } from '../lib/chartColors';
+import { chartSeries, chartAxis, productColor, statusColor } from '../lib/chartColors';
 
 type RangeKey = 'all' | 'week' | 'month' | 'prev' | 'custom';
 const RANGE_PRESETS: { key: RangeKey; label: string }[] = [
@@ -60,7 +60,7 @@ function momDelta(values: number[]): number | undefined {
 function SeriesTip({ active, payload, label, unit }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-theme-md dark:border-gray-800 dark:bg-gray-900">
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-theme-md dark:border-gray-700 dark:bg-gray-800">
       {label != null && <p className="mb-1 font-semibold text-gray-800 dark:text-white">{label}</p>}
       {payload.map((p: any) => (
         <p key={p.dataKey} className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
@@ -77,7 +77,7 @@ function SeriesTip({ active, payload, label, unit }: any) {
 function PieTip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-theme-md dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-theme-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
       <p className="font-semibold text-gray-800 dark:text-white">{payload[0].payload.name}</p>
       <p className="nums text-gray-500 dark:text-gray-400">{payload[0].value} ta</p>
     </div>
@@ -98,7 +98,11 @@ export function AnalyticsPage() {
   const branchOptions = useMemo(() => (branches ?? []).filter((b) => !region || b.region === region), [branches, region]);
   const range = useMemo(() => ({ ...computeRange(rangeKey, custom), branchId: branchId || undefined, region: region || undefined }), [rangeKey, custom, branchId, region]);
   const { data, isLoading } = useQuery({ queryKey: ['stats', rangeKey, custom.from, custom.to, branchId, region], queryFn: () => api.stats(range) });
-  const { grid, tick } = chartAxis(theme === 'dark');
+  const dark = theme === 'dark';
+  const { grid, tick } = chartAxis(dark);
+  const series = chartSeries(dark);
+  const productClr = productColor(dark);
+  const statusClr = statusColor(dark);
 
   const filterBar = (
     <div className="flex flex-wrap items-center gap-2">
@@ -220,8 +224,8 @@ export function AnalyticsPage() {
             <BarChart data={barData} margin={{ left: -8, right: 8, top: 8 }} barCategoryGap="28%">
               <defs>
                 <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={chartPalette.brandSoft} />
-                  <stop offset="100%" stopColor={chartPalette.brand} />
+                  <stop offset="0%" stopColor={series.brandSoft} />
+                  <stop offset="100%" stopColor={series.brand} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
@@ -264,7 +268,7 @@ export function AnalyticsPage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-gray-400 dark:text-gray-500">Ma'lumot yo‘q</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ma'lumot yo‘q</p>
           )}
         </WidgetCard>
 
@@ -276,19 +280,19 @@ export function AnalyticsPage() {
                 return (
                   <li key={s.status}>
                     <div className="mb-1 flex items-center gap-2 text-sm">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: statusColor[s.status] }} />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: statusClr[s.status] }} />
                       <span className="truncate font-medium text-gray-700 dark:text-gray-200">{STATUS_LABEL[s.status]}</span>
                       <span className="ml-auto shrink-0 text-gray-500 dark:text-gray-400"><span className="nums font-semibold text-gray-700 dark:text-gray-200">{s.count}</span> · {pct}%</span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: statusColor[s.status] }} />
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: statusClr[s.status] }} />
                     </div>
                   </li>
                 );
               })}
             </ul>
           ) : (
-            <p className="text-sm text-gray-400 dark:text-gray-500">Ma'lumot yo‘q</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ma'lumot yo‘q</p>
           )}
         </WidgetCard>
 
@@ -306,12 +310,12 @@ export function AnalyticsPage() {
               <AreaChart data={data.byMonth.map((m) => ({ name: monthLabel(m.month), count: m.count }))} margin={{ top: 4, bottom: 0, left: 4, right: 4 }}>
                 <defs>
                   <linearGradient id="liveGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={chartPalette.success} stopOpacity={0.3} />
-                    <stop offset="100%" stopColor={chartPalette.success} stopOpacity={0} />
+                    <stop offset="0%" stopColor={series.success} stopOpacity={0.3} />
+                    <stop offset="100%" stopColor={series.success} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <Tooltip content={<SeriesTip unit="count" />} cursor={false} />
-                <Area type="monotone" dataKey="count" name="Arizalar" stroke={chartPalette.success} strokeWidth={2} fill="url(#liveGrad)" />
+                <Area type="monotone" dataKey="count" name="Arizalar" stroke={series.success} strokeWidth={2} fill="url(#liveGrad)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -329,8 +333,8 @@ export function AnalyticsPage() {
           {hasProductMonth ? (
             <>
               <div className="mb-3 flex flex-wrap gap-4 text-xs">
-                <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: productColor[ProductType.REAL_ESTATE] }} /> {PRODUCT_LABEL[ProductType.REAL_ESTATE]}</span>
-                <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: productColor[ProductType.AUTO] }} /> {PRODUCT_LABEL[ProductType.AUTO]}</span>
+                <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: productClr[ProductType.REAL_ESTATE] }} /> {PRODUCT_LABEL[ProductType.REAL_ESTATE]}</span>
+                <span className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: productClr[ProductType.AUTO] }} /> {PRODUCT_LABEL[ProductType.AUTO]}</span>
               </div>
               <div className="h-60">
                 <ResponsiveContainer width="100%" height="100%">
@@ -339,14 +343,14 @@ export function AnalyticsPage() {
                     <XAxis dataKey="name" tick={{ fontSize: 11, fill: tick }} axisLine={false} tickLine={false} />
                     <YAxis allowDecimals={false} width={32} tick={{ fontSize: 11, fill: tick }} axisLine={false} tickLine={false} />
                     <Tooltip content={<SeriesTip unit="count" />} cursor={{ fill: theme === 'dark' ? 'rgba(255,255,255,.04)' : 'rgba(16,24,40,.04)' }} />
-                    <Bar dataKey="realEstate" stackId="p" name={PRODUCT_LABEL[ProductType.REAL_ESTATE]} fill={productColor[ProductType.REAL_ESTATE]} radius={[0, 0, 0, 0]} maxBarSize={40} />
-                    <Bar dataKey="auto" stackId="p" name={PRODUCT_LABEL[ProductType.AUTO]} fill={productColor[ProductType.AUTO]} radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="realEstate" stackId="p" name={PRODUCT_LABEL[ProductType.REAL_ESTATE]} fill={productClr[ProductType.REAL_ESTATE]} radius={[0, 0, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="auto" stackId="p" name={PRODUCT_LABEL[ProductType.AUTO]} fill={productClr[ProductType.AUTO]} radius={[6, 6, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
             </>
           ) : (
-            <p className="text-sm text-gray-400 dark:text-gray-500">Ma'lumot yo‘q</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ma'lumot yo‘q</p>
           )}
         </WidgetCard>
 
@@ -357,7 +361,7 @@ export function AnalyticsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={86} paddingAngle={2} stroke="none">
-                      {pieData.map((p) => <Cell key={p.status} fill={statusColor[p.status]} />)}
+                      {pieData.map((p) => <Cell key={p.status} fill={statusClr[p.status]} />)}
                     </Pie>
                     <Tooltip content={<PieTip />} />
                   </PieChart>
@@ -370,7 +374,7 @@ export function AnalyticsPage() {
               <div className="mt-3 grid grid-cols-2 gap-1.5">
                 {pieData.map((p) => (
                   <div key={p.status} className="flex items-center gap-1.5 text-xs">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: statusColor[p.status as CaseStatus] }} />
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: statusClr[p.status as CaseStatus] }} />
                     <span className="truncate text-gray-500 dark:text-gray-400">{p.name}</span>
                     <span className="nums ml-auto font-semibold text-gray-700 dark:text-gray-200">{p.value}</span>
                   </div>
@@ -378,7 +382,7 @@ export function AnalyticsPage() {
               </div>
             </>
           ) : (
-            <p className="text-sm text-gray-400 dark:text-gray-500">Ma'lumot yo‘q</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Ma'lumot yo‘q</p>
           )}
         </WidgetCard>
       </div>
@@ -398,7 +402,7 @@ export function AnalyticsPage() {
                   <span className="ml-auto text-gray-500 dark:text-gray-400">{p.count} ta · {formatMoney(p.amount)}</span>
                 </div>
                 <div className="h-2.5 overflow-hidden rounded-full bg-gray-100 dark:bg-white/10">
-                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: productColor[p.product] }} />
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: productClr[p.product] }} />
                 </div>
               </div>
             );

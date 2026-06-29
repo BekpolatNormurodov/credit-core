@@ -71,7 +71,7 @@ export function DataTable<T extends { id?: string }>({
   return (
     <div className={cn('overflow-hidden', surface)}>
       {searchable && (
-        <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-800">
+        <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3 dark:border-white/10">
           <Search className="h-4 w-4 text-gray-400" />
           <input
             value={q}
@@ -86,7 +86,7 @@ export function DataTable<T extends { id?: string }>({
       {/* Desktop / tablet: real table */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-sm">
-          <thead className="border-b border-gray-200 bg-gray-50 text-xs font-medium uppercase tracking-wider text-gray-500 dark:border-gray-800 dark:bg-white/5 dark:text-gray-400">
+          <thead className="border-b border-gray-200 bg-gray-50 text-xs font-medium uppercase tracking-wider text-gray-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
             <tr>
               {columns.map((c) => {
                 const active = sort?.key === c.key;
@@ -141,7 +141,7 @@ export function DataTable<T extends { id?: string }>({
                 key={row.id ?? i}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(
-                  'border-t border-gray-100 transition-colors first:border-0 dark:border-gray-800',
+                  'border-t border-gray-100 transition-colors first:border-0 dark:border-white/[0.06]',
                   onRowClick && 'cursor-pointer hover:bg-gray-50/60 dark:hover:bg-white/5',
                 )}
               >
@@ -157,7 +157,7 @@ export function DataTable<T extends { id?: string }>({
       </div>
 
       {/* Mobile: stacked cards (first column is the title, rest are label/value rows) */}
-      <div className="divide-y divide-gray-100 sm:hidden dark:divide-gray-800">
+      <div className="divide-y divide-gray-100 sm:hidden dark:divide-white/[0.06]">
         {slice.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-4 py-14 text-center">
             <span className="grid h-12 w-12 place-items-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/5">
@@ -175,7 +175,7 @@ export function DataTable<T extends { id?: string }>({
               <div className="font-medium text-gray-800 dark:text-gray-100">{cell(first)}</div>
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
                 {rest.map((c) => (
-                  <div key={c.key} className="flex items-center justify-between gap-2 border-b border-gray-100 pb-1 last:border-0 dark:border-gray-800">
+                  <div key={c.key} className="flex items-center justify-between gap-2 border-b border-gray-100 pb-1 last:border-0 dark:border-white/[0.06]">
                     <dt className="shrink-0 text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{c.header}</dt>
                     <dd className="min-w-0 truncate text-right text-gray-700 dark:text-gray-200">{cell(c)}</dd>
                   </div>
@@ -186,7 +186,7 @@ export function DataTable<T extends { id?: string }>({
         })}
       </div>
       {filtered.length > pageSize && (
-        <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm dark:border-gray-800">
+        <div className="flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm dark:border-white/10">
           <span className="text-gray-500 dark:text-gray-400">{filtered.length} ta · {safePage + 1}/{pageCount} sahifa</span>
           <div className="flex gap-1.5">
             <button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} className="flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-gray-600 transition disabled:opacity-40 enabled:hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:enabled:hover:bg-white/5">

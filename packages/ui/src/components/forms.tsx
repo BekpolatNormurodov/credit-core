@@ -48,7 +48,7 @@ function Popover({
       style={{ position: 'fixed', left: pos.left, top: pos.top, width: pos.width, transform: pos.openUp ? 'translateY(-100%)' : undefined }}
       className="z-[200]"
     >
-      <div className="my-1 rounded-xl border border-gray-200 bg-white p-1 shadow-pop dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+      <div className="my-1 rounded-xl border border-gray-200 bg-white p-1 shadow-pop dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:ring-1 dark:ring-white/10">
         {children}
       </div>
     </div>,
@@ -57,7 +57,7 @@ function Popover({
 }
 
 const fieldBase =
-  'flex w-full items-center rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 min-h-[44px]';
+  'flex w-full items-center rounded-lg border border-gray-200 bg-white px-3.5 py-2.5 text-sm text-gray-800 outline-none transition focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-white/5 dark:text-gray-100 min-h-[44px]';
 
 /** Money input — masks the value with thousand separators as you type. */
 export function MoneyInput({

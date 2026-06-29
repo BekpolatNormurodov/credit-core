@@ -4,8 +4,20 @@ import { Calculator } from '../lib/icons';
 import { Card, Field, Input } from '../components/primitives';
 import { MoneyInput } from '../components/forms';
 import { DataTable, type Column } from '../components/DataTable';
+import { useTheme } from '../lib/theme';
 import { formatMoney } from '../lib/cn';
-import { chartPalette } from '../lib/chartColors';
+import { chartSeries, chartAxis } from '../lib/chartColors';
+
+/** Themed donut tooltip (slice name + money). */
+function CalcTip({ active, payload }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700 shadow-theme-md dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100">
+      <p className="font-semibold text-gray-800 dark:text-white">{payload[0].name}</p>
+      <p className="nums text-gray-500 dark:text-gray-400">{formatMoney(Number(payload[0].value))}</p>
+    </div>
+  );
+}
 
 interface Row { id: string; n: number; payment: number; principal: number; interest: number; balance: number }
 
@@ -37,6 +49,10 @@ function differentiated(amount: number, annualRate: number, months: number): Row
 }
 
 export function CreditCalculator() {
+  const { theme } = useTheme();
+  const dark = theme === 'dark';
+  const series = chartSeries(dark);
+  const { tick } = chartAxis(dark);
   const [amount, setAmount] = useState(100_000_000);
   const [rate, setRate] = useState(24);
   const [months, setMonths] = useState(18);
@@ -51,16 +67,16 @@ export function CreditCalculator() {
   const firstPay = schedule[0]?.payment ?? 0;
 
   const columns: Column<Row>[] = [
-    { key: 'n', header: '#', className: 'nums text-muted', render: (r) => r.n },
+    { key: 'n', header: '#', className: 'nums text-gray-500 dark:text-gray-400', render: (r) => r.n },
     { key: 'payment', header: 'To‘lov', align: 'right', className: 'nums font-medium', render: (r) => formatMoney(Math.round(r.payment)) },
     { key: 'principal', header: 'Asosiy qarz', align: 'right', className: 'nums', render: (r) => formatMoney(Math.round(r.principal)) },
     { key: 'interest', header: 'Foiz', align: 'right', className: 'nums', render: (r) => formatMoney(Math.round(r.interest)) },
-    { key: 'balance', header: 'Qoldiq', align: 'right', className: 'nums text-muted', render: (r) => formatMoney(Math.round(r.balance)) },
+    { key: 'balance', header: 'Qoldiq', align: 'right', className: 'nums text-gray-500 dark:text-gray-400', render: (r) => formatMoney(Math.round(r.balance)) },
   ];
 
   const pie = [
-    { name: 'Asosiy qarz', value: amount, fill: chartPalette.brand },
-    { name: 'Foiz (ustama)', value: Math.round(totalInterest), fill: chartPalette.warning },
+    { name: 'Asosiy qarz', value: amount, fill: series.brand },
+    { name: 'Foiz (ustama)', value: Math.round(totalInterest), fill: series.warning },
   ];
 
   return (
@@ -102,11 +118,8 @@ export function CreditCalculator() {
                 <Pie data={pie} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={2}>
                   {pie.map((p) => <Cell key={p.name} fill={p.fill} />)}
                 </Pie>
-                <Tooltip
-                  formatter={(v: any) => formatMoney(Number(v))}
-                  contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 1px 3px rgba(16,24,40,.1)', fontSize: 13 }}
-                />
-                <Legend wrapperStyle={{ fontSize: 13 }} />
+                <Tooltip content={<CalcTip />} />
+                <Legend wrapperStyle={{ fontSize: 13, color: tick }} />
               </PieChart>
             </ResponsiveContainer>
           </div>

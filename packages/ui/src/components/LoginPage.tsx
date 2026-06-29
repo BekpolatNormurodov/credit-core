@@ -50,7 +50,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
   };
 
   return (
-    <div className="relative min-h-screen bg-canvas dark:bg-navy-900 lg:grid lg:grid-cols-2">
+    <div className="relative min-h-screen bg-canvas dark:bg-gray-950 lg:grid lg:grid-cols-2">
       {/* Top-right controls */}
       <div className="absolute right-4 top-4 z-30 flex items-center gap-2.5">
         <LangSwitch />
@@ -63,7 +63,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
         onMouseMove={onMove}
         onMouseEnter={() => setGlowOn(true)}
         onMouseLeave={() => setGlowOn(false)}
-        className="relative hidden overflow-hidden bg-navy-900 lg:block"
+        className="relative hidden overflow-hidden bg-gray-900 lg:block"
       >
         {/* dotted grid */}
         <div
@@ -112,7 +112,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
         {/* tagline */}
         <div className="absolute bottom-12 left-10 right-10 z-[4]">
           <h2 className="font-heading text-2xl font-semibold text-white">Garov kreditlari — yagona panelda.</h2>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-gray-400">
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-gray-300">
             Arizalar, moderatsiya, tahlil va hisobotlar — bitta xavfsiz boshqaruv tizimida.
           </p>
         </div>
@@ -149,7 +149,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
               <PasswordInput name="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••" />
             </Field>
             {error && (
-              <p role="alert" className="rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm text-error-600 dark:border-error-500/20 dark:bg-error-500/12 dark:text-error-500">
+              <p role="alert" className="rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm text-error-600 dark:border-error-500/30 dark:bg-error-500/12 dark:text-error-400">
                 {error}
               </p>
             )}
@@ -159,7 +159,7 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
             </Button>
           </form>
 
-          <p className="mt-8 text-center text-xs text-gray-400 dark:text-gray-500">credit-core • garov tizimi</p>
+          <p className="mt-8 text-center text-xs text-gray-500 dark:text-gray-400">credit-core • garov tizimi</p>
         </motion.div>
       </div>
     </div>

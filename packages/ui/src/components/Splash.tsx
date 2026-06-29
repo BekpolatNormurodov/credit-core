@@ -21,11 +21,11 @@ export function Splash({ title, subtitle }: { title: string; subtitle: string })
       animate={{ opacity: 1 }}
       exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.03, filter: 'blur(4px)' }}
       transition={{ duration: reduce ? 0 : 0.4, ease: 'easeOut' }}
-      className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden bg-canvas dark:bg-gray-900"
+      className="fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-hidden bg-canvas dark:bg-gray-950"
     >
       {/* Ambient brand glows */}
       <div className="pointer-events-none absolute -top-32 left-1/2 h-[26rem] w-[26rem] -translate-x-1/2 rounded-full bg-brand-400/15 blur-[120px] dark:bg-brand-500/20" />
-      <div className="pointer-events-none absolute -bottom-40 left-[22%] h-80 w-80 rounded-full bg-brand-700/10 blur-[120px] dark:bg-brand-700/25" />
+      <div className="pointer-events-none absolute -bottom-40 left-[22%] h-80 w-80 rounded-full bg-brand-700/10 blur-[120px] dark:bg-brand-500/15" />
 
       {/* Masked dotted grid (matches the login brand stage) */}
       <div

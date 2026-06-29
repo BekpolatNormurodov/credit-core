@@ -15,7 +15,7 @@ const roleTone: Record<Role, string> = {
   [Role.OPERATOR]: 'bg-brand-600',
   [Role.MODERATOR]: 'bg-warning-600',
   [Role.DIRECTOR]: 'bg-violet-600',
-  [Role.ADMIN]: 'bg-gray-800',
+  [Role.ADMIN]: 'bg-gray-800 dark:bg-gray-600',
 };
 const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const timeFmt = (d: string) => new Date(d).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
@@ -120,7 +120,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
         />
       </div>
       {search && directory && (
-        <div className="mb-3 max-h-32 space-y-1 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-800 dark:bg-gray-900">
+        <div className="mb-3 max-h-32 space-y-1 overflow-y-auto rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800">
           {directory.length === 0 && <p className="px-2 py-1 text-xs text-gray-400">Topilmadi</p>}
           {directory.map((u) => (
             <button
@@ -142,7 +142,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
       <div ref={scrollRef} className="flex-1 space-y-2.5 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-3.5 dark:border-gray-800 dark:bg-white/5">
         {!messages?.length && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-gray-400">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-gray-300 shadow-theme-sm dark:bg-gray-900 dark:text-gray-500"><Send className="h-6 w-6" /></span>
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-gray-300 shadow-theme-sm dark:bg-gray-800 dark:text-gray-400"><Send className="h-6 w-6" /></span>
             <p className="text-sm">Hali xabarlar yo‘q — birinchi bo‘lib yozing</p>
           </div>
         )}
@@ -154,7 +154,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
             <Fragment key={m.id}>
               {showDay && (
                 <div className="flex justify-center py-1">
-                  <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-theme-sm dark:bg-gray-900 dark:text-gray-400">{dayLabel(m.createdAt)}</span>
+                  <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shadow-theme-sm dark:bg-gray-800 dark:text-gray-400">{dayLabel(m.createdAt)}</span>
                 </div>
               )}
               <div className={cn('group flex items-end gap-2', m.mine ? 'justify-end' : 'justify-start')}>
@@ -174,7 +174,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
 
                 <div className={cn(
                   'max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow-theme-sm',
-                  m.mine ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md border border-gray-200 bg-white text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200',
+                  m.mine ? 'rounded-br-md bg-brand-600 text-white' : 'rounded-bl-md border border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200',
                 )}>
                   {!m.mine && (
                     <p className="mb-0.5 text-xs font-semibold text-gray-600 dark:text-gray-300">

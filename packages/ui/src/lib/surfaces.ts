@@ -12,14 +12,18 @@ import { cn } from './cn';
  *   <div className={cn(surface, cardPad, className)} />
  */
 
-/** Base card surface (TailAdmin): rounded-2xl + gray border + soft shadow + dark mode. */
+/**
+ * Base card surface (TailAdmin): rounded-2xl + gray border + soft shadow + dark mode.
+ * Dark elevation: page is gray-950, this surface is gray-900 (one step up). Black
+ * box-shadows are invisible on dark, so the border (white/10) carries the edge.
+ */
 export const surface =
-  'rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-gray-800 dark:bg-gray-900';
+  'rounded-2xl border border-gray-200 bg-white shadow-theme-sm dark:border-white/10 dark:bg-gray-900';
 
-/** Clickable card: same surface + a subtle hover lift to the medium shadow. */
+/** Clickable card: same surface + a subtle hover lift (shadow in light, border in dark). */
 export const surfaceInteractive = cn(
   surface,
-  'transition duration-200 hover:-translate-y-0.5 hover:shadow-theme-md',
+  'transition duration-200 hover:-translate-y-0.5 hover:shadow-theme-md dark:hover:border-white/20',
 );
 
 /** Standard inner padding for cards (responsive). */

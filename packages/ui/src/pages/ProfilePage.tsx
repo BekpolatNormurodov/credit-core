@@ -71,7 +71,7 @@ export function ProfilePage() {
       <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Profil</h1>
 
       <Card className="overflow-hidden p-0">
-        <div className="flex items-center gap-4 bg-gray-900 p-6 text-white">
+        <div className="flex items-center gap-4 bg-gray-900 p-6 text-white dark:bg-gray-800">
           <div className="relative shrink-0">
             {user.hasAvatar ? (
               <img src={`${userAvatarUrl(user.id)}&v=${avatarVer}`} alt={user.fullName} className="h-20 w-20 rounded-2xl object-cover" />
@@ -85,7 +85,7 @@ export function ProfilePage() {
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
               aria-label="Rasmni o‘zgartirish"
-              className="absolute -bottom-1.5 -right-1.5 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-900 bg-brand-700 text-white shadow-theme-sm outline-none transition hover:bg-brand-800 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-60"
+              className="absolute -bottom-1.5 -right-1.5 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-900 bg-brand-700 text-white shadow-theme-sm outline-none transition hover:bg-brand-800 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-60 dark:border-gray-800"
             >
               {uploading ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <Camera className="h-4 w-4" />}
             </button>

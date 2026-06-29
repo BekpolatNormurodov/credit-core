@@ -131,7 +131,7 @@ export function SettingsPage() {
                   {/* Stepper rail */}
                   <div className="flex flex-col items-center">
                     <span className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-full text-sm font-bold', stepTone[step])}>{i + 1}</span>
-                    {!last && <span aria-hidden="true" className="mt-1 w-px flex-1 bg-gray-200 dark:bg-gray-800" />}
+                    {!last && <span aria-hidden="true" className="mt-1 w-px flex-1 bg-gray-200 dark:bg-white/10" />}
                   </div>
 
                   {/* Step row */}
@@ -160,8 +160,8 @@ export function SettingsPage() {
           </ol>
         )}
 
-        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-gray-800">
-          <p className="text-xs text-gray-400 dark:text-gray-500">O‘zgarishlar yangi va joriy arizalarga qo‘llanadi.</p>
+        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10">
+          <p className="text-xs text-gray-500 dark:text-gray-400">O‘zgarishlar yangi va joriy arizalarga qo‘llanadi.</p>
           <Button onClick={() => save.mutate()} loading={save.isPending} disabled={isLoading}>
             <Save className="h-5 w-5" /> Saqlash
           </Button>
@@ -201,7 +201,7 @@ export function SettingsPage() {
           </div>
         )}
 
-        <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-gray-800">
+        <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-white/10">
           <Button onClick={() => saveConfig.mutate()} loading={saveConfig.isPending} disabled={!conf}>
             <Save className="h-5 w-5" /> Saqlash
           </Button>

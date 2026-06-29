@@ -99,7 +99,7 @@ export function CaseTimeline({ events }: { events: WorkflowEventDto[] }) {
               <span className={cn('z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full ring-4 ring-white dark:ring-gray-900', toneSoft[tone])}>
                 <Icon className="h-4 w-4" />
               </span>
-              {!isLast && <span aria-hidden="true" className="mt-1 w-px flex-1 bg-gray-200 dark:bg-gray-800" />}
+              {!isLast && <span aria-hidden="true" className="mt-1 w-px flex-1 bg-gray-200 dark:bg-white/10" />}
             </div>
 
             {/* Content */}
@@ -111,7 +111,7 @@ export function CaseTimeline({ events }: { events: WorkflowEventDto[] }) {
                 <time
                   dateTime={e.createdAt}
                   title={new Date(e.createdAt).toLocaleString('ru-RU')}
-                  className="ml-auto shrink-0 text-xs text-gray-400 dark:text-gray-500"
+                  className="ml-auto shrink-0 text-xs text-gray-500 dark:text-gray-400"
                 >
                   {relativeTime(e.createdAt)}
                 </time>

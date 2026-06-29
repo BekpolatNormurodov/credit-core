@@ -44,7 +44,7 @@ function GlobalSearch({ className }: { className?: string }) {
         className="h-10 w-[260px] rounded-lg border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-800 outline-none transition placeholder:text-gray-400 focus:border-brand-400 focus:ring-2 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500 xl:w-[340px]"
       />
       {open && q.trim().length >= 2 && (
-        <div className="absolute left-0 top-12 z-50 w-[340px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-pop dark:border-gray-800 dark:bg-gray-900 xl:w-[420px]">
+        <div className="absolute left-0 top-12 z-50 w-[340px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-pop dark:border-gray-700 dark:bg-gray-800 dark:ring-1 dark:ring-white/10 xl:w-[420px]">
           {isFetching && !results && <p className="px-4 py-3 text-sm text-gray-400">Qidirilmoqda…</p>}
           {results && results.length === 0 && <p className="px-4 py-3 text-sm text-gray-400">Hech narsa topilmadi</p>}
           <ul className="max-h-80 overflow-y-auto py-1">
@@ -54,7 +54,7 @@ function GlobalSearch({ className }: { className?: string }) {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400"><FileText className="h-4 w-4" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-gray-800 dark:text-gray-100">{c.number} <span className="font-normal text-gray-400">· {c.borrowerName ?? '—'}</span></span>
-                    <span className="block truncate text-xs text-gray-500">{c.branchSymbol ?? '—'} · {STATUS_LABEL[c.status]}</span>
+                    <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{c.branchSymbol ?? '—'} · {STATUS_LABEL[c.status]}</span>
                   </span>
                 </button>
               </li>
@@ -129,11 +129,14 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
           'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
           rail && 'xl:justify-center xl:px-0',
           active
-            ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/12 dark:text-brand-400'
-            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5',
+            ? 'bg-gray-100 text-gray-900 dark:bg-white/10 dark:text-white'
+            : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-gray-100',
         )}
       >
-        <item.icon className="h-5 w-5 shrink-0" />
+        {active && (
+          <span aria-hidden className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-brand-600 dark:bg-brand-400" />
+        )}
+        <item.icon className={cn('h-5 w-5 shrink-0', active && 'text-brand-700 dark:text-brand-400')} />
         <span className={cn('flex-1 truncate', rail && 'xl:hidden')}>{item.label}</span>
         {!!badge && badge > 0 && (
           <span className={cn(
@@ -149,7 +152,7 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Off-canvas backdrop (mobile / tablet) */}
       {open && (
         <div

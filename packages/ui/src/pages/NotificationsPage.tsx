@@ -12,7 +12,7 @@ const roleTone: Record<Role, string> = {
   [Role.OPERATOR]: 'bg-brand-600',
   [Role.MODERATOR]: 'bg-warning-600',
   [Role.DIRECTOR]: 'bg-violet-600',
-  [Role.ADMIN]: 'bg-gray-800',
+  [Role.ADMIN]: 'bg-gray-800 dark:bg-gray-600',
 };
 const initials = (name: string) => name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
@@ -73,7 +73,7 @@ export function NotificationsPage() {
                     </p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-2">
                       <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 dark:bg-white/10 dark:text-gray-300">{ROLE_LABEL[n.senderRole]}</span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">{new Date(n.createdAt).toLocaleString('ru-RU')}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{new Date(n.createdAt).toLocaleString('ru-RU')}</span>
                       {n.hasFile && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-1.5 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-gray-300">
                           <FileText className="h-3.5 w-3.5" /> fayl

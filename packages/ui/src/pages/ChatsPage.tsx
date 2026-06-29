@@ -54,7 +54,7 @@ export function ChatsPage() {
           <Card className="lg:col-span-2">
             {selected ? (
               <>
-                <div className="mb-3 border-b border-gray-200 pb-3 dark:border-gray-800">
+                <div className="mb-3 border-b border-gray-200 pb-3 dark:border-white/10">
                   <p className="font-semibold text-gray-800 dark:text-white">{selected.number}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{selected.borrowerName ?? '—'}</p>
                 </div>

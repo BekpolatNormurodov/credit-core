@@ -65,12 +65,12 @@ export function Modal({
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             className={cn(
               'relative flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-white shadow-pop sm:rounded-2xl',
-              'dark:bg-gray-900 dark:text-gray-100',
+              'dark:bg-gray-800 dark:text-gray-100 dark:ring-1 dark:ring-white/10',
               sizes[size],
             )}
           >
             {(title || !!onClose) && (
-              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4 dark:border-gray-800">
+              <div className="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-4 dark:border-gray-700">
                 <div className="min-w-0">
                   {title && <h2 className="text-lg font-bold text-gray-800 dark:text-white">{title}</h2>}
                   {description && <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">{description}</p>}
@@ -86,7 +86,7 @@ export function Modal({
             )}
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
             {footer && (
-              <div className="flex items-center justify-end gap-2.5 border-t border-gray-200 bg-gray-50 px-6 py-3.5 dark:border-gray-800 dark:bg-white/5">
+              <div className="flex items-center justify-end gap-2.5 border-t border-gray-200 bg-gray-50 px-6 py-3.5 dark:border-gray-700 dark:bg-white/5">
                 {footer}
               </div>
             )}
