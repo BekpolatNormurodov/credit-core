@@ -104,6 +104,7 @@ model User {
   createdCases      CreditCase[]    @relation("CaseCreatedBy")
   documents         Document[]
   events            WorkflowEvent[]
+  auditLogs         AuditLog[]      @relation("AuditActor")
   sentMessages      Message[]       @relation("MessageSender")
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
@@ -138,6 +139,7 @@ model CreditCase {
   valuationAct ValuationAct?
   documents    Document[]
   events       WorkflowEvent[]
+  auditLogs    AuditLog[]
   importJobs   ImportJob[]
   messages     Message[]
 
@@ -595,4 +597,64 @@ model SalaryMonth {
   net           Decimal?          @db.Decimal(18, 2)
 
   @@index([certificateId])
+}
+
+// ── Audit trail (3 layers) ──────────────────────────────────────────────
+
+enum AuditAction {
+  RATE_CHANGE
+  KATM_PRICE
+  CONFIG_CHANGE
+  PAUSE
+  RESUME
+  CASE_CREATE
+  CASE_UPDATE
+  SECTION_SAVE
+  TRANSITION
+}
+
+/// Layer A — semantic domain audit (who changed what value, from→to, and why).
+model AuditLog {
+  id        String      @id @default(cuid())
+  action    AuditAction
+  actor     User        @relation("AuditActor", fields: [actorId], references: [id])
+  actorId   String
+  role      Role
+  case      CreditCase? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  caseId    String?
+  field     String?
+  oldValue  String?     @db.Text
+  newValue  String?     @db.Text
+  reason    String?     @db.Text
+  createdAt DateTime    @default(now())
+
+  @@index([caseId])
+  @@index([actorId])
+  @@index([action])
+}
+
+/// Layer B — every HTTP request.
+model RequestLog {
+  id         String   @id @default(cuid())
+  method     String
+  path       String   @db.Text
+  userId     String?
+  statusCode Int
+  durationMs Int
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+/// Layer C — every Prisma query (separate store, pruned by retention cron).
+model QueryLog {
+  id         String   @id @default(cuid())
+  model      String?
+  action     String
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
 }
