@@ -25,8 +25,7 @@ jobs:
       - name: Prisma generate
         run: npm run db:generate -w @credit-core/backend
 
-      - name: Lint
-        run: npm run lint
+      # (No lint step — eslint is not configured in this repo yet; tsc + tests + build gate quality.)
 
       - name: Backend typecheck + tests
         working-directory: apps/backend
