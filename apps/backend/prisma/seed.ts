@@ -4,6 +4,27 @@ import * as bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
+  // Lender master data (id 'default') — document letterhead/requisites read this.
+  await prisma.organization.upsert({
+    where: { id: 'default' },
+    update: {},
+    create: {
+      id: 'default',
+      nameMixed: 'МЧЖ «CLEVER Mikromoliya Tashkiloti»',
+      nameUpper: 'МЧЖ «CLEVER MIKROMOLIYA TASHKILOTI»',
+      nameSuffix: '«CLEVER MIKROMOLIYA TASHKILOTI» МЧЖ',
+      directorShort: 'Б.Исмоилов',
+      directorFull: 'Исмоилов Баҳромжон Ахрор ўғли',
+      address: 'Тошкент шахар, Олмазор тумани, Сагбон 30 берк кўча, 6 уй',
+      bankAccount: '20216000105068380006',
+      bankMfo: '01183',
+      bankName: 'АЖ «ANORBANK»',
+      inn: '306365847',
+      licenseNo: '61',
+      licenseDate: new Date('2019-06-22T00:00:00Z'),
+    },
+  });
+
   const branch = await prisma.branch.upsert({
     where: { symbol: 'BR' },
     update: {},

@@ -23,6 +23,8 @@ COPY --from=build /app/apps/backend/dist ./apps/backend/dist
 COPY --from=build /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=build /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=build /app/apps/backend/package.json ./apps/backend/
+# tsconfig is needed by ts-node when running prisma/seed.ts in the container.
+COPY --from=build /app/apps/backend/tsconfig.json ./apps/backend/
 WORKDIR /app/apps/backend
 EXPOSE 3000
 # db push reconciles the schema (additive-safe, matches dev) — no migration history to maintain.
