@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 source deploy/.env
 
 domains=(api.creditcore.uz operator.creditcore.uz moderator.creditcore.uz director.creditcore.uz admin.creditcore.uz)
-email="${CERTBOT_EMAIL:-admin@creditcore.uz}"
+email="${CERTBOT_EMAIL:-khurshidi2827@gmail.com}"
 live="/etc/letsencrypt/live/creditcore.uz"
 
 echo "==> 1/4 dummy certificate so nginx can start on 443"

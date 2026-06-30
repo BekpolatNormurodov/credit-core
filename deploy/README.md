@@ -3,25 +3,24 @@
 Production runs the whole stack with Docker Compose behind nginx: **MySQL + backend + 4 role web
 apps + nginx + certbot**. Deploy is **manual** (CI only builds/tests — it does not deploy).
 
-## 0. Prerequisites (one time, on the server)
-
-- A Linux server (Ubuntu 22.04+) with a public IP.
-- Docker Engine + the Compose plugin:
-  ```bash
-  curl -fsSL https://get.docker.com | sh
-  ```
-- Ports **80** and **443** open in the firewall.
-- **DNS A-records** (you manage these) all pointing at the server IP:
-  `api`, `operator`, `moderator`, `director`, `admin` `.creditcore.uz`.
-  (apex / `www` / `mail` / `ftp` are not used by the app.)
-
-## 1. First install
+## 0. Server setup (one time, on the Ubuntu server)
 
 ```bash
 git clone https://github.com/khurshid28/credit-core.git
 cd credit-core
+sudo bash deploy/server-setup.sh   # installs Docker + Compose plugin, opens firewall (22/80/443)
+```
+
+- **DNS A-records** (you manage these) all pointing at the server IP:
+  `api`, `operator`, `moderator`, `director`, `admin` `.creditcore.uz`.
+  (apex / `www` / `mail` / `ftp` are not used by the app.)
+- **certbot is NOT installed on the host** — it runs as a container (see §2).
+
+## 1. First install
+
+```bash
 cp deploy/.env.example deploy/.env
-nano deploy/.env            # set MYSQL_ROOT_PASSWORD, JWT_SECRET, DATABASE_URL, CERTBOT_EMAIL
+nano deploy/.env            # set MYSQL_ROOT_PASSWORD, JWT_SECRET, DATABASE_URL (CERTBOT_EMAIL is preset)
 bash deploy/deploy.sh       # builds, starts, syncs schema (prisma db push), seeds
 ```
 
