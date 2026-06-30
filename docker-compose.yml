@@ -1,5 +1,6 @@
 # Production compose — NOT used in local dev (dev runs against the local MySQL80).
 # Subdomains: operator/moderator/director/admin.creditcore.uz + api.creditcore.uz
+# Usage: docker compose --env-file deploy/.env up -d --build
 services:
   mysql:
     image: mysql:8.4
@@ -9,36 +10,34 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - '3307:3306'
+    # Not exposed to the host in prod — only the compose network reaches it.
 
   backend:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
     restart: unless-stopped
+    env_file:
+      - deploy/.env
     environment:
-      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-root}@mysql:3306/credit_core
-      JWT_SECRET: ${JWT_SECRET:-change-me}
       UPLOAD_DIR: /data/uploads
       BACKEND_PORT: 3000
-      CORS_ORIGINS: https://operator.creditcore.uz,https://moderator.creditcore.uz,https://director.creditcore.uz,https://admin.creditcore.uz
     volumes:
       - uploads:/data/uploads
     depends_on:
       - mysql
 
   web-operator:
-    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-operator } }
+    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-operator, VITE_API_URL: "${VITE_API_URL:-https://api.creditcore.uz}" } }
     restart: unless-stopped
   web-moderator:
-    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-moderator } }
+    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-moderator, VITE_API_URL: "${VITE_API_URL:-https://api.creditcore.uz}" } }
     restart: unless-stopped
   web-director:
-    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-director } }
+    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-director, VITE_API_URL: "${VITE_API_URL:-https://api.creditcore.uz}" } }
     restart: unless-stopped
   web-admin:
-    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-admin } }
+    build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-admin, VITE_API_URL: "${VITE_API_URL:-https://api.creditcore.uz}" } }
     restart: unless-stopped
 
   nginx:
@@ -50,6 +49,7 @@ services:
     volumes:
       - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot
     depends_on:
       - backend
       - web-operator
@@ -57,6 +57,16 @@ services:
       - web-director
       - web-admin
 
+  # TLS: issued once via deploy/init-letsencrypt.sh, then auto-renews here.
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./deploy/nginx/certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+
 volumes:
   mysql_data:
   uploads:
+  certbot_www:
