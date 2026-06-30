@@ -18,6 +18,30 @@ export function isTermValid(method: RepaymentMethod, term: number | null | undef
   return !!term && term > 0 && term <= termCapFor(method);
 }
 
+export interface LoanRuleInput {
+  scheduleType?: RepaymentMethod | null;
+  trancheTermMonths?: number | null;
+  lineTermMonths?: number | null;
+}
+
+/** Server-authoritative term-cap checks. Empty array = valid. */
+export function loanRuleViolations(i: LoanRuleInput): string[] {
+  const errs: string[] = [];
+  const m = i.scheduleType ?? undefined;
+  if (m && i.trancheTermMonths != null && !isTermValid(m, i.trancheTermMonths)) {
+    errs.push(`Transh muddati ${termCapFor(m)} oydan oshmasligi kerak`);
+  }
+  if (m && i.lineTermMonths != null && !isTermValid(m, i.lineTermMonths)) {
+    errs.push(`Liniya muddati ${termCapFor(m)} oydan oshmasligi kerak`);
+  }
+  return errs;
+}
+
+/** A moderator may act on a case only if it sits in one of their assigned branches. */
+export function isCaseInScope(branchIds: string[], caseBranchId: string | null | undefined): boolean {
+  return !!caseBranchId && branchIds.includes(caseBranchId);
+}
+
 /** b3!M:N — activity sphere → industry-risk code (1–17). Lower code = lower risk. */
 export const SECTOR_RISK: { label: string; code: number }[] = [
   { label: 'Безопасность / Военная служба / Служба спасения / Органы внутренних дел', code: 1 },
@@ -85,6 +109,37 @@ export function originationCalc(i: OriginationCalcInput): OriginationCalc {
   const insuredSum = roundUpTo(n(i.loanUnderPolicy) * 1.3, 1); // exact ×1.3
   const premium = i.policyTermMonths ? (insuredSum * n(i.insuranceRate)) / 12 * n(i.policyTermMonths) : 0;
   const coverageRatio = i.amountTotal ? n(i.collateralTotal) / n(i.amountTotal) : 0;
-  const affordabilityOk = surplus >= 0 && totalIncome >= minRequiredIncome;
+  const affordabilityOk = totalIncome > 0 && surplus >= 0 && totalIncome >= minRequiredIncome;
   return { totalIncome, totalCreditPayments, totalExpenses, dtiRatio, surplus, minRequiredIncome, insuredSum, premium, coverageRatio, affordabilityOk };
+}
+
+export interface PersistedInput {
+  amountTotal?: number | null;
+  loanUnderPolicy?: number | null;
+  insuranceRate?: number | null;
+  policyTermMonths?: number | null;
+  trancheMonthlyPayment?: number | null;
+}
+export interface PersistedDerived {
+  loanType: LoanType;
+  amount: number | null;
+  insuredSum: number;
+  premium: number;
+  newLoanPayment: number | null;
+}
+
+/** Server-authoritative derived values to write to the DB columns documents read. */
+export function originationPersistedValues(i: PersistedInput): PersistedDerived {
+  const calc = originationCalc({
+    loanUnderPolicy: i.loanUnderPolicy,
+    insuranceRate: i.insuranceRate,
+    policyTermMonths: i.policyTermMonths,
+  });
+  return {
+    loanType: loanTypeFor(i.amountTotal),
+    amount: i.amountTotal ?? null,
+    insuredSum: calc.insuredSum,
+    premium: calc.premium,
+    newLoanPayment: i.trancheMonthlyPayment ?? null,
+  };
 }
