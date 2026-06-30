@@ -7,9 +7,20 @@ ARG APP
 ARG VITE_API_URL=https://api.creditcore.uz
 ENV VITE_API_URL=$VITE_API_URL
 WORKDIR /app
-COPY . .
-# ci = reproducible + faster than install; .dockerignore keeps the context lean.
+# Copy only the manifests first so the `npm ci` layer is cached across source-only
+# changes (a re-deploy that doesn't touch deps skips the reinstall). Add a line here
+# if a new workspace is introduced.
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api-client/package.json packages/api-client/
+COPY packages/ui/package.json packages/ui/
+COPY apps/backend/package.json apps/backend/
+COPY apps/web-operator/package.json apps/web-operator/
+COPY apps/web-moderator/package.json apps/web-moderator/
+COPY apps/web-director/package.json apps/web-director/
+COPY apps/web-admin/package.json apps/web-admin/
 RUN npm ci
+COPY . .
 RUN npm run build -w @credit-core/$APP
 
 FROM nginx:1.27-alpine

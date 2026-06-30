@@ -1,4 +1,4 @@
-# NestJS backend image
+# NestJS backend image.
 FROM node:22-slim AS build
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
@@ -11,6 +11,11 @@ COPY apps/backend apps/backend
 RUN npm run build -w @credit-core/shared \
   && npm run db:generate -w @credit-core/backend \
   && npm run build -w @credit-core/backend
+# Drop devDependencies (jest, ts-jest, @nestjs/cli|schematics|testing, @types/*) from the
+# install tree — the biggest size win. prisma + ts-node + typescript are in "dependencies"
+# because the container needs them at runtime (prisma db push on start; ts-node
+# prisma/seed.ts for db:seed), so prune keeps them.
+RUN npm prune --omit=dev
 
 FROM node:22-slim
 WORKDIR /app
