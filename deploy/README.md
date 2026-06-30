@@ -1,23 +1,30 @@
 # Deploy — credit-core (creditcore.uz)
 
-Production runs the stack with Docker Compose: **MySQL + backend + 4 role web apps + nginx**.
-The stack's nginx serves **plain HTTP on `127.0.0.1:8080`**; the **server's own reverse proxy /
-panel owns ports 80 + 443, terminates TLS, and forwards** the 5 subdomains to it. Deploy is
-**manual** (CI only builds/tests — it does not deploy).
+Production runs the stack with Docker Compose: **MySQL + backend + 4 role web apps + nginx + certbot**.
+nginx **terminates TLS itself**, published on **`8080` (HTTP)** + **`9443` (HTTPS)**. An **edge box
+(`87.x`)** receives the public domains and forwards **public `:80` → this host `:8080`** and
+**public `:443` → this host `:9443`**. Deploy is **manual** (CI only builds/tests — it does not deploy).
+
+```
+ domains ─▶ 87.x  (edge: pure port-forward / NAT, no TLS)
+              │  public :80  ──▶  app-host :8080  ──▶  nginx :80   (ACME + redirect)
+              └  public :443 ──▶  app-host :9443  ──▶  nginx :443  (TLS terminates here)
+```
 
 ## 0. Server setup (one time — Ubuntu 22.04 or 24.04)
 
 ```bash
 git clone https://github.com/khurshid28/credit-core.git
 cd credit-core
-sudo bash deploy/server-setup.sh   # installs Docker + Compose plugin, opens firewall (22/80/443)
+sudo bash deploy/server-setup.sh   # installs Docker + Compose plugin, opens firewall (22/8080/9443)
 ```
 
-- **DNS A-records** (you manage these) all pointing at the server IP:
+- **DNS A-records** (you manage these) all point at the **edge IP `87.x`**:
   `api`, `operator`, `moderator`, `director`, `admin` `.creditcore.uz`.
   (apex / `www` / `mail` / `ftp` are not used by the app.)
-- **TLS is handled by your existing reverse proxy / panel** (the thing already on 80/443) —
-  this stack does not run certbot and does not bind 80/443 (it would error if it tried).
+- **Edge port-forward** (you configure on `87.x`): public `80 → <app-host>:8080`,
+  public `443 → <app-host>:9443`. Both must be a plain L4 forward — the edge must **not**
+  terminate TLS (this stack does), and must preserve the client's `Host`/SNI.
 
 ## 1. First install
 
@@ -29,30 +36,19 @@ bash deploy/deploy.sh       # builds, starts, syncs schema (prisma db push), see
 
 Seed logins (password `parol123`): `operator`, `moderator`, `director`, `admin`.
 
-## 2. Host nginx + TLS (one command, after DNS resolves to the server)
-
-The app's container nginx listens on `:80` internally and is published on `127.0.0.1:8080`.
-The **host's own nginx** sits in front on 80/443, terminates TLS, and proxies the 5 subdomains
-to it. One script does the whole thing — installs host nginx + certbot, writes the vhost, and
-issues the certificate:
+## 2. TLS (one time, after DNS + the edge `80 → 8080` forward are live)
 
 ```bash
-sudo bash deploy/host-tls.sh
+bash deploy/init-letsencrypt.sh
 ```
 
-It:
-- installs `nginx` + `certbot` on the host (no-op if already there),
-- writes `/etc/nginx/sites-available/creditcore.uz` proxying all 5 subdomains → `http://127.0.0.1:8080`
-  (passing the `Host` header — routing is by host),
-- runs `certbot --nginx` for `api/operator/moderator/director/admin.creditcore.uz`, which adds the
-  443 server block, the HTTP→HTTPS redirect, and a **systemd auto-renew timer** (no certbot container).
+Issues one Let's Encrypt certificate covering all 5 names and reloads nginx. The ACME http-01
+challenge is fetched over `http://<domain>/` → edge `:80` → this host `:8080` → nginx `:80`
+(served from the certbot webroot), so the edge's `80 → 8080` forward **must** be working first.
+The `certbot` container then auto-renews every 12h.
 
-Email + domains are baked into the script (`khurshidi2827@gmail.com`). Verify renewal with
-`certbot renew --dry-run`.
-
-> **Using a panel** (aaPanel / CyberPanel / Plesk / etc.) instead of plain host nginx? Don't run
-> the script — it would clash with the panel's nginx. Instead create a reverse-proxy site for each
-> subdomain pointing at `http://127.0.0.1:8080` (preserve the `Host` header) and flip on its TLS toggle.
+> Cert lives in this stack (`deploy/nginx/certs`), not on the edge — the edge only forwards
+> packets. Email is `CERTBOT_EMAIL` in `deploy/.env` (preset to `khurshidi2827@gmail.com`).
 
 ## 3. Update (deploy new code)
 
@@ -69,14 +65,14 @@ bash deploy/update.sh        # git pull → rebuild → restart (schema re-synce
 | `DATABASE_URL` | `mysql://root:<pw>@mysql:3306/credit_core` |
 | `VITE_API_URL` | baked into web builds — `https://api.creditcore.uz` |
 | `CORS_ORIGINS` | the 4 role origins, comma-separated |
+| `CERTBOT_EMAIL` | Let's Encrypt contact (nginx terminates TLS in-stack) |
 
-`deploy/.env` is gitignored — never commit it. (TLS lives on the host proxy, so there's no
-`CERTBOT_EMAIL` here.)
+`deploy/.env` is gitignored — never commit it.
 
 ## 5. Routing
 
-The host proxy forwards every subdomain to `http://127.0.0.1:8080`; the stack's nginx then
-splits by `Host`:
+The edge forwards every subdomain to this host's `8080`/`9443`; the stack's nginx terminates
+TLS and splits by `Host`:
 
 | Host | → |
 |---|---|

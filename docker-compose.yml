@@ -1,7 +1,7 @@
 # Production compose — NOT used in local dev (dev runs against the local MySQL80).
 # Subdomains: operator/moderator/director/admin.creditcore.uz + api.creditcore.uz
-# nginx here serves plain HTTP on 127.0.0.1:8080; the SERVER's own proxy/panel
-# terminates TLS on 80/443 and forwards the 5 subdomains to it.
+# nginx terminates TLS itself; it's published on 8080 (HTTP) + 9443 (HTTPS) because
+# the edge (87.x) forwards public 80/443 -> this host's 8080/9443.
 # Usage: docker compose --env-file deploy/.env up -d --build
 services:
   mysql:
@@ -45,14 +45,16 @@ services:
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped
-    # The server already runs its own reverse proxy / panel on 80 + 443 (it terminates
-    # TLS). So this nginx only does plain HTTP and is published on 8080 — binding 80/443
-    # here would error ("address already in use"). Loopback-only: the host proxy reaches
-    # it at 127.0.0.1:8080. To expose it directly for testing, use '8080:80' instead.
+    # The edge (87.x) forwards public 80/443 into this server's 8080/9443; nginx listens
+    # on 80 (HTTP: ACME + redirect) and 443 (HTTPS: TLS terminates HERE) internally. The
+    # host's own 80/443 are taken, so we publish on 8080/9443 instead.
     ports:
-      - '127.0.0.1:8080:80'
+      - '8080:80'
+      - '9443:443'
     volumes:
       - ./deploy/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - certbot_www:/var/www/certbot
     depends_on:
       - backend
       - web-operator
@@ -60,6 +62,17 @@ services:
       - web-director
       - web-admin
 
+  # TLS: issued once via deploy/init-letsencrypt.sh, then auto-renews here.
+  # ACME http-01 reaches us through the edge: public :80 -> this host :8080 -> nginx :80.
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./deploy/nginx/certs:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done;'"
+
 volumes:
   mysql_data:
   uploads:
+  certbot_www:
