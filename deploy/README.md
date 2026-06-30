@@ -29,51 +29,30 @@ bash deploy/deploy.sh       # builds, starts, syncs schema (prisma db push), see
 
 Seed logins (password `parol123`): `operator`, `moderator`, `director`, `admin`.
 
-## 2. Front the app with your reverse proxy + TLS (one time)
+## 2. Host nginx + TLS (one command, after DNS resolves to the server)
 
-The app listens on `127.0.0.1:8080`. Point your existing proxy / panel at it and let **it**
-terminate TLS for the 5 subdomains, preserving the `Host` header. Example host-nginx vhost
-(adjust cert paths to whatever your panel issues — Let's Encrypt, the panel's own ACME, etc.):
-
-```nginx
-# /etc/nginx/sites-available/creditcore.uz  (on the host, NOT in the container)
-server {
-    listen 443 ssl;
-    http2  on;
-    server_name api.creditcore.uz operator.creditcore.uz moderator.creditcore.uz
-                director.creditcore.uz admin.creditcore.uz;
-
-    ssl_certificate     /etc/letsencrypt/live/creditcore.uz/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/creditcore.uz/privkey.pem;
-
-    client_max_body_size 25m;
-
-    location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header Host              $host;             # required — routing is by Host
-        proxy_set_header X-Real-IP         $remote_addr;
-        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-server {                                   # redirect plain HTTP → HTTPS
-    listen 80;
-    server_name api.creditcore.uz operator.creditcore.uz moderator.creditcore.uz
-                director.creditcore.uz admin.creditcore.uz;
-    return 301 https://$host$request_uri;
-}
-```
-
-Issue the cert with your host's certbot (covers all 5 names in one go):
+The app's container nginx listens on `:80` internally and is published on `127.0.0.1:8080`.
+The **host's own nginx** sits in front on 80/443, terminates TLS, and proxies the 5 subdomains
+to it. One script does the whole thing — installs host nginx + certbot, writes the vhost, and
+issues the certificate:
 
 ```bash
-sudo certbot --nginx -d api.creditcore.uz -d operator.creditcore.uz \
-  -d moderator.creditcore.uz -d director.creditcore.uz -d admin.creditcore.uz \
-  --email khurshidi2827@gmail.com --agree-tos --no-eff-email
+sudo bash deploy/host-tls.sh
 ```
 
-> If your panel (aaPanel / CyberPanel / Plesk / etc.) manages vhosts, just create a reverse-proxy
-> site for each subdomain pointing at `http://127.0.0.1:8080` and enable its TLS toggle.
+It:
+- installs `nginx` + `certbot` on the host (no-op if already there),
+- writes `/etc/nginx/sites-available/creditcore.uz` proxying all 5 subdomains → `http://127.0.0.1:8080`
+  (passing the `Host` header — routing is by host),
+- runs `certbot --nginx` for `api/operator/moderator/director/admin.creditcore.uz`, which adds the
+  443 server block, the HTTP→HTTPS redirect, and a **systemd auto-renew timer** (no certbot container).
+
+Email + domains are baked into the script (`khurshidi2827@gmail.com`). Verify renewal with
+`certbot renew --dry-run`.
+
+> **Using a panel** (aaPanel / CyberPanel / Plesk / etc.) instead of plain host nginx? Don't run
+> the script — it would clash with the panel's nginx. Instead create a reverse-proxy site for each
+> subdomain pointing at `http://127.0.0.1:8080` (preserve the `Host` header) and flip on its TLS toggle.
 
 ## 3. Update (deploy new code)
 
