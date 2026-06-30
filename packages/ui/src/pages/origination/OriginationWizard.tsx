@@ -22,8 +22,12 @@ export function OriginationWizard() {
   const { Comp } = STEPS[f.step];
 
   const next = async () => {
-    await f.saveSection(STEPS[f.step].section);
-    if (f.step < STEPS.length - 1) f.setStep(f.step + 1);
+    try {
+      await f.saveSection(STEPS[f.step].section);
+      if (f.step < STEPS.length - 1) f.setStep(f.step + 1);
+    } catch {
+      toast.error('Saqlanmadi', 'Majburiy maydonlarni tekshiring');
+    }
   };
   const finish = async () => {
     const s = await f.save();

@@ -721,9 +721,10 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
   const minPct = Math.round((cfg.data?.minRate ?? 0.55) * 100);
   const maxPct = Math.round((cfg.data?.maxRate ?? 0.6) * 100);
   const [pct, setPct] = useState<number>(Math.round((line?.interestRate ?? cfg.data?.minRate ?? 0.55) * 100));
+  const [rateReason, setRateReason] = useState('');
   const rate = useMutation({
-    mutationFn: () => api.setCaseRate(c.id, pct / 100),
-    onSuccess: () => { onChange(); toast.success('Saqlandi', `Foiz ${pct}%`); },
+    mutationFn: () => api.setCaseRate(c.id, pct / 100, rateReason.trim()),
+    onSuccess: () => { onChange(); setRateReason(''); toast.success('Saqlandi', `Foiz ${pct}%`); },
     onError: () => toast.error('Xatolik', `Foiz ${minPct}–${maxPct}% oralig‘ida bo‘lishi kerak`),
   });
 
@@ -755,10 +756,11 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
         <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 dark:border-white/10">
           <p className="text-xs text-gray-500 dark:text-gray-400">Foizni sozlash ({minPct}–{maxPct}%) — risk uchun ko‘tarish mumkin</p>
           <div className="flex items-center gap-2">
-            <Input type="number" min={minPct} max={maxPct} value={pct} onChange={(e) => setPct(Number(e.target.value))} className="nums w-24" />
+            <Input type="number" min={minPct} max={maxPct} value={pct} onChange={(e) => setPct(Number(e.target.value) || minPct)} className="nums w-24" />
             <span className="text-sm text-gray-500 dark:text-gray-400">%</span>
-            <Button className="ml-auto" loading={rate.isPending} onClick={() => rate.mutate()}>Saqlash</Button>
           </div>
+          <Input value={rateReason} onChange={(e) => setRateReason(e.target.value)} placeholder="Sabab (majburiy)" />
+          <Button className="w-full" loading={rate.isPending} disabled={!rateReason.trim()} onClick={() => rate.mutate()}>Saqlash</Button>
         </div>
       )}
     </Card>

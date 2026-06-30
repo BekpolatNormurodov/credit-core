@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
@@ -107,10 +108,19 @@ export function Step3({ f }: { f: OriginationForm }) {
   const ins = l.insurance ?? ({} as Ins);
   const setLine = (p: Partial<Line>) => {
     const merged = { ...l, ...p } as Line;
-    const amountTotal = (merged.amountAuto ?? 0) + (merged.amountPolis ?? 0) || null;
-    f.patch({ creditLine: { ...merged, amountTotal, loanType: loanTypeFor(amountTotal), interestRate: merged.interestRate ?? minRate, penaltyRate: merged.penaltyRate ?? 1.05 } });
+    // Only recompute the total when a split field changed — never wipe a loaded amountTotal.
+    const recompute = 'amountAuto' in p || 'amountPolis' in p;
+    const amountTotal = recompute ? ((merged.amountAuto ?? 0) + (merged.amountPolis ?? 0) || null) : (merged.amountTotal ?? null);
+    f.patch({ creditLine: { ...merged, amountTotal, loanType: loanTypeFor(amountTotal), penaltyRate: merged.penaltyRate ?? 1.05 } });
   };
   const setIns = (p: Partial<Ins>) => setLine({ insurance: { ...ins, ...p } as Ins });
+  // Local string state for the % field so fractional input and float noise don't clobber typing.
+  const [rateStr, setRateStr] = useState(ins.insuranceRate != null ? String(+(ins.insuranceRate * 100).toFixed(4)) : '');
+  useEffect(() => {
+    const cur = rateStr === '' ? null : Number(rateStr) / 100;
+    if ((ins.insuranceRate ?? null) !== cur) setRateStr(ins.insuranceRate != null ? String(+(ins.insuranceRate * 100).toFixed(4)) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ins.insuranceRate]);
   const collateralTotal = f.form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
   const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, insuranceRate: ins.insuranceRate, policyTermMonths: ins.policyTermMonths });
   const amountTotal = l.amountTotal ?? null;
@@ -164,7 +174,7 @@ export function Step3({ f }: { f: OriginationForm }) {
             <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
             <Field label="Polis muddati (oy)"><Input type="number" value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
             <Field label="Polis ostidagi kredit"><MoneyInput value={ins.loanUnderPolicy ?? null} onChange={(v) => setIns({ loanUnderPolicy: v })} /></Field>
-            <Field label="Sug‘urta stavkasi (%)"><Input type="number" step="0.1" value={ins.insuranceRate != null ? ins.insuranceRate * 100 : ''} onChange={(e) => setIns({ insuranceRate: e.target.value === '' ? null : Number(e.target.value) / 100 })} /></Field>
+            <Field label="Sug‘urta stavkasi (%)"><Input type="number" step="0.1" value={rateStr} onChange={(e) => { setRateStr(e.target.value); setIns({ insuranceRate: e.target.value === '' ? null : Number(e.target.value) / 100 }); }} /></Field>
             <Field label="Sug‘urta summasi" hint="×1.3 auto"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
             <Field label="Sug‘urta puli" hint="auto"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           </div>
@@ -191,7 +201,7 @@ export function Step4({ f }: { f: OriginationForm }) {
         <Field label="Ariza sanasi"><DatePicker value={t.applicationDate ?? null} onChange={(iso) => setTr({ applicationDate: iso })} /></Field>
         <Field label="Asosiy summa"><MoneyInput value={t.principal ?? null} onChange={(v) => setTr({ principal: v })} /></Field>
         <Field label="Jadval turi"><Select value={(t.scheduleType ?? '') as 'ANNUITY' | 'DIFFERENTIATED' | ''} onChange={(v) => setTr({ scheduleType: v })} options={[{ value: 'ANNUITY', label: 'Annuitet (max 30 oy)' }, { value: 'DIFFERENTIATED', label: 'Differensial (max 48 oy)' }]} /></Field>
-        <Field label="Muddat (oy)" error={f.attempted ? f.errors.termCap : (f.errors.termCap)}><Input type="number" value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} /></Field>
+        <Field label="Muddat (oy)" error={f.attempted ? f.errors.termCap : undefined}><Input type="number" value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} /></Field>
         <Field label="Oylik to‘lov"><MoneyInput value={t.monthlyPayment ?? null} onChange={(v) => setTr({ monthlyPayment: v })} /></Field>
         <Field label="Sug‘urta to‘lovi"><MoneyInput value={t.insurancePayment ?? null} onChange={(v) => setTr({ insurancePayment: v })} /></Field>
       </div>

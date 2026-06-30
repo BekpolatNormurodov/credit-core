@@ -8,6 +8,9 @@ import { Toggle } from '../components/Switches';
 import { useToast } from '../components/Toast';
 import { cn } from '../lib/cn';
 
+/** Parse a numeric input value, treating empty/NaN as 0 (avoids NaN poisoning config). */
+const num0 = (s: string): number => (s === '' || Number.isNaN(Number(s)) ? 0 : Number(s));
+
 /** Numbered node tint per step (mirrors the status badge hue). */
 const stepTone: Record<string, string> = {
   [CaseStatus.MODERATION]: 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-500',
@@ -35,7 +38,7 @@ function DayStepper({ value, onChange, disabled, label }: { value: number; onCha
         disabled={disabled}
         value={value}
         aria-label={label}
-        onChange={(e) => set(Number(e.target.value))}
+        onChange={(e) => set(num0(e.target.value))}
         className="nums h-full w-11 border-x border-gray-200 bg-transparent text-center text-sm font-medium text-gray-800 outline-none [appearance:textfield] dark:border-gray-700 dark:text-gray-100 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
       <button type="button" disabled={disabled} aria-label={`${label}: oshirish`} className={cn(btn, 'rounded-r-lg')} onClick={() => set(value + 1)}><Plus className="h-4 w-4" /></button>
@@ -187,31 +190,34 @@ export function SettingsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Maksimal pauza (kun)" hint="ariza shu kundan ortiq pauzada tursa — avtomatik davom etadi">
-              <Input type="number" min={0} max={60} value={conf.maxPauseDays} onChange={(e) => setConf({ ...conf, maxPauseDays: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={60} value={conf.maxPauseDays} onChange={(e) => setConf({ ...conf, maxPauseDays: num0(e.target.value) })} className="nums" />
             </Field>
             <Field label="Klient ustama foizi (%)">
-              <Input type="number" min={0} max={500} value={conf.markup} onChange={(e) => setConf({ ...conf, markup: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={500} value={conf.markup} onChange={(e) => setConf({ ...conf, markup: num0(e.target.value) })} className="nums" />
             </Field>
             <Field label="Bank yillik stavkasi (%)">
-              <Input type="number" min={0} max={500} value={conf.bank} onChange={(e) => setConf({ ...conf, bank: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={500} value={conf.bank} onChange={(e) => setConf({ ...conf, bank: num0(e.target.value) })} className="nums" />
             </Field>
             <Field label="Min yillik foiz (%)" hint="standart 55 — kredit pastki chegarasi">
-              <Input type="number" min={0} max={500} value={conf.min} onChange={(e) => setConf({ ...conf, min: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={500} value={conf.min} onChange={(e) => setConf({ ...conf, min: num0(e.target.value) })} className="nums" />
             </Field>
             <Field label="Max yillik foiz (%)" hint="moderator shu gacha ko‘taradi">
-              <Input type="number" min={0} max={500} value={conf.max} onChange={(e) => setConf({ ...conf, max: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={500} value={conf.max} onChange={(e) => setConf({ ...conf, max: num0(e.target.value) })} className="nums" />
             </Field>
             <Field label="Daromad solig‘i (%)">
-              <Input type="number" min={0} max={100} value={conf.tax} onChange={(e) => setConf({ ...conf, tax: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={100} value={conf.tax} onChange={(e) => setConf({ ...conf, tax: num0(e.target.value) })} className="nums" />
             </Field>
             <Field label="NPL — to‘lanmaslik (%)">
-              <Input type="number" min={0} max={100} value={conf.npl} onChange={(e) => setConf({ ...conf, npl: Number(e.target.value) })} className="nums" />
+              <Input type="number" min={0} max={100} value={conf.npl} onChange={(e) => setConf({ ...conf, npl: num0(e.target.value) })} className="nums" />
             </Field>
           </div>
         )}
 
-        <div className="flex justify-end border-t border-gray-200 pt-4 dark:border-white/10">
-          <Button onClick={() => saveConfig.mutate()} loading={saveConfig.isPending} disabled={!conf}>
+        <div className="flex items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10">
+          {conf && conf.min > conf.max
+            ? <p className="text-xs font-medium text-error-600 dark:text-error-500">Min foiz Max dan katta bo‘lmasligi kerak</p>
+            : <span />}
+          <Button onClick={() => saveConfig.mutate()} loading={saveConfig.isPending} disabled={!conf || conf.min > conf.max}>
             <Save className="h-5 w-5" /> Saqlash
           </Button>
         </div>

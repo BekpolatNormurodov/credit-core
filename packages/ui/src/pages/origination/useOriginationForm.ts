@@ -60,11 +60,15 @@ export function useOriginationForm(id?: string) {
   const saveSection = async (section: CaseSectionKey) => {
     setSaving(true);
     try {
-      let cid = caseId;
-      if (!cid) { const created = await api.createCase(form); cid = created.id; setCaseId(cid); }
-      const saved = await api.saveCaseSection(cid, { section, data: form });
-      qc.invalidateQueries({ queryKey: ['case', cid] });
-      qc.invalidateQueries({ queryKey: ['cases'] });
+      // A brand-new case is fully persisted by createCase — no immediate section PATCH needed.
+      if (!caseId) {
+        const created = await api.createCase(form);
+        setCaseId(created.id);
+        qc.invalidateQueries({ queryKey: ['cases'] });
+        return created;
+      }
+      const saved = await api.saveCaseSection(caseId, { section, data: form });
+      qc.invalidateQueries({ queryKey: ['case', caseId] });
       return saved;
     } finally { setSaving(false); }
   };
