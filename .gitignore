@@ -13,6 +13,9 @@ build/
 .env.local
 .env.*.local
 
+# TLS certs (issued on the server, never committed)
+deploy/nginx/certs/
+
 # uploads / generated files
 uploads/
 generated/

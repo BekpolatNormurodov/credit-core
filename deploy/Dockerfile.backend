@@ -25,4 +25,5 @@ COPY --from=build /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=build /app/apps/backend/package.json ./apps/backend/
 WORKDIR /app/apps/backend
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+# db push reconciles the schema (additive-safe, matches dev) — no migration history to maintain.
+CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main.js"]

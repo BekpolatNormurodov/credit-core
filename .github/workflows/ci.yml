@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build shared
+        run: npm run build -w @credit-core/shared
+
+      - name: Prisma generate
+        run: npm run db:generate -w @credit-core/backend
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Backend typecheck + tests
+        working-directory: apps/backend
+        run: |
+          npx tsc --noEmit
+          npm test
+
+      - name: Web typecheck + build (4 role apps)
+        run: |
+          for app in web-operator web-moderator web-director web-admin; do
+            echo "== $app =="
+            (cd "apps/$app" && npx tsc --noEmit && npx vite build)
+          done
