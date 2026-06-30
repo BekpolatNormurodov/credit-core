@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 
-const DAYS = Number(process.env.QUERY_LOG_RETENTION_DAYS ?? 14);
+const RAW = Number(process.env.QUERY_LOG_RETENTION_DAYS ?? 14);
+const DAYS = Number.isFinite(RAW) && RAW > 0 ? RAW : 14; // malformed env must not disable pruning
 
 /** Prunes the high-volume operational logs (QueryLog/RequestLog) past the retention window. */
 @Injectable()

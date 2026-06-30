@@ -188,7 +188,8 @@ export class CreditCasesService {
       this.prisma.creditCase.update({
         where: { id },
         data: {
-          amount: dto.creditLine?.amountTotal ?? dto.amount ?? existing.amount,
+          // amount mirrors the credit line exactly (and stays clearable); only touched when that section is saved.
+          ...(dto.creditLine ? { amount: dto.creditLine.amountTotal ?? null } : {}),
           termMonths: dto.termMonths ?? existing.termMonths,
           ...(dto.collaterals !== undefined ? { productType: dto.collaterals[0]?.type ?? existing.productType } : {}),
         },
@@ -370,24 +371,29 @@ export class CreditCasesService {
     });
     if (!c) throw new NotFoundException('Ariza topilmadi');
 
-    // Submit-time (DRAFT → next) server-authoritative gate: ≥1 collateral + term caps.
-    if (c.status === CaseStatus.DRAFT) {
-      if (!c.collaterals.length) throw new ForbiddenException('Kamida bitta garov kiritilishi shart');
-      const tr = c.creditLine?.tranches[0];
-      const errs = loanRuleViolations({
-        scheduleType: (tr?.scheduleType ?? null) as 'ANNUITY' | 'DIFFERENTIATED' | null,
-        trancheTermMonths: tr?.termMonths ?? null,
-        lineTermMonths: c.creditLine?.termMonths ?? null,
-      });
-      if (errs.length) throw new ForbiddenException(errs.join('; '));
-    }
-
     const rule = this.workflow.resolve({
       currentStatus: c.status,
       role: user.role,
       decision: dto.decision,
       documentTypes: c.documents.map((d) => d.type as DocumentType),
     });
+
+    // Submit-time (DRAFT → MODERATION) server-authoritative gate: complete loan data + term caps.
+    // Runs only for the actual submit, so other DRAFT decisions get the correct workflow error.
+    if (c.status === CaseStatus.DRAFT && rule.to === CaseStatus.MODERATION) {
+      if (!c.collaterals.length) throw new ForbiddenException('Kamida bitta garov kiritilishi shart');
+      const line = c.creditLine;
+      const tr = line?.tranches[0];
+      if (!line || line.amountTotal == null || tr?.scheduleType == null || tr?.termMonths == null) {
+        throw new ForbiddenException('Kredit liniyasi to‘liq emas (summa, muddat va jadval turi shart)');
+      }
+      const errs = loanRuleViolations({
+        scheduleType: tr.scheduleType as 'ANNUITY' | 'DIFFERENTIATED',
+        trancheTermMonths: tr.termMonths,
+        lineTermMonths: line.termMonths,
+      });
+      if (errs.length) throw new ForbiddenException(errs.join('; '));
+    }
 
     const timer = await this.stepTimerData(rule.to);
 

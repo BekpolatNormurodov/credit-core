@@ -24,7 +24,7 @@ export class AuditService {
         newValue: stringifyValue(p.newValue),
         reason: p.reason ?? null,
       },
-    });
+    }).catch(() => undefined); // audit is a side-channel — a failed write must never break the business op
   }
 
   rateChange(u: RequestUser, caseId: string, oldRate: unknown, newRate: unknown, reason: string) {
