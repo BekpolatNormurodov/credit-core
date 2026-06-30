@@ -5,3 +5,5 @@ deploy/**   text eol=lf
 Dockerfile* text eol=lf
 *.yml       text eol=lf
 *.yaml      text eol=lf
+# Docker's .dockerignore parser doesn't strip CR — CRLF would break every pattern.
+.dockerignore text eol=lf

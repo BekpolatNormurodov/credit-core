@@ -20,6 +20,8 @@ echo "==> Seeding initial data (first run only; safe to skip if already seeded)"
 docker compose exec -T backend npm run db:seed || echo "seed skipped (ok if already seeded)"
 
 echo
-echo "==> App is up. Next: issue TLS certificates with:"
-echo "    bash deploy/init-letsencrypt.sh"
+echo "==> App is up on 127.0.0.1:8080 (HTTP)."
+echo "    Point the server's reverse proxy / panel at it and let IT terminate TLS:"
+echo "      api/operator/moderator/director/admin.creditcore.uz  ->  http://127.0.0.1:8080"
+echo "    (preserve the Host header). See deploy/README.md §2 for an nginx snippet."
 docker compose ps

@@ -1,0 +1,26 @@
+# Keep the Docker build context small + reproducible. The web image does `COPY . .`,
+# so anything not needed for a fresh `npm ci` + build should stay out.
+**/node_modules
+**/dist
+**/.turbo
+**/.vite
+**/coverage
+
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# secrets / local env — must never enter an image layer
+.env
+**/.env
+deploy/.env
+deploy/nginx/certs
+
+# logs + scratch
+*.log
+npm-debug.log*
+
+# docs aren't needed to build
+docs

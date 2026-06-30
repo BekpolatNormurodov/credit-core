@@ -1,9 +1,11 @@
 # Deploy — credit-core (creditcore.uz)
 
-Production runs the whole stack with Docker Compose behind nginx: **MySQL + backend + 4 role web
-apps + nginx + certbot**. Deploy is **manual** (CI only builds/tests — it does not deploy).
+Production runs the stack with Docker Compose: **MySQL + backend + 4 role web apps + nginx**.
+The stack's nginx serves **plain HTTP on `127.0.0.1:8080`**; the **server's own reverse proxy /
+panel owns ports 80 + 443, terminates TLS, and forwards** the 5 subdomains to it. Deploy is
+**manual** (CI only builds/tests — it does not deploy).
 
-## 0. Server setup (one time, on the Ubuntu server)
+## 0. Server setup (one time — Ubuntu 22.04 or 24.04)
 
 ```bash
 git clone https://github.com/khurshid28/credit-core.git
@@ -14,26 +16,64 @@ sudo bash deploy/server-setup.sh   # installs Docker + Compose plugin, opens fir
 - **DNS A-records** (you manage these) all pointing at the server IP:
   `api`, `operator`, `moderator`, `director`, `admin` `.creditcore.uz`.
   (apex / `www` / `mail` / `ftp` are not used by the app.)
-- **certbot is NOT installed on the host** — it runs as a container (see §2).
+- **TLS is handled by your existing reverse proxy / panel** (the thing already on 80/443) —
+  this stack does not run certbot and does not bind 80/443 (it would error if it tried).
 
 ## 1. First install
 
 ```bash
 cp deploy/.env.example deploy/.env
-nano deploy/.env            # set MYSQL_ROOT_PASSWORD, JWT_SECRET, DATABASE_URL (CERTBOT_EMAIL is preset)
+nano deploy/.env            # set MYSQL_ROOT_PASSWORD, JWT_SECRET, DATABASE_URL
 bash deploy/deploy.sh       # builds, starts, syncs schema (prisma db push), seeds
 ```
 
 Seed logins (password `parol123`): `operator`, `moderator`, `director`, `admin`.
 
-## 2. TLS (one time, after DNS resolves to the server)
+## 2. Front the app with your reverse proxy + TLS (one time)
 
-```bash
-bash deploy/init-letsencrypt.sh
+The app listens on `127.0.0.1:8080`. Point your existing proxy / panel at it and let **it**
+terminate TLS for the 5 subdomains, preserving the `Host` header. Example host-nginx vhost
+(adjust cert paths to whatever your panel issues — Let's Encrypt, the panel's own ACME, etc.):
+
+```nginx
+# /etc/nginx/sites-available/creditcore.uz  (on the host, NOT in the container)
+server {
+    listen 443 ssl;
+    http2  on;
+    server_name api.creditcore.uz operator.creditcore.uz moderator.creditcore.uz
+                director.creditcore.uz admin.creditcore.uz;
+
+    ssl_certificate     /etc/letsencrypt/live/creditcore.uz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/creditcore.uz/privkey.pem;
+
+    client_max_body_size 25m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host              $host;             # required — routing is by Host
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+server {                                   # redirect plain HTTP → HTTPS
+    listen 80;
+    server_name api.creditcore.uz operator.creditcore.uz moderator.creditcore.uz
+                director.creditcore.uz admin.creditcore.uz;
+    return 301 https://$host$request_uri;
+}
 ```
 
-Issues one Let's Encrypt certificate covering all 5 names and reloads nginx. The `certbot` container
-auto-renews every 12h thereafter.
+Issue the cert with your host's certbot (covers all 5 names in one go):
+
+```bash
+sudo certbot --nginx -d api.creditcore.uz -d operator.creditcore.uz \
+  -d moderator.creditcore.uz -d director.creditcore.uz -d admin.creditcore.uz \
+  --email khurshidi2827@gmail.com --agree-tos --no-eff-email
+```
+
+> If your panel (aaPanel / CyberPanel / Plesk / etc.) manages vhosts, just create a reverse-proxy
+> site for each subdomain pointing at `http://127.0.0.1:8080` and enable its TLS toggle.
 
 ## 3. Update (deploy new code)
 
@@ -50,11 +90,14 @@ bash deploy/update.sh        # git pull → rebuild → restart (schema re-synce
 | `DATABASE_URL` | `mysql://root:<pw>@mysql:3306/credit_core` |
 | `VITE_API_URL` | baked into web builds — `https://api.creditcore.uz` |
 | `CORS_ORIGINS` | the 4 role origins, comma-separated |
-| `CERTBOT_EMAIL` | Let's Encrypt contact |
 
-`deploy/.env` is gitignored — never commit it.
+`deploy/.env` is gitignored — never commit it. (TLS lives on the host proxy, so there's no
+`CERTBOT_EMAIL` here.)
 
 ## 5. Routing
+
+The host proxy forwards every subdomain to `http://127.0.0.1:8080`; the stack's nginx then
+splits by `Host`:
 
 | Host | → |
 |---|---|
