@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import type {
   AppConfigDto,
+  AuditLogDto,
   AuthUser,
   BranchDto,
   CaseSectionPayload,
@@ -313,6 +314,10 @@ export const api = {
   },
   async updateConfig(payload: AppConfigDto): Promise<AppConfigDto> {
     const { data } = await http.put<AppConfigDto>('/settings/config', payload);
+    return data;
+  },
+  async getAuditLog(params: { caseId?: string; actorId?: string; action?: string } = {}): Promise<AuditLogDto[]> {
+    const { data } = await http.get<AuditLogDto[]>('/audit', { params });
     return data;
   },
 };

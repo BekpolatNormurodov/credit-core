@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { AuditAction, Role } from '@prisma/client';
+import { AuditLogDto } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 
@@ -41,4 +42,18 @@ export class AuditService {
   caseUpdate(u: RequestUser, caseId: string) { return this.write('CASE_UPDATE', u, { caseId }); }
   sectionSave(u: RequestUser, caseId: string, section: string) { return this.write('SECTION_SAVE', u, { caseId, field: section }); }
   transition(u: RequestUser, caseId: string, from: unknown, to: unknown) { return this.write('TRANSITION', u, { caseId, field: 'status', oldValue: from, newValue: to }); }
+
+  async list(q: { caseId?: string; actorId?: string; action?: string }): Promise<AuditLogDto[]> {
+    const rows = await this.prisma.auditLog.findMany({
+      where: { caseId: q.caseId, actorId: q.actorId, action: q.action as AuditAction | undefined },
+      include: { actor: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return rows.map((r) => ({
+      id: r.id, action: r.action, actorName: r.actor.fullName, role: r.role,
+      caseId: r.caseId, field: r.field, oldValue: r.oldValue, newValue: r.newValue, reason: r.reason,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  }
 }

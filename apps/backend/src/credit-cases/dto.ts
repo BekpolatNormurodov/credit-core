@@ -9,6 +9,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   MinLength,
   ValidateNested,
@@ -67,7 +68,7 @@ export class CollateralOwnerInput {
 
 export class CollateralInput {
   @IsEnum(ProductType) type!: ProductType;
-  @IsOptional() @IsNumber() agreedValue?: number | null;
+  @IsOptional() @IsNumber() @Min(0) agreedValue?: number | null;
   @IsOptional() @IsString() agreedValueWords?: string | null;
 
   // real estate
@@ -112,15 +113,15 @@ export class EmploymentInput {
 }
 
 export class AffordabilityInput {
-  @IsOptional() @IsNumber() mainActivityIncome?: number | null;
-  @IsOptional() @IsNumber() secondaryIncome?: number | null;
-  @IsOptional() @IsNumber() familyIncome?: number | null;
-  @IsOptional() @IsNumber() otherIncome?: number | null;
-  @IsOptional() @IsNumber() utilitiesExpense?: number | null;
-  @IsOptional() @IsNumber() familyExpense?: number | null;
-  @IsOptional() @IsNumber() otherExpense?: number | null;
-  @IsOptional() @IsNumber() existingCreditBurden?: number | null;
-  @IsOptional() @IsNumber() newLoanPayment?: number | null;
+  @IsOptional() @IsNumber() @Min(0) mainActivityIncome?: number | null;
+  @IsOptional() @IsNumber() @Min(0) secondaryIncome?: number | null;
+  @IsOptional() @IsNumber() @Min(0) familyIncome?: number | null;
+  @IsOptional() @IsNumber() @Min(0) otherIncome?: number | null;
+  @IsOptional() @IsNumber() @Min(0) utilitiesExpense?: number | null;
+  @IsOptional() @IsNumber() @Min(0) familyExpense?: number | null;
+  @IsOptional() @IsNumber() @Min(0) otherExpense?: number | null;
+  @IsOptional() @IsNumber() @Min(0) existingCreditBurden?: number | null;
+  @IsOptional() @IsNumber() @Min(0) newLoanPayment?: number | null;
 }
 
 export class InsuranceInput {
@@ -130,12 +131,12 @@ export class InsuranceInput {
   @IsOptional() @IsString() genAgreementDate?: string | null;
   @IsOptional() @IsString() policyNo?: string | null;
   @IsOptional() @IsString() policyIssueDate?: string | null;
-  @IsOptional() @IsInt() policyTermMonths?: number | null;
+  @IsOptional() @IsInt() @Min(0) @Max(600) policyTermMonths?: number | null;
   @IsOptional() @IsString() policyExpiry?: string | null;
-  @IsOptional() @IsNumber() loanUnderPolicy?: number | null;
-  @IsOptional() @IsNumber() insuredSum?: number | null;
-  @IsOptional() @IsNumber() insuranceRate?: number | null;
-  @IsOptional() @IsNumber() premium?: number | null;
+  @IsOptional() @IsNumber() @Min(0) loanUnderPolicy?: number | null;
+  @IsOptional() @IsNumber() @Min(0) insuredSum?: number | null;
+  @IsOptional() @IsNumber() @Min(0) @Max(5) insuranceRate?: number | null;
+  @IsOptional() @IsNumber() @Min(0) premium?: number | null;
 }
 
 export class TrancheInput {
@@ -144,25 +145,25 @@ export class TrancheInput {
   @IsOptional() @IsString() applicationDate?: string | null;
   @IsOptional() @IsString() contractNo?: string | null;
   @IsOptional() @IsString() contractDate?: string | null;
-  @IsOptional() @IsNumber() principal?: number | null;
-  @IsOptional() @IsInt() termMonths?: number | null;
+  @IsOptional() @IsNumber() @Min(0) principal?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(600) termMonths?: number | null;
   @IsOptional() @IsString() maturity?: string | null;
   @IsOptional() @IsIn(['ANNUITY', 'DIFFERENTIATED']) scheduleType?: 'ANNUITY' | 'DIFFERENTIATED' | null;
-  @IsOptional() @IsNumber() monthlyPayment?: number | null;
-  @IsOptional() @IsNumber() insurancePayment?: number | null;
+  @IsOptional() @IsNumber() @Min(0) monthlyPayment?: number | null;
+  @IsOptional() @IsNumber() @Min(0) insurancePayment?: number | null;
 }
 
 export class CreditLineInput {
   @IsOptional() @IsString() lineNumber?: string | null;
   @IsOptional() @IsIn(['MICROLOAN', 'MICROCREDIT']) loanType?: 'MICROLOAN' | 'MICROCREDIT' | null;
-  @IsOptional() @IsNumber() amountAuto?: number | null;
-  @IsOptional() @IsNumber() amountPolis?: number | null;
-  @IsOptional() @IsNumber() amountTotal?: number | null;
-  @IsOptional() @IsInt() termMonths?: number | null;
+  @IsOptional() @IsNumber() @Min(0) amountAuto?: number | null;
+  @IsOptional() @IsNumber() @Min(0) amountPolis?: number | null;
+  @IsOptional() @IsNumber() @Min(0) amountTotal?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(600) termMonths?: number | null;
   @IsOptional() @IsString() lineDate?: string | null;
   @IsOptional() @IsString() lineMaturity?: string | null;
-  @IsOptional() @IsNumber() interestRate?: number | null;
-  @IsOptional() @IsNumber() penaltyRate?: number | null;
+  @IsOptional() @IsNumber() @Min(0) @Max(5) interestRate?: number | null;
+  @IsOptional() @IsNumber() @Min(0) @Max(5) penaltyRate?: number | null;
   @IsOptional() @IsString() orderNumber?: string | null;
   @IsOptional() @ValidateNested() @Type(() => InsuranceInput) insurance?: InsuranceInput | null;
   @IsOptional() @ValidateNested() @Type(() => TrancheInput) tranche?: TrancheInput | null;
@@ -175,15 +176,15 @@ export class CreditHistoryInput {
   @IsOptional() @IsInt() otherObligations?: number | null;
   @IsOptional() @IsString() loansOver5MFlag?: string | null;
   @IsOptional() @IsString() priorMfiPawnshopFlag?: string | null;
-  @IsOptional() @IsNumber() totalOutstandingDebt?: number | null;
-  @IsOptional() @IsNumber() avgMonthlyPaymentExisting?: number | null;
+  @IsOptional() @IsNumber() @Min(0) totalOutstandingDebt?: number | null;
+  @IsOptional() @IsNumber() @Min(0) avgMonthlyPaymentExisting?: number | null;
   @IsOptional() @IsString() committeeProtocolRef?: string | null;
   @IsOptional() @IsString() committeeDecisionDate?: string | null;
 }
 
 export class UpsertCaseDto {
   @IsOptional() @IsNumber() @Min(0) amount?: number | null;
-  @IsOptional() @IsInt() @Min(1) termMonths?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(600) termMonths?: number | null;
 
   @ValidateNested()
   @Type(() => BorrowerInput)

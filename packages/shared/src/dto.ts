@@ -374,6 +374,21 @@ export interface CaseSectionPayload {
 
 export interface SetRatePayload {
   interestRate: number; // fraction, within [minRate, maxRate]
+  reason: string;       // mandatory justification (audited)
+}
+
+/** Admin audit-log read row. */
+export interface AuditLogDto {
+  id: string;
+  action: string;
+  actorName: string;
+  role: string;
+  caseId: string | null;
+  field: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  reason: string | null;
+  createdAt: string;
 }
 
 export interface TransitionPayload {

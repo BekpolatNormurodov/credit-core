@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Injectable, Module, Put, UseGuards } from '@nestjs/common';
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsInt, IsNumber, Max, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsEnum, IsInt, IsNumber, Max, Min, Validate, ValidateNested, ValidationArguments, ValidatorConstraint, ValidatorConstraintInterface } from 'class-validator';
 import { addBusinessDays, AppConfigDto, CaseStatus, DEADLINE_STEPS, StepDeadlineSetting } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -24,13 +24,24 @@ class UpdateDeadlinesDto {
   items!: DeadlineItemDto[];
 }
 
+@ValidatorConstraint({ name: 'minLeMax' })
+class MinLeMax implements ValidatorConstraintInterface {
+  validate(_: number, args: ValidationArguments) {
+    const o = args.object as ConfigDto;
+    return o.minRate <= o.maxRate;
+  }
+  defaultMessage() {
+    return 'Min yillik foiz Max dan katta bo‘lmasligi kerak';
+  }
+}
+
 class ConfigDto {
   @IsInt() @Min(0) @Max(60) maxPauseDays!: number;
   @IsNumber() @Min(0) @Max(5) markupPercent!: number;
   @IsNumber() @Min(0) @Max(5) bankRate!: number;
   @IsNumber() @Min(0) @Max(5) taxRate!: number;
   @IsNumber() @Min(0) @Max(5) nplRate!: number;
-  @IsNumber() @Min(0) @Max(5) minRate!: number;
+  @IsNumber() @Min(0) @Max(5) @Validate(MinLeMax) minRate!: number;
   @IsNumber() @Min(0) @Max(5) maxRate!: number;
 }
 
