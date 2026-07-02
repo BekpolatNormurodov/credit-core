@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Search, Send, FileText, Download, X, User as UserIcon, Check, Pencil, Trash2 } from '../lib/icons';
-import { api, downloadBlob, viewDocument, documentInlineUrl, userAvatarUrl } from '@credit-core/api-client';
+import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import { Role, ROLE_LABEL, type DocumentDto, type MessageDto } from '@credit-core/shared';
 import { Button, Input } from './primitives';
 import { ConfirmDialog } from './Modal';
@@ -120,9 +120,7 @@ export function CaseChat({ caseId }: { caseId: string }) {
           <div className="flex flex-wrap gap-1.5">
             {participants.map((p) => (
               <span key={p.id} title={ROLE_LABEL[p.role]} className={cn('inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2.5 text-xs dark:border-gray-700 dark:bg-gray-800', !p.isActive && 'opacity-50')}>
-                {p.avatarPath
-                  ? <img src={userAvatarUrl(p.id)} alt={p.fullName} className="h-5 w-5 rounded-full object-cover" />
-                  : <span className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white', roleTone[p.role])}>{initials(p.fullName)}</span>}
+                <span className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white', roleTone[p.role])}>{initials(p.fullName)}</span>
                 <span className="font-medium text-gray-700 dark:text-gray-200">{p.fullName}</span>
                 <span className="text-gray-400">· {ROLE_LABEL[p.role]}</span>
               </span>
