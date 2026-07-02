@@ -6,6 +6,8 @@ COPY package*.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/backend/package.json apps/backend/
 RUN npm install
+# packages/shared/tsconfig.json extends ../../tsconfig.base.json — tsc needs it at /app.
+COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/backend apps/backend
 RUN npm run build -w @credit-core/shared \
