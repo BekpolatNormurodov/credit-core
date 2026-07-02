@@ -5,7 +5,23 @@
       "Bash(rm -rf xl)",
       "Bash(unzip -o -q \"/c/Users/PC/Downloads/TADJIYEV ATABEK JANGIROVICH.xlsx\" -d xl)",
       "PowerShell(npm run -s typecheck -w @credit-core/ui 2>&1)",
-      "PowerShell(npm run typecheck -w @credit-core/ui 2>&1)"
+      "PowerShell(npm run typecheck -w @credit-core/ui 2>&1)",
+      "Bash(git checkout *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git config *)",
+      "Bash(git push *)",
+      "Bash(gh pr create --base master --head fix/docker-backend-copy-tsconfig-base --title 'fix\\(deploy\\): copy tsconfig.base.json into backend build' --body ' *)",
+      "PowerShell($c = Get-Command gh -ErrorAction SilentlyContinue; if \\($c\\) { $c.Source; gh --version } else { \"gh-not-found\" })",
+      "PowerShell($mgrs = @{}; foreach \\($m in 'winget','choco','scoop'\\) { $c = Get-Command $m -ErrorAction SilentlyContinue; $mgrs[$m] = if \\($c\\) { $c.Source } else { 'not-found' } }; $mgrs.GetEnumerator\\(\\) | ForEach-Object { \"{0}: {1}\" -f $_.Key, $_.Value })",
+      "PowerShell(winget install --id GitHub.cli -e --source winget --accept-source-agreements --accept-package-agreements --disable-interactivity)",
+      "PowerShell($env:Path = [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"Path\",\"User\"\\); $c = Get-Command gh -ErrorAction SilentlyContinue; if \\($c\\) { $c.Source; gh --version } else { \"gh still not on PATH\" })",
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "Bash(git pull *)",
+      "Bash(git branch *)",
+      "Bash(git fetch *)",
+      "Bash(docker build *)"
     ]
   }
 }
