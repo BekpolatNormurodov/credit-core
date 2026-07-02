@@ -22,7 +22,6 @@ import { LoginPage } from './components/LoginPage';
 import { AppShell, type NavItem } from './components/AppShell';
 import { Button } from './components/primitives';
 import { Dashboard } from './pages/Dashboard';
-import { CaseForm } from './pages/CaseForm';
 import { CaseView } from './pages/CaseView';
 import { OriginationWizard } from './pages/origination/OriginationWizard';
 import { AnalyticsPage } from './pages/AnalyticsPage';
@@ -74,7 +73,6 @@ function Shell({ role, title }: { role: Role; title: string }) {
         <Route path="/" element={<Dashboard />} />
         {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/new" element={<OriginationWizard />} />}
         {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/:id/origination" element={<OriginationWizard />} />}
-        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/:id/edit" element={<CaseForm />} />}
         <Route path="/cases/:id" element={<CaseView />} />
         <Route path="/calculator" element={<CreditCalculator />} />
         <Route path="/chats" element={<ChatsPage />} />
