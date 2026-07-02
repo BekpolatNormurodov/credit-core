@@ -9,6 +9,7 @@ import { Modal, ConfirmDialog } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import { DataTable, type Column } from '../components/DataTable';
 import { useAuth } from '../lib/auth';
+import { copyText } from '../lib/clipboard';
 
 const ROLES: Role[] = [Role.OPERATOR, Role.MODERATOR, Role.DIRECTOR, Role.ADMIN];
 const roleTone: Record<Role, string> = {
@@ -26,7 +27,7 @@ function Avatar({ u, size = 'h-9 w-9' }: { u: UserRow; size?: string }) {
 function CopyBtn({ value, label }: { value: string; label: string }) {
   const toast = useToast();
   return (
-    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(value); toast.success('Nusxalandi', `${label}: ${value}`); }}
+    <button onClick={async (e) => { e.stopPropagation(); if (await copyText(value)) toast.success('Nusxalandi', `${label}: ${value}`); else toast.error('Nusxalanmadi', 'Matnni belgilab oling'); }}
       className="rounded-md p-1 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:bg-white/10 dark:hover:text-gray-100" aria-label="Nusxalash">
       <CopyIcon className="h-3.5 w-3.5" />
     </button>
@@ -37,7 +38,7 @@ function CopyBothBtn({ login, password }: { login: string; password?: string | n
   const toast = useToast();
   return (
     <button
-      onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(password ? `${login}\n${password}` : login); toast.success('Nusxalandi', 'Login va parol'); }}
+      onClick={async (e) => { e.stopPropagation(); if (await copyText(password ? `${login}\n${password}` : login)) toast.success('Nusxalandi', 'Login va parol'); else toast.error('Nusxalanmadi', 'Matnni belgilab oling'); }}
       title="Login va parolni birga nusxalash" aria-label="Login va parolni nusxalash"
       className="rounded-md px-1.5 py-0.5 text-[10px] font-semibold text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:bg-white/10 dark:hover:text-gray-100">
       L+P

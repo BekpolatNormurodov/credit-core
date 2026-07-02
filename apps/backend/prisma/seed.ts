@@ -31,7 +31,8 @@ async function main() {
     create: { name: 'Buxoro filiali', symbol: 'BR', region: 'Buxoro' },
   });
 
-  const password = await bcrypt.hash('parol123', 10);
+  const plainPassword = 'parol123';
+  const password = await bcrypt.hash(plainPassword, 10);
 
   const users: { login: string; fullName: string; role: Role; branchId: string | null }[] = [
     { login: 'operator', fullName: 'Operator Ishchi', role: Role.OPERATOR, branchId: branch.id },
@@ -44,7 +45,7 @@ async function main() {
     await prisma.user.upsert({
       where: { login: u.login },
       update: { fullName: u.fullName, role: u.role, branchId: u.branchId },
-      create: { ...u, passwordHash: password },
+      create: { ...u, passwordHash: password, plainPassword },
     });
   }
 
