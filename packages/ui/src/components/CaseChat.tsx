@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, Search, Send, FileText, Download, X, User as UserIcon, Check, Pencil, Trash2 } from '../lib/icons';
-import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
+import { api, downloadBlob, viewDocument, documentInlineUrl, userAvatarUrl } from '@credit-core/api-client';
 import { Role, ROLE_LABEL, type DocumentDto, type MessageDto } from '@credit-core/shared';
 import { Button, Input } from './primitives';
 import { ConfirmDialog } from './Modal';
@@ -58,6 +58,11 @@ export function CaseChat({ caseId }: { caseId: string }) {
     refetchInterval: 8_000,
   });
 
+  const { data: participants } = useQuery({
+    queryKey: ['case-participants', caseId],
+    queryFn: () => api.caseParticipants(caseId),
+  });
+
   const { data: directory } = useQuery({
     queryKey: ['directory', search],
     queryFn: () => api.directory(undefined, search || undefined),
@@ -108,6 +113,23 @@ export function CaseChat({ caseId }: { caseId: string }) {
 
   return (
     <div className="flex h-[32rem] flex-col">
+      {/* Participants — who has access to this case (operator → moderator → director → admin) */}
+      {participants && participants.length > 0 && (
+        <div className="mb-3">
+          <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">Ishtirokchilar · {participants.length}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {participants.map((p) => (
+              <span key={p.id} title={ROLE_LABEL[p.role]} className={cn('inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white py-0.5 pl-0.5 pr-2.5 text-xs dark:border-gray-700 dark:bg-gray-800', !p.isActive && 'opacity-50')}>
+                {p.avatarPath
+                  ? <img src={userAvatarUrl(p.id)} alt={p.fullName} className="h-5 w-5 rounded-full object-cover" />
+                  : <span className={cn('flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-bold text-white', roleTone[p.role])}>{initials(p.fullName)}</span>}
+                <span className="font-medium text-gray-700 dark:text-gray-200">{p.fullName}</span>
+                <span className="text-gray-400">· {ROLE_LABEL[p.role]}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       {/* Directory search → direct a message to one specific colleague */}
       <div className="mb-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-800">
         <Search className="h-5 w-5 shrink-0 text-gray-400" />

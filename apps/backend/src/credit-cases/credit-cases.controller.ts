@@ -40,6 +40,11 @@ export class CreditCasesController {
     return this.service.getOne(id);
   }
 
+  @Get(':id/participants')
+  participants(@Param('id') id: string) {
+    return this.service.participants(id);
+  }
+
   @UseGuards(RolesGuard)
   @Roles(Role.OPERATOR, Role.ADMIN)
   @Post()

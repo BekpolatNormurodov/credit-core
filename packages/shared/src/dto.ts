@@ -217,6 +217,15 @@ export interface DirectoryUser {
   branchName: string | null;
 }
 
+/** Everyone with access to a case's chat (operator creator, branch moderators, directors, admins). */
+export interface CaseParticipantDto {
+  id: string;
+  fullName: string;
+  role: Role;
+  avatarPath: string | null;
+  isActive: boolean;
+}
+
 export interface MessageDto {
   id: string;
   caseId: string;

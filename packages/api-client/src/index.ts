@@ -4,6 +4,7 @@ import type {
   AuditLogDto,
   AuthUser,
   BranchDto,
+  CaseParticipantDto,
   CaseSectionPayload,
   CaseUnread,
   CreditCaseDto,
@@ -282,6 +283,10 @@ export const api = {
   },
   async directory(role?: Role, q?: string): Promise<DirectoryUser[]> {
     const { data } = await http.get<DirectoryUser[]>('/directory', { params: { role, q } });
+    return data;
+  },
+  async caseParticipants(id: string): Promise<CaseParticipantDto[]> {
+    const { data } = await http.get<CaseParticipantDto[]>(`/cases/${id}/participants`);
     return data;
   },
 

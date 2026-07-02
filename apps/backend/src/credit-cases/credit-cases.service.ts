@@ -218,6 +218,20 @@ export class CreditCasesService {
     return this.getOne(id);
   }
 
+  /** Everyone with access to this case's chat, ordered operator -> moderator -> director -> admin. */
+  async participants(id: string) {
+    const c = await this.prisma.creditCase.findUnique({ where: { id }, select: { branchId: true, createdById: true } });
+    if (!c) throw new NotFoundException('Ariza topilmadi');
+    const or: Prisma.UserWhereInput[] = [{ id: c.createdById }, { role: Role.DIRECTOR }, { role: Role.ADMIN }];
+    if (c.branchId) or.push({ role: Role.MODERATOR, moderatedBranches: { some: { id: c.branchId } } });
+    const users = await this.prisma.user.findMany({
+      where: { isActive: true, OR: or },
+      select: { id: true, fullName: true, role: true, avatarPath: true, isActive: true },
+    });
+    const rank: Record<string, number> = { OPERATOR: 0, MODERATOR: 1, DIRECTOR: 2, ADMIN: 3 };
+    return users.sort((a, b) => (rank[a.role] ?? 9) - (rank[b.role] ?? 9) || a.fullName.localeCompare(b.fullName));
+  }
+
   async list(user: RequestUser, mineOnly = false): Promise<ReturnType<typeof toListItem>[]> {
     const where: Prisma.CreditCaseWhereInput = {};
     if (user.role === Role.OPERATOR) {
