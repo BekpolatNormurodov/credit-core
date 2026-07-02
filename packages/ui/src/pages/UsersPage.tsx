@@ -46,7 +46,7 @@ function CopyBothBtn({ login, password }: { login: string; password?: string | n
   );
 }
 
-function PasswordCell({ value }: { value?: string | null }) {
+function PasswordCell({ login, value }: { login: string; value?: string | null }) {
   const [show, setShow] = useState(false);
   if (!value) return <span className="text-gray-400">—</span>;
   return (
@@ -56,6 +56,7 @@ function PasswordCell({ value }: { value?: string | null }) {
         {show ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
       </button>
       <CopyBtn value={value} label="Parol" />
+      <CopyBothBtn login={login} password={value} />
     </span>
   );
 }
@@ -72,11 +73,16 @@ export function UsersPage() {
   const [avatar, setAvatar] = useState<File | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm);
   const [blockTarget, setBlockTarget] = useState<UserRow | null>(null);
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [branchFilter, setBranchFilter] = useState<string>('');
 
   const { data: allUsers } = useQuery({ queryKey: ['users'], queryFn: () => api.users() as Promise<UserRow[]> });
   const { data: branches } = useQuery({ queryKey: ['branches'], queryFn: () => api.branches() });
   // Admin o'zini ro'yxatda ko'rmasin (o'zini bloklash/tahrirlash chalkashligini oldini oladi).
-  const users = allUsers?.filter((u) => u.id !== me?.id);
+  const users = allUsers
+    ?.filter((u) => u.id !== me?.id)
+    .filter((u) => !roleFilter || u.role === roleFilter)
+    .filter((u) => !branchFilter || u.branchId === branchFilter || u.moderatedBranches?.some((b) => b.id === branchFilter));
 
   const close = () => { setModal(null); setForm(emptyForm); setAvatar(null); };
   const refresh = () => qc.invalidateQueries({ queryKey: ['users'] });
@@ -138,8 +144,8 @@ export function UsersPage() {
         <span className="font-medium text-gray-800 dark:text-gray-100">{x.fullName}{!x.isActive && <span className="ml-1.5 rounded bg-error-50 px-1.5 py-0.5 text-[10px] font-semibold text-error-600 dark:bg-error-500/10 dark:text-error-500">bloklangan</span>}</span>
       </span>
     ) },
-    { key: 'login', header: 'Login', render: (x) => <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">@{x.login}<CopyBtn value={x.login} label="Login" /><CopyBothBtn login={x.login} password={x.plainPassword} /></span> },
-    { key: 'password', header: 'Parol', render: (x) => <PasswordCell value={x.plainPassword} /> },
+    { key: 'login', header: 'Login', render: (x) => <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400">@{x.login}<CopyBtn value={x.login} label="Login" /></span> },
+    { key: 'password', header: 'Parol', render: (x) => <PasswordCell login={x.login} value={x.plainPassword} /> },
     { key: 'role', header: 'Rol', render: (x) => <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700 dark:bg-white/10 dark:text-gray-300">{ROLE_LABEL[x.role]}</span> },
     { key: 'branch', header: 'Filial', render: (x) => x.role === Role.MODERATOR ? (x.moderatedBranches?.map((b) => b.name).join(', ') || '—') : (x.branch?.name ?? '—') },
     { key: 'actions', header: 'Amallar', align: 'right', render: (x) => (
@@ -171,6 +177,20 @@ export function UsersPage() {
           <p className="text-sm text-gray-500 dark:text-gray-400">Boshqaruv: qo‘shish, tahrirlash, bloklash, parol</p>
         </div>
         <Button onClick={openCreate}><Plus className="h-4 w-4" /> Yangi foydalanuvchi</Button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="w-full sm:w-52">
+          <Select<string> value={roleFilter} onChange={setRoleFilter}
+            options={[{ value: '', label: 'Barcha rollar' }, ...ROLES.map((r) => ({ value: r as string, label: ROLE_LABEL[r] }))]} />
+        </div>
+        <div className="w-full sm:w-60">
+          <Select<string> value={branchFilter} onChange={setBranchFilter} searchable placeholder="Barcha filiallar"
+            options={[{ value: '', label: 'Barcha filiallar' }, ...(branches ?? []).map((br) => ({ value: br.id, label: br.region ? `${br.name} · ${br.region}` : br.name }))]} />
+        </div>
+        {(roleFilter || branchFilter) && (
+          <button onClick={() => { setRoleFilter(''); setBranchFilter(''); }} className="text-sm text-gray-500 transition hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400">Tozalash</button>
+        )}
       </div>
 
       <DataTable columns={columns} rows={users ?? []} searchable searchFields={['fullName', 'login']} empty="Foydalanuvchi yo‘q" />
