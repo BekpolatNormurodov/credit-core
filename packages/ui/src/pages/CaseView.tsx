@@ -6,7 +6,7 @@ import {
 } from '../lib/icons';
 import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import {
-  CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role,
+  CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role, ROLE_LABEL,
   TRANSITIONS, WorkflowDecision, type CreditCaseDto, type DocumentDto,
 } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
@@ -86,6 +86,17 @@ export function CaseView() {
     [WorkflowDecision.SUBMIT]: Send, [WorkflowDecision.APPROVE]: CheckCircle2,
     [WorkflowDecision.RETURN]: RotateCcw, [WorkflowDecision.FINALIZE]: Flag,
     [WorkflowDecision.CANCEL]: X, [WorkflowDecision.REOPEN]: RotateCcw,
+  };
+  // "Yuborish" reads as its destination — the operator sees "Moderatorga yuborish", so it's clear
+  // where the case goes next (operator → moderator → director → admin).
+  const sendTarget: Partial<Record<CaseStatus, Role>> = {
+    [CaseStatus.MODERATION]: Role.MODERATOR,
+    [CaseStatus.DIRECTOR_REVIEW]: Role.DIRECTOR,
+    [CaseStatus.ADMIN_FINALIZE]: Role.ADMIN,
+  };
+  const transitionLabel = (t: { to: CaseStatus; decision: WorkflowDecision }) => {
+    const target = sendTarget[t.to];
+    return target && t.decision === WorkflowDecision.SUBMIT ? `${ROLE_LABEL[target]}ga yuborish` : decisionLabel[t.decision];
   };
   // Cancel + reopen are routed through one "Bekor qilish" choice dialog, not direct buttons.
   const inlineTransitions = myTransitions.filter(
@@ -279,7 +290,7 @@ export function CaseView() {
                           disabled={blockApprove}
                           onClick={() => transition.mutate(t.decision)}
                         >
-                          {!busy && <Icon className="h-5 w-5" />} {decisionLabel[t.decision]}
+                          {!busy && <Icon className="h-5 w-5" />} {transitionLabel(t)}
                         </Button>
                       );
                     })}
