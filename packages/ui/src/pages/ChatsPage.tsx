@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Messages, Plus, Send, Paperclip, X, Download } from '../lib/icons';
@@ -18,6 +18,12 @@ export function ChatsPage() {
     const caseId = searchParams.get('case');
     return caseId ? { kind: 'case', key: caseId, title: 'Ariza chati' } : null;
   });
+  // React Router reuses the /chats element on a query-only change, so the initializer above won't
+  // re-run — re-sync the deep-linked case whenever the ?case= param changes (or is cleared).
+  useEffect(() => {
+    const caseId = searchParams.get('case');
+    setActive(caseId ? { kind: 'case', key: caseId, title: 'Ariza chati' } : null);
+  }, [searchParams]);
   const [newOpen, setNewOpen] = useState(false);
 
   const first = convos?.[0];

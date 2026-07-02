@@ -281,7 +281,7 @@ export function DatePicker({ value, onChange, placeholder = 'kk.oo.yyyy' }: { va
     const mm = t.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
     const d = mm ? new Date(Number(mm[3]), Number(mm[2]) - 1, Number(mm[1])) : null;
     if (d && mm && d.getDate() === Number(mm[1]) && d.getMonth() === Number(mm[2]) - 1 && d.getFullYear() === Number(mm[3])) {
-      onChange(d.toISOString());
+      onChange(new Date(Date.UTC(Number(mm[3]), Number(mm[2]) - 1, Number(mm[1]))).toISOString());
       setView(new Date(d.getFullYear(), d.getMonth(), 1));
     } else {
       setText(value ? fmt(new Date(value)) : ''); // revert to the last valid value
@@ -319,7 +319,7 @@ export function DatePicker({ value, onChange, placeholder = 'kk.oo.yyyy' }: { va
               const active = sel && date.toDateString() === sel.toDateString();
               return (
                 <button key={i} type="button"
-                  onClick={() => { onChange(date.toISOString()); setOpen(false); }}
+                  onClick={() => { onChange(new Date(Date.UTC(y, m, d)).toISOString()); setOpen(false); }}
                   className={cn('nums h-8 rounded-lg text-sm transition hover:bg-brand-50 dark:hover:bg-white/10', active && 'bg-brand-600 font-semibold text-white hover:bg-brand-700')}>
                   {d}
                 </button>
