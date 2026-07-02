@@ -22,9 +22,24 @@ import type {
 
 const TOKEN_KEY = 'cc_token';
 
-export const apiBaseUrl: string =
-  (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ??
-  'http://localhost:3000';
+/**
+ * API origin, with its scheme aligned to how the page was loaded: an http:// page calls the
+ * http API, an https:// page calls the https API. nginx serves the backend on both :80 and
+ * :443, so this avoids mixed-content errors either way. VITE_API_URL may be absolute
+ * (https://api.creditcore.uz), protocol-relative (//api.creditcore.uz), or a dev localhost URL.
+ */
+function resolveApiBaseUrl(): string {
+  const raw =
+    (import.meta as unknown as { env: Record<string, string> }).env?.VITE_API_URL ??
+    'http://localhost:3000';
+  // Outside a browser (SSR/tests) there's no page scheme to follow — use the value as-is.
+  if (typeof window === 'undefined' || !window.location?.protocol) return raw;
+  const pageProtocol = window.location.protocol; // 'http:' | 'https:'
+  if (raw.startsWith('//')) return pageProtocol + raw; // //host -> http(s)://host
+  return raw.replace(/^https?:/i, pageProtocol); // swap an absolute URL's scheme to match the page
+}
+
+export const apiBaseUrl: string = resolveApiBaseUrl();
 
 /**
  * Maps any thrown request error to a user-facing message.
