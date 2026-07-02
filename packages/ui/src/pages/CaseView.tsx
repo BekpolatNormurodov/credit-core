@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowRight, Banknote, CheckCircle2, ChevronDown, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X, Plus, Minus, Messages,
+  ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X, Plus, Minus, Messages,
 } from '../lib/icons';
 import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
 import {
@@ -22,25 +22,33 @@ const uploadTypes: DocumentType[] = [
   DocumentType.PASSPORT, DocumentType.NOTARY, DocumentType.SCAN, DocumentType.COLLATERAL_PHOTO, DocumentType.TECH_PASSPORT,
 ];
 
-/** A card whose body collapses behind its header — keeps empty/rarely-used sections compact. */
-function CollapsibleCard({ title, count, defaultOpen = false, children }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
+/** A compact launcher tile — icon + label + count/hint — opening a section modal or navigating. */
+function LauncherTile({
+  icon: Icon, label, hint, onClick, ariaLabel, trailing,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  hint: string;
+  onClick: () => void;
+  ariaLabel: string;
+  trailing?: React.ReactNode;
+}) {
   return (
-    <Card>
-      <details open={open}>
-        <summary
-          onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}
-          className="flex cursor-pointer list-none items-center justify-between gap-2 outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 [&::-webkit-details-marker]:hidden"
-        >
-          <h2 className="flex items-center gap-2 font-semibold text-gray-800 dark:text-white">
-            {title}
-            {count != null && count > 0 && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400">{count}</span>}
-          </h2>
-          <ChevronDown className={cn('h-4 w-4 shrink-0 text-gray-400 transition', open && 'rotate-180')} />
-        </summary>
-        <div className="mt-3">{children}</div>
-      </details>
-    </Card>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={ariaLabel}
+      className="group flex min-h-[44px] flex-1 basis-40 cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-left outline-none transition hover:border-brand-300 hover:bg-brand-50/40 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:border-gray-800 dark:bg-white/5 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10"
+    >
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
+        <Icon className="h-5 w-5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-gray-800 dark:text-white">{label}</span>
+        <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{hint}</span>
+      </span>
+      {trailing}
+    </button>
   );
 }
 
@@ -56,6 +64,7 @@ export function CaseView() {
   const [pauseDays, setPauseDays] = useState(2);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadType, setUploadType] = useState<DocumentType>(DocumentType.NOTARY);
+  const [activeSection, setActiveSection] = useState<null | 'general' | 'history'>(null);
 
   const { data: c, isLoading } = useQuery({ queryKey: ['case', id], queryFn: () => api.case(id!) });
 
@@ -70,7 +79,7 @@ export function CaseView() {
   });
 
   const upload = useMutation({
-    mutationFn: (file: File) => api.uploadDocument(id!, uploadType, file),
+    mutationFn: ({ file, type }: { file: File; type: DocumentType }) => api.uploadDocument(id!, type, file),
     onSuccess: refresh,
   });
 
@@ -94,10 +103,15 @@ export function CaseView() {
   const canUpload = isOperatorDraft || isDirectorReview;
   const canManageDocs = canUpload || role === Role.ADMIN;
   const currentUploadTypes = isDirectorReview ? [DocumentType.DIRECTOR_FINAL] : uploadTypes;
+  // The controlled uploadType can be stale for the context (e.g. still NOTARY while a director may
+  // only attach DIRECTOR_FINAL); fall back to the first allowed type so the doc is filed correctly.
+  const effectiveUploadType = currentUploadTypes.includes(uploadType) ? uploadType : currentUploadTypes[0];
   const activeStep = c.status === CaseStatus.MODERATION || c.status === CaseStatus.DIRECTOR_REVIEW || c.status === CaseStatus.ADMIN_FINALIZE;
   const canPauseResume = (role === Role.MODERATOR || role === Role.DIRECTOR || role === Role.ADMIN) && (activeStep || !!c.pausedAt);
   const loan = appCfg ? computeLoan(c.amount, c.termMonths, appCfg) : null;
   const showFinance = role !== Role.OPERATOR;
+  const generalDocs = c.documents.filter((d) => !d.collateralId);
+  const generalDocsCount = generalDocs.length;
 
   const decisionLabel: Record<WorkflowDecision, string> = {
     [WorkflowDecision.SUBMIT]: 'Yuborish', [WorkflowDecision.APPROVE]: 'Tasdiqlash',
@@ -200,61 +214,33 @@ export function CaseView() {
             </Card>
           )}
 
-          <GeneratedDocsPanel caseId={c.id} number={c.number} status={c.status} />
-
-          <CollapsibleCard title="Umumiy hujjatlar" count={c.documents.filter((d) => !d.collateralId).length} defaultOpen={c.documents.some((d) => !d.collateralId)}>
-            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Garovga bog‘lanmagan hujjatlar (garov hujjatlari yuqorida har bir garov ostida).</p>
-            {(() => {
-              const general = c.documents.filter((d) => !d.collateralId);
-              const images = general.filter((d) => (d.mimeType ?? '').startsWith('image/'));
-              const files = general.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
-              if (general.length === 0 && !canUpload) return <p className="text-sm text-gray-400 dark:text-gray-500">Hujjatlar yo‘q</p>;
-              return (
-                <div className="space-y-3">
-                  {images.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                      {images.map((d) => <ImgThumb key={d.id} doc={d} canManage={canManageDocs} label={DOCUMENT_LABEL[d.type]} />)}
-                    </div>
-                  )}
-                  <ul className="space-y-2">
-                    {files.map((d) => (
-                      <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
-                        <div className="flex min-w-0 items-center gap-2.5 text-sm">
-                          <FileText className="h-5 w-5 shrink-0 text-gray-400" />
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-gray-700 dark:text-gray-200">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-gray-400 dark:text-gray-500">· {d.fileName}</span></p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">
-                              {new Date(d.uploadedAt).toLocaleString('ru-RU')}
-                              {d.uploadedByName ? ` · ${d.uploadedByName}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <DocActions doc={d} canManage={canManageDocs} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })()}
-
-            {canUpload && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4 dark:border-gray-800">
-                <div className="w-52">
-                  <Select<DocumentType> value={uploadType} onChange={(v) => setUploadType(v)}
-                    options={currentUploadTypes.map((t) => ({ value: t, label: DOCUMENT_LABEL[t] }))} />
-                </div>
-                <input ref={fileRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && upload.mutate(e.target.files[0])} />
-                <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-                  <Upload className="h-5 w-5" /> Hujjat yuklash
-                </Button>
-                {isDirectorReview && <span className="text-xs text-warning-600 dark:text-warning-500">Tasdiqlash uchun yakuniy hujjat shart</span>}
-              </div>
-            )}
-          </CollapsibleCard>
-
-          <CollapsibleCard title="Harakatlar tarixi" count={c.events.length} defaultOpen={c.events.length > 0}>
-            <CaseTimeline events={c.events} />
-          </CollapsibleCard>
+          <Card>
+            <div className="flex flex-wrap gap-3">
+              <GeneratedDocsPanel caseId={c.id} number={c.number} status={c.status} />
+              <LauncherTile
+                icon={Paperclip}
+                label="Umumiy hujjatlar"
+                hint={`${generalDocsCount} ta hujjat`}
+                ariaLabel={`Umumiy hujjatlar (${generalDocsCount})`}
+                onClick={() => setActiveSection('general')}
+              />
+              <LauncherTile
+                icon={Clock}
+                label="Harakatlar tarixi"
+                hint={`${c.events.length} ta harakat`}
+                ariaLabel={`Harakatlar tarixi (${c.events.length})`}
+                onClick={() => setActiveSection('history')}
+              />
+              <LauncherTile
+                icon={Messages}
+                label="Chat"
+                hint="Muloqotga o‘tish"
+                ariaLabel="Chatga o‘tish"
+                onClick={() => navigate(`/chats?case=${c.id}`)}
+                trailing={<ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-brand-600 dark:group-hover:text-brand-400" />}
+              />
+            </div>
+          </Card>
         </div>
 
         <div className="space-y-6">
@@ -344,16 +330,70 @@ export function CaseView() {
         </div>
       </div>
 
-      <Card className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-700 text-white"><Messages className="h-5 w-5" /></span>
-          <div>
-            <h2 className="font-semibold text-gray-800 dark:text-white">Muloqot (chat)</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Ariza bo‘yicha xabarlar alohida sahifada</p>
+      <Modal
+        open={activeSection === 'general'}
+        onClose={() => setActiveSection(null)}
+        size="lg"
+        title={`Umumiy hujjatlar${generalDocsCount ? ` (${generalDocsCount})` : ''}`}
+        description="Garovga bog‘lanmagan hujjatlar (garov hujjatlari har bir garov ostida)."
+      >
+        {activeSection === 'general' && (<>
+        {(() => {
+          const images = generalDocs.filter((d) => (d.mimeType ?? '').startsWith('image/'));
+          const files = generalDocs.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+          if (generalDocs.length === 0 && !canUpload) return <p className="text-sm text-gray-400 dark:text-gray-500">Hujjatlar yo‘q</p>;
+          return (
+            <div className="space-y-3">
+              {images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {images.map((d) => <ImgThumb key={d.id} doc={d} canManage={canManageDocs} label={DOCUMENT_LABEL[d.type]} />)}
+                </div>
+              )}
+              <ul className="space-y-2">
+                {files.map((d) => (
+                  <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+                    <div className="flex min-w-0 items-center gap-2.5 text-sm">
+                      <FileText className="h-5 w-5 shrink-0 text-gray-400" />
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-gray-700 dark:text-gray-200">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-gray-400 dark:text-gray-500">· {d.fileName}</span></p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          {new Date(d.uploadedAt).toLocaleString('ru-RU')}
+                          {d.uploadedByName ? ` · ${d.uploadedByName}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <DocActions doc={d} canManage={canManageDocs} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
+
+        {canUpload && (
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4 dark:border-gray-800">
+            <div className="w-52">
+              <Select<DocumentType> value={effectiveUploadType} onChange={(v) => setUploadType(v)}
+                options={currentUploadTypes.map((t) => ({ value: t, label: DOCUMENT_LABEL[t] }))} />
+            </div>
+            <input ref={fileRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && upload.mutate({ file: e.target.files[0], type: effectiveUploadType })} />
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+              <Upload className="h-5 w-5" /> Hujjat yuklash
+            </Button>
+            {isDirectorReview && <span className="text-xs text-warning-600 dark:text-warning-500">Tasdiqlash uchun yakuniy hujjat shart</span>}
           </div>
-        </div>
-        <Button variant="secondary" onClick={() => navigate(`/chats?case=${c.id}`)}><Messages className="h-4 w-4" /> Chatga o‘tish</Button>
-      </Card>
+        )}
+        </>)}
+      </Modal>
+
+      <Modal
+        open={activeSection === 'history'}
+        onClose={() => setActiveSection(null)}
+        size="lg"
+        title={`Harakatlar tarixi${c.events.length ? ` (${c.events.length})` : ''}`}
+      >
+        {activeSection === 'history' && <CaseTimeline events={c.events} />}
+      </Modal>
 
       <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} size="sm" title="Arizani bekor qilish" description="Qanday davom etamiz?">
         <div className="space-y-2.5">
@@ -803,8 +843,12 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
   );
 }
 
-/** Generated documents (SP-6) — view/download per document, watermarked until approval. */
+/**
+ * Generated documents (SP-6) — a launcher tile + its own modal (view/download per document,
+ * watermarked until approval). Owns its own open state because the `docs` query lives here.
+ */
 function GeneratedDocsPanel({ caseId, number, status }: { caseId: string; number: string; status: CaseStatus }) {
+  const [modalOpen, setModalOpen] = useState(false);
   const { data: docs } = useQuery({
     queryKey: ['case-docs', caseId],
     queryFn: () => api.listCaseDocuments(caseId),
@@ -815,31 +859,46 @@ function GeneratedDocsPanel({ caseId, number, status }: { caseId: string; number
     window.open(url, '_blank', 'noopener,noreferrer');
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
+  const count = docs?.length ?? 0;
   return (
-    <CollapsibleCard title="Hujjatlar" count={docs?.length ?? 0} defaultOpen={!!docs?.length}>
-      <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">Tizim tomonidan generatsiya qilingan hujjatlar.</p>
-      {status === CaseStatus.DRAFT ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">Ariza yuborilgach hujjatlar shakllanadi.</p>
-      ) : !docs?.length ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">Hujjat yo‘q</p>
-      ) : (
-        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-          {docs.map((d) => (
-            <li key={d.key} className="flex items-center justify-between gap-3 py-2.5">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{d.title}</p>
-                {d.watermarked && (
-                  <span className="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Tasdiqlanmagan</span>
-                )}
-              </div>
-              <div className="flex shrink-0 gap-2">
-                <button onClick={() => open(d.key)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5">Ko‘rish</button>
-                <button onClick={async () => downloadBlob(await api.caseDocumentBlob(caseId, d.key), `${d.key}_${number}.pdf`)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-gray-700 dark:text-brand-400 dark:hover:bg-brand-500/10"><Download className="h-3.5 w-3.5" /> Yuklab olish</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </CollapsibleCard>
+    <>
+      <LauncherTile
+        icon={FileDown}
+        label="Hujjatlar"
+        hint={`${count} ta hujjat`}
+        ariaLabel={`Hujjatlar (${count})`}
+        onClick={() => setModalOpen(true)}
+      />
+      <Modal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        size="lg"
+        title={`Hujjatlar${count ? ` (${count})` : ''}`}
+        description="Tizim tomonidan generatsiya qilingan hujjatlar."
+      >
+        {status === CaseStatus.DRAFT ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500">Ariza yuborilgach hujjatlar shakllanadi.</p>
+        ) : !docs?.length ? (
+          <p className="text-sm text-gray-400 dark:text-gray-500">Hujjat yo‘q</p>
+        ) : (
+          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+            {docs.map((d) => (
+              <li key={d.key} className="flex items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{d.title}</p>
+                  {d.watermarked && (
+                    <span className="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Tasdiqlanmagan</span>
+                  )}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button onClick={() => open(d.key)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5">Ko‘rish</button>
+                  <button onClick={async () => downloadBlob(await api.caseDocumentBlob(caseId, d.key), `${d.key}_${number}.pdf`)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-gray-700 dark:text-brand-400 dark:hover:bg-brand-500/10"><Download className="h-3.5 w-3.5" /> Yuklab olish</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Modal>
+    </>
   );
 }
