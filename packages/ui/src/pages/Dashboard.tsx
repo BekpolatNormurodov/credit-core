@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { FilePlus2, House, Car, Layers, FileCheck2, Banknote, FileSpreadsheet } from '../lib/icons';
 import { api, downloadBlob } from '@credit-core/api-client';
 import { ProductType, PRODUCT_LABEL, Role, type CreditCaseListItem } from '@credit-core/shared';
@@ -9,17 +9,13 @@ import { Button, Skeleton, StatusBadge } from '../components/primitives';
 import { MetricCard } from '../components/widgets';
 import { DeadlineBadge } from '../components/DeadlineBadge';
 import { DataTable, type Column } from '../components/DataTable';
-import { NewCaseModal } from './CaseForm';
 import { formatMoney } from '../lib/cn';
 
 export function Dashboard() {
   const { user } = useAuth();
   const nav = useNavigate();
-  const [params, setParams] = useSearchParams();
   const isOperator = user?.role === Role.OPERATOR;
   const canCreate = user?.role === Role.OPERATOR || user?.role === Role.ADMIN;
-  const newOpen = canCreate && params.get('new') === '1';
-  const closeNew = () => setParams({});
   const { data: cases, isLoading } = useQuery({ queryKey: ['cases'], queryFn: () => api.cases(false) });
   const { data: stats } = useQuery({ queryKey: ['stats'], queryFn: () => api.stats() });
   const [exporting, setExporting] = useState(false);
@@ -76,8 +72,6 @@ export function Dashboard() {
           )}
         </div>
       </div>
-
-      {canCreate && <NewCaseModal open={newOpen} onClose={closeNew} />}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats ? (

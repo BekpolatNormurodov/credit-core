@@ -39,7 +39,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, ref
 function navFor(role: Role, t: (k: string) => string): NavItem[] {
   const main = 'Asosiy';
   const base: NavItem[] = [{ to: '/', label: t('nav.applications'), icon: LayoutGrid, section: main }];
-  if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/?new=1', label: t('nav.new'), icon: FilePlus2, section: main });
+  if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/cases/new', label: t('nav.new'), icon: FilePlus2, section: main });
   base.push({ to: '/calculator', label: t('nav.calculator'), icon: Calculator, section: main });
   base.push({ to: '/chats', label: t('nav.chats'), icon: Messages, badgeKey: 'unread', section: main });
   base.push({ to: '/analytics', label: t('nav.monitoring'), icon: BarChart3, section: main });
