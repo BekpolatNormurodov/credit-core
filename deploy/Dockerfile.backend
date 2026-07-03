@@ -14,9 +14,9 @@ RUN npm run build -w @credit-core/shared \
   && npm run db:generate -w @credit-core/backend \
   && npm run build -w @credit-core/backend
 # Bundle Tesseract traineddata so passport OCR runs fully offline at runtime (no CDN fetch).
+# Only eng is needed — orientation is brute-forced in code, so OSD (osd.traineddata) is never used.
 RUN mkdir -p apps/backend/tessdata \
-  && curl -fsSL -o apps/backend/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata \
-  && curl -fsSL -o apps/backend/tessdata/osd.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/osd.traineddata
+  && curl -fsSL -o apps/backend/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata
 # Drop devDependencies (jest, ts-jest, @nestjs/cli|schematics|testing, @types/*) from the
 # install tree — the biggest size win. prisma + ts-node + typescript are in "dependencies"
 # because the container needs them at runtime (prisma db push on start; ts-node
