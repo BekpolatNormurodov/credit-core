@@ -275,13 +275,14 @@ export interface PassportScanResult {
     birthDate: string | null;
     passportExpiry: string | null;
     gender: 'MALE' | 'FEMALE' | '';
+    nationality: string; // localized citizenship name, '' if unknown
     pinfl: string;
   };
   /** Per check-digit outcome, for the UI validity chips. */
   perField: { key: string; value: string; valid: boolean }[];
   format: string; // 'TD1' | 'TD2' | 'TD3' | ''
   rawMrz: string[];
-  warnings: string[]; // e.g. 'mrz_not_found', 'low_confidence'
+  warnings: string[]; // 'mrz_not_found' | 'low_confidence' | 'expired' | 'expiring_soon'
 }
 
 export interface StatsResponse {

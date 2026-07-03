@@ -1,5 +1,6 @@
 import sharp from 'sharp';
 import { PassportService } from './passport.service';
+import type { OcrFn } from './passport.service';
 
 // Classic ICAO TD3 sample with valid check digits (mrz package README).
 const VALID_TD3 = [
@@ -27,5 +28,24 @@ describe('PassportService', () => {
     const res = await svc.scan(tinyImage, async () => 'no machine readable zone here');
     expect(res.confidence).toBe(0);
     expect(res.warnings).toContain('mrz_not_found');
+  });
+
+  it('recovers via the binarized second pass when the base pass is unreadable', async () => {
+    let calls = 0;
+    const flaky: OcrFn = async () => (++calls > 4 ? VALID_TD3 : 'blurry noise ####');
+    const res = await svc.scan(tinyImage, flaky);
+    expect(res.confidence).toBe(100);
+    expect(calls).toBeGreaterThan(4);
+  });
+
+  it('warns when the scanned passport is already expired', async () => {
+    // VALID_TD3 expires 2012-04-15 → always in the past.
+    const res = await svc.scan(tinyImage, async () => VALID_TD3);
+    expect(res.warnings).toContain('expired');
+  });
+
+  it('exposes a nationality string on the result fields', async () => {
+    const res = await svc.scan(tinyImage, async () => VALID_TD3);
+    expect(typeof res.fields.nationality).toBe('string');
   });
 });
