@@ -3,6 +3,7 @@
  * MRZ check digits (a [7,3,1]-weighted mod-10 checksum per field), so the accuracy
  * percentage is verified arithmetic, not a guess.
  */
+import { nationalityName } from '@credit-core/shared';
 
 /** One entry from the `mrz` package's parse `details` array. */
 export interface MrzDetail {
@@ -20,6 +21,7 @@ export interface MrzFields {
   expirationDate?: string | null; // YYMMDD
   sex?: string | null; // 'male' | 'female' | 'M' | 'F' | ...
   personalNumber?: string | null;
+  nationality?: string | null; // ISO alpha-3 (e.g. 'UZB')
 }
 
 /** Check-digit weights — the whole-MRZ composite is weighted highest. */
@@ -53,8 +55,8 @@ export function yymmddToIso(yymmdd: string | null | undefined, future: boolean):
   const dd = Number(yymmdd.slice(4, 6));
   if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
   const cc = new Date().getFullYear() % 100;
-  // Birth is in the past; expiry is near-future (allow ~20y ahead before rolling to 1900s).
-  const year = future ? (yy <= cc + 20 ? 2000 + yy : 1900 + yy) : (yy <= cc ? 2000 + yy : 1900 + yy);
+  // Expiry is always this century (passports don't expire in the 1900s). Birth is past-biased.
+  const year = future ? 2000 + yy : yy <= cc ? 2000 + yy : 1900 + yy;
   return new Date(Date.UTC(year, mm - 1, dd)).toISOString();
 }
 
@@ -75,8 +77,20 @@ export function mapMrzToBorrower(fields: MrzFields) {
     birthDate: yymmddToIso(fields.birthDate, false),
     passportExpiry: yymmddToIso(fields.expirationDate, true),
     gender,
+    nationality: nationalityName(fields.nationality),
     pinfl: pinflDigits.length === 14 ? pinflDigits : '',
   };
+}
+
+/** Passport-validity warnings from an ISO expiry date: 'expired', 'expiring_soon' (≤90d), or none. */
+export function expiryWarnings(expiryIso: string | null, now: Date = new Date()): string[] {
+  if (!expiryIso) return [];
+  const exp = new Date(expiryIso).getTime();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  if (exp < today) return ['expired'];
+  const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+  if (exp - today <= ninetyDays) return ['expiring_soon'];
+  return [];
 }
 
 /**

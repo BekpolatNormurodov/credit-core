@@ -1,4 +1,4 @@
-import { scoreConfidence, mapMrzToBorrower, yymmddToIso, extractMrzLines, MrzDetail } from './mrz.util';
+import { scoreConfidence, mapMrzToBorrower, yymmddToIso, extractMrzLines, expiryWarnings, MrzDetail } from './mrz.util';
 
 const detail = (field: string, valid: boolean): MrzDetail => ({ field, value: '', valid });
 
@@ -61,5 +61,39 @@ describe('extractMrzLines', () => {
     const lines = extractMrzLines(text);
     expect(lines).toHaveLength(2);
     expect(lines[0].startsWith('P<UZB')).toBe(true);
+  });
+});
+
+describe('yymmddToIso — expiry century', () => {
+  it('always resolves an expiry to the 2000s (no 1900s rollover)', () => {
+    expect(yymmddToIso('490101', true)).toBe('2049-01-01T00:00:00.000Z');
+    expect(yymmddToIso('300101', true)).toBe('2030-01-01T00:00:00.000Z');
+  });
+});
+
+describe('mapMrzToBorrower — nationality', () => {
+  it('maps a nationality code to its localized name', () => {
+    expect(mapMrzToBorrower({ nationality: 'UZB' }).nationality).toBe('O‘zbekiston Respublikasi');
+    expect(mapMrzToBorrower({ nationality: 'KAZ' }).nationality).toBe('Qozog‘iston');
+  });
+  it('keeps an unknown code as-is and empty when absent', () => {
+    expect(mapMrzToBorrower({ nationality: 'UTO' }).nationality).toBe('UTO');
+    expect(mapMrzToBorrower({}).nationality).toBe('');
+  });
+});
+
+describe('expiryWarnings', () => {
+  const now = new Date('2026-07-03T00:00:00.000Z');
+  it('flags an expired passport', () => {
+    expect(expiryWarnings('2020-01-01T00:00:00.000Z', now)).toEqual(['expired']);
+  });
+  it('flags one expiring within 90 days', () => {
+    expect(expiryWarnings('2026-08-01T00:00:00.000Z', now)).toEqual(['expiring_soon']);
+  });
+  it('no warning for a comfortably valid passport', () => {
+    expect(expiryWarnings('2030-01-01T00:00:00.000Z', now)).toEqual([]);
+  });
+  it('no warning when expiry is missing', () => {
+    expect(expiryWarnings(null, now)).toEqual([]);
   });
 });
