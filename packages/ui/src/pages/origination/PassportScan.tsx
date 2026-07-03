@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PassportScanResult } from '@credit-core/shared';
 import { api, getErrorMessage } from '@credit-core/api-client';
-import { Upload, Camera, IdCard, CheckCircle2, RotateCcw } from '../../lib/icons';
+import { Upload, Camera, IdCard, CheckCircle2, RotateCcw, Globe, Warning, ShieldCheck } from '../../lib/icons';
 import { Button, Card, Field, Input } from '../../components/primitives';
 import { Select } from '../../components/forms';
 import { cn } from '../../lib/cn';
@@ -10,7 +10,7 @@ type Fields = PassportScanResult['fields'];
 
 const EMPTY: Fields = {
   fullName: '', passportSeries: '', passportNumber: '',
-  birthDate: null, passportExpiry: null, gender: '', pinfl: '',
+  birthDate: null, passportExpiry: null, gender: '', nationality: '', pinfl: '',
 };
 
 function fmtDate(iso: string | null): string {
@@ -31,12 +31,12 @@ function ConfidenceRing({ value, className }: { value: number; className?: strin
   const c = 2 * Math.PI * r;
   const off = c * (1 - Math.max(0, Math.min(100, value)) / 100);
   return (
-    <div className="relative h-12 w-12 shrink-0">
-      <svg viewBox="0 0 48 48" className="h-12 w-12 -rotate-90">
+    <div className="relative h-12 w-12 shrink-0" role="img" aria-label={`Ishonchlilik ${value}%`}>
+      <svg viewBox="0 0 48 48" className="h-12 w-12 -rotate-90" aria-hidden="true">
         <circle cx="24" cy="24" r={r} className="stroke-gray-200 dark:stroke-gray-700" strokeWidth="4" fill="none" />
-        <circle cx="24" cy="24" r={r} className={cn('transition-all', className)} stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" />
+        <circle cx="24" cy="24" r={r} className={cn('transition-all duration-700 motion-reduce:transition-none', className)} stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray={c} strokeDashoffset={off} strokeLinecap="round" />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-gray-700 dark:text-gray-200">{value}</span>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-gray-700 dark:text-gray-200">{value}</span>
     </div>
   );
 }
@@ -73,6 +73,7 @@ function ReadonlyRow({ label, value, valid }: { label: string; value: string; va
 /** Passport MRZ scanner — prefills the borrower form. Mounted in the origination borrower step. */
 export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>) => void }) {
   const [busy, setBusy] = useState(false);
+  const [drag, setDrag] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PassportScanResult | null>(null);
   const [form, setForm] = useState<Fields>(EMPTY);
@@ -98,6 +99,13 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
     e.target.value = '';
   };
 
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDrag(false);
+    const f = e.dataTransfer.files?.[0];
+    if (f && f.type.startsWith('image/')) runScan(f);
+  };
+
   const validOf = (key: string) => result?.perField.find((p) => p.key === key)?.valid;
 
   const confirm = () => {
@@ -108,12 +116,15 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
     if (form.birthDate) patch.birthDate = form.birthDate;
     if (form.passportExpiry) patch.passportExpiry = form.passportExpiry;
     if (form.gender) patch.gender = form.gender;
+    if (form.nationality) patch.nationality = form.nationality;
     if (form.pinfl) patch.pinfl = form.pinfl;
     onExtract(patch);
     setResult(null);
   };
 
   const t = result ? tone(result.confidence) : null;
+  const expired = result?.warnings.includes('expired');
+  const expiringSoon = result?.warnings.includes('expiring_soon');
 
   return (
     <Card className="space-y-4 border-brand-100 bg-brand-50/40 dark:border-brand-500/20 dark:bg-brand-500/5">
@@ -125,36 +136,61 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-brand-600 px-3.5 py-2 text-sm font-medium text-white outline-none transition hover:bg-brand-700 focus-visible:ring-2 focus-visible:ring-brand-600/30">
-          <Upload className="h-4 w-4" /> Rasm yuklash
-          <input type="file" accept="image/*" className="hidden" onChange={onFile} />
-        </label>
-        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:hidden">
-          <Camera className="h-4 w-4" /> Kamera
-          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={onFile} />
-        </label>
-      </div>
+      {/* Upload / drag-drop / camera zone. sr-only inputs stay keyboard-focusable. */}
+      <label
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={onDrop}
+        className={cn(
+          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition duration-200 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-brand-600/30',
+          drag ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10' : 'border-gray-300 hover:border-brand-400 dark:border-gray-700',
+        )}
+      >
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm dark:bg-gray-800"><Upload className="h-5 w-5" /></span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Rasmni bu yerga tashlang yoki tanlang</span>
+        <span className="text-xs text-gray-400">MRZ (pastki qatorlar) tekis va yorug‘ ko‘rinsin</span>
+        <input type="file" accept="image/*" aria-label="Passport rasmini yuklash" className="sr-only" onChange={onFile} />
+      </label>
+
+      <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:hidden">
+        <Camera className="h-4 w-4" /> Kamera bilan olish
+        <input type="file" accept="image/*" capture="environment" aria-label="Kamera bilan passport olish" className="sr-only" onChange={onFile} />
+      </label>
 
       {busy && (
-        <div className="flex items-center gap-3 rounded-lg bg-white/70 px-4 py-3 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+        <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-lg bg-white/70 px-4 py-3 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-500 border-t-transparent motion-reduce:animate-none" />
           Skanerlanmoqda…
         </div>
       )}
-      {error && <p className="text-sm text-error-600 dark:text-error-500">{error}</p>}
+      {error && <p role="alert" className="text-sm text-error-600 dark:text-error-500">{error}</p>}
 
       {result && t && (
         <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-900">
           <div className="flex items-center gap-3">
             <ConfidenceRing value={result.confidence} className={t.ring} />
             <div>
-              <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', t.chip)}>{t.label} · {result.confidence}%</span>
+              <span className={cn('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold', t.chip)}><ShieldCheck className="h-3.5 w-3.5" /> {t.label} · <span className="tabular-nums">{result.confidence}%</span></span>
               {result.confidence < 60 && (
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Yorug‘roq joyda, tekis ushlab, MRZ (pastdagi qatorlar) to‘liq ko‘rinsin — qayta oling.</p>
               )}
             </div>
           </div>
+
+          {(expired || expiringSoon) && (
+            <div
+              role="alert"
+              className={cn(
+                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm',
+                expired ? 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400' : 'bg-warning-50 text-warning-700 dark:bg-warning-500/10 dark:text-warning-400',
+              )}
+            >
+              <Warning className="h-4 w-4 shrink-0" />
+              {expired
+                ? `Passport muddati o‘tgan${form.passportExpiry ? ` — ${fmtDate(form.passportExpiry)}` : ''}`
+                : `Passport muddati tugayapti${form.passportExpiry ? ` — ${fmtDate(form.passportExpiry)}` : ''}`}
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="F.I.O"><Input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></Field>
@@ -170,13 +206,19 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
             <Field label="Jinsi">
               <Select value={form.gender} onChange={(v) => setForm({ ...form, gender: v as Fields['gender'] })} options={[{ value: 'MALE', label: 'Erkak' }, { value: 'FEMALE', label: 'Ayol' }]} />
             </Field>
+            <FieldWithChip label="Fuqarolik">
+              <div className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 focus-within:ring-2 focus-within:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800">
+                <Globe className="h-4 w-4 shrink-0 text-gray-400" />
+                <input className="w-full bg-transparent text-sm text-gray-700 outline-none dark:text-gray-200" aria-label="Fuqarolik" value={form.nationality} onChange={(e) => setForm({ ...form, nationality: e.target.value })} placeholder="O‘zbekiston Respublikasi" />
+              </div>
+            </FieldWithChip>
             <ReadonlyRow label="Tug‘ilgan sana" value={fmtDate(form.birthDate)} valid={validOf('birthDateCheckDigit')} />
             <ReadonlyRow label="Amal qilish muddati" value={fmtDate(form.passportExpiry)} valid={validOf('expirationDateCheckDigit')} />
           </div>
 
           <div className="flex items-center gap-2">
             <Button onClick={confirm}><CheckCircle2 className="h-4 w-4" /> Formani to‘ldirish</Button>
-            <button type="button" onClick={() => setResult(null)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-500 outline-none transition hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:text-gray-300">
+            <button type="button" onClick={() => setResult(null)} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-500 outline-none transition hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:hover:text-gray-300">
               <RotateCcw className="h-4 w-4" /> Qayta
             </button>
           </div>
