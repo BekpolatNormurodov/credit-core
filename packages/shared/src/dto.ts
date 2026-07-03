@@ -264,6 +264,26 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+/** Result of an on-prem passport MRZ scan (POST /passport/scan). Stateless — nothing persisted. */
+export interface PassportScanResult {
+  /** 0..100 accuracy from weighted MRZ check-digit validation. */
+  confidence: number;
+  fields: {
+    fullName: string;
+    passportSeries: string;
+    passportNumber: string;
+    birthDate: string | null;
+    passportExpiry: string | null;
+    gender: 'MALE' | 'FEMALE' | '';
+    pinfl: string;
+  };
+  /** Per check-digit outcome, for the UI validity chips. */
+  perField: { key: string; value: string; valid: boolean }[];
+  format: string; // 'TD1' | 'TD2' | 'TD3' | ''
+  rawMrz: string[];
+  warnings: string[]; // e.g. 'mrz_not_found', 'low_confidence'
+}
+
 export interface StatsResponse {
   byStatus: { status: CaseStatus; count: number }[];
   byBranch: { branch: string; count: number; amount: number }[];

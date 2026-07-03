@@ -16,6 +16,7 @@ import { MessagesModule } from './messages/messages.module';
 import { SettingsModule } from './settings/settings.module';
 import { DeadlinesModule } from './deadlines/deadlines.module';
 import { AuditModule } from './audit/audit.module';
+import { PassportModule } from './passport/passport.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AuditModule } from './audit/audit.module';
     SettingsModule,
     DeadlinesModule,
     AuditModule,
+    PassportModule,
   ],
 })
 export class AppModule {}

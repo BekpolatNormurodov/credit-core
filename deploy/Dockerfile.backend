@@ -1,7 +1,7 @@
 # NestJS backend image.
 FROM node:22-slim AS build
 WORKDIR /app
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/backend/package.json apps/backend/
@@ -13,6 +13,10 @@ COPY apps/backend apps/backend
 RUN npm run build -w @credit-core/shared \
   && npm run db:generate -w @credit-core/backend \
   && npm run build -w @credit-core/backend
+# Bundle Tesseract traineddata so passport OCR runs fully offline at runtime (no CDN fetch).
+RUN mkdir -p apps/backend/tessdata \
+  && curl -fsSL -o apps/backend/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata \
+  && curl -fsSL -o apps/backend/tessdata/osd.traineddata https://github.com/tesseract-ocr/tessdata_fast/raw/main/osd.traineddata
 # Drop devDependencies (jest, ts-jest, @nestjs/cli|schematics|testing, @types/*) from the
 # install tree — the biggest size win. prisma + ts-node + typescript are in "dependencies"
 # because the container needs them at runtime (prisma db push on start; ts-node
@@ -34,6 +38,9 @@ COPY --from=build /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=build /app/apps/backend/package.json ./apps/backend/
 # tsconfig is needed by ts-node when running prisma/seed.ts in the container.
 COPY --from=build /app/apps/backend/tsconfig.json ./apps/backend/
+# Offline OCR data for the passport scanner.
+COPY --from=build /app/apps/backend/tessdata ./apps/backend/tessdata
+ENV TESSDATA_PATH=/app/apps/backend/tessdata
 WORKDIR /app/apps/backend
 EXPOSE 3000
 # db push reconciles the schema (additive-safe, matches dev) — no migration history to maintain.
