@@ -11,6 +11,7 @@ import { Toggle } from '../../components/Switches';
 import { House, Car } from '../../lib/icons';
 import { formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
+import { PassportScan } from './PassportScan';
 import type { OriginationForm } from './useOriginationForm';
 
 const numv = (s: string): number | null => (s === '' ? null : Number(s));
@@ -31,6 +32,7 @@ export function Step1({ f }: { f: OriginationForm }) {
   return (
     <Card className="space-y-4">
       <h2 className="font-semibold text-gray-800 dark:text-white">Qarz oluvchi</h2>
+      <PassportScan onExtract={(x) => set(x as Partial<Borrower>)} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="F.I.O" required error={f.attempted ? f.errors.fullName : undefined}><Input value={b.fullName} onChange={(e) => set({ fullName: e.target.value })} /></Field>
         <Field label="PINFL"><Input inputMode="numeric" maxLength={14} value={b.pinfl ?? ''} onChange={(e) => set({ pinfl: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></Field>

@@ -14,6 +14,7 @@ import type {
   LoginResponse,
   MessageDto,
   NotificationItem,
+  PassportScanResult,
   Role,
   StatsResponse,
   StepDeadlineSetting,
@@ -177,6 +178,13 @@ export const api = {
   async katmStatus() {
     const { data } = await http.get('/katm/status');
     return data as { available: boolean; message: string; reports: string[] };
+  },
+  /** Scan a passport image → MRZ fields + check-digit confidence (stateless). */
+  async scanPassport(file: File): Promise<PassportScanResult> {
+    const fd = new FormData();
+    fd.append('file', file);
+    const { data } = await http.post<PassportScanResult>('/passport/scan', fd);
+    return data;
   },
   documentUrl(id: string): string {
     return `${apiBaseUrl}/api/documents/${id}/download`;
