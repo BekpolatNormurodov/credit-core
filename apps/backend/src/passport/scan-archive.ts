@@ -12,13 +12,14 @@ export function extForMime(mimetype: string | undefined): string {
   return 'img';
 }
 
-/** A sortable, PII-free filename: <ISO-ish ts>__<ok|nomrz|lowconf>__conf<NN>__<rand>.<ext>. */
-export function buildScanFilename(now: Date, result: PassportScanResult, ext: string): string {
+/** A sortable, PII-free filename: <ISO-ish ts>__<ok|nomrz|lowconf>__conf<NN>[__front|back]__<rand>.<ext>. */
+export function buildScanFilename(now: Date, result: PassportScanResult, ext: string, side?: 'front' | 'back'): string {
   const ts = now.toISOString().replace(/[:.]/g, '-');
   const found = result.warnings.includes('mrz_not_found') ? false : result.confidence > 0;
   const status = !found ? 'nomrz' : result.confidence >= 60 ? 'ok' : 'lowconf';
   const conf = String(result.confidence).padStart(3, '0');
-  return `${ts}__${status}__conf${conf}__${randomBytes(3).toString('hex')}.${ext}`;
+  const sideTag = side ? `__${side}` : '';
+  return `${ts}__${status}__conf${conf}${sideTag}__${randomBytes(3).toString('hex')}.${ext}`;
 }
 
 /** One-line audit summary of a scan — what was read (or not), for the backend log. */
@@ -34,9 +35,9 @@ export function scanSummary(result: PassportScanResult, filename: string): strin
  * Persist the uploaded image and return the saved path. Every upload is kept — successful or not —
  * for later audit/debugging. Best-effort: callers should treat a rejection as non-fatal.
  */
-export async function archiveScan(dir: string, buffer: Buffer, mimetype: string | undefined, result: PassportScanResult, now: Date): Promise<string> {
+export async function archiveScan(dir: string, buffer: Buffer, mimetype: string | undefined, result: PassportScanResult, now: Date, side?: 'front' | 'back'): Promise<string> {
   await mkdir(dir, { recursive: true });
-  const filename = buildScanFilename(now, result, extForMime(mimetype));
+  const filename = buildScanFilename(now, result, extForMime(mimetype), side);
   const full = path.join(dir, filename);
   await writeFile(full, buffer);
   return full;

@@ -21,6 +21,7 @@ export interface MrzFields {
   expirationDate?: string | null; // YYMMDD
   sex?: string | null; // 'male' | 'female' | 'M' | 'F' | ...
   personalNumber?: string | null;
+  optional1?: string | null; // TD1 optional data line-1 (Uzbek: 14-digit PINFL)
   nationality?: string | null; // ISO alpha-3 (e.g. 'UZB')
 }
 
@@ -69,7 +70,11 @@ export function mapMrzToBorrower(fields: MrzFields) {
   const passportNumber = dn.replace(/^[A-Z]{2}/, '').replace(/\D/g, '').slice(0, 7);
   const sex = (fields.sex ?? '').toString().toUpperCase();
   const gender: 'MALE' | 'FEMALE' | '' = sex.startsWith('M') ? 'MALE' : sex.startsWith('F') ? 'FEMALE' : '';
-  const pinflDigits = (fields.personalNumber ?? '').replace(/\D/g, '');
+  // Passport (TD3) carries the personal number in `personalNumber`; UZ ID (TD1) puts the
+  // 14-digit PINFL in `optional1`. Take whichever holds a 14-digit run.
+  const pinflSrc = (fields.personalNumber ?? '') || (fields.optional1 ?? '');
+  const pinflMatch = pinflSrc.replace(/</g, '').match(/\d{14}/);
+  const pinflDigits = pinflMatch ? pinflMatch[0] : '';
   return {
     fullName,
     passportSeries,
@@ -104,12 +109,15 @@ export function extractMrzLines(ocrText: string): string[] {
   const lines = ocrText
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, '').toUpperCase())
-    .filter((l) => l.length >= 28 && /^[A-Z0-9<]+$/.test(l));
+    .filter((l) => l.length >= 18 && /^[A-Z0-9<]+$/.test(l));
   if (lines.length < 2) return lines.filter((l) => l.includes('<'));
   const lastLen = lines[lines.length - 1].length;
-  // TD1 = 3×30; TD2 = 2×36; TD3 = 2×44.
+  // TD1 = 3×30; TD2 = 2×36; TD3 = 2×44. The 3rd TD1 (name) line is frequently OCR-shortened below
+  // 30 (trailing '<' fillers lost), so the floor is lax (18) — but the GROUP must still hold a
+  // full-length (≥28) MRZ line and a '<' filler, else it is noise, not an MRZ.
   const group = lastLen >= 34 ? lines.slice(-2) : lines.slice(-3);
-  return group.some((l) => l.includes('<')) ? group : [];
+  const maxLen = Math.max(...group.map((l) => l.length));
+  return maxLen >= 28 && group.some((l) => l.includes('<')) ? group : [];
 }
 
 /**

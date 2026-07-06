@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import path from 'path';
 import sharp from 'sharp';
-import { createWorker } from 'tesseract.js';
+import { createWorker, PSM } from 'tesseract.js';
 
 // Each scan preprocesses 8 one-shot images (4 orientations × 2 passes) that are never reused, so
 // libvips' operation cache only piles up memory with no hit benefit — disable it.
@@ -10,6 +10,7 @@ sharp.cache(false);
 const { parse } = require('mrz');
 import type { PassportScanResult } from '@credit-core/shared';
 import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
+import { extractIdFront, extractIdBackViz, mergeIdResult } from './id-fields.util';
 
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
@@ -57,13 +58,16 @@ export class PassportService {
     }
   }
 
-  /** Two passes: base preprocessing, then binarized, each across all orientations. Best MRZ wins. */
-  private async run(file: Buffer, ocr: OcrFn): Promise<PassportScanResult> {
-    // Scan every orientation, carrying the best MRZ found so far; stop early on a fully-valid parse.
-    const attempt = async (binarize: boolean, carried: Candidate | null): Promise<{ best: Candidate | null; done: boolean }> => {
+  /**
+   * MRZ read across orientations. `bands` selects preprocessing variants: `false` = full frame,
+   * `true` = cropped to the bottom MRZ band (for ID backs, whose MRZ sits over a noisy pattern).
+   * Each band runs a base + binarized pass; the best (prefer fully-valid) candidate wins.
+   */
+  private async run(file: Buffer, ocr: OcrFn, bands: boolean[] = [false]): Promise<PassportScanResult> {
+    const attempt = async (binarize: boolean, cropBand: boolean, carried: Candidate | null): Promise<{ best: Candidate | null; done: boolean }> => {
       let best = carried;
       for (const angle of ORIENTATIONS) {
-        const img = await this.preprocess(file, angle, binarize);
+        const img = await this.preprocess(file, angle, binarize, cropBand);
         const text = await ocr(img);
         const lines = extractMrzLines(text);
         if (lines.length < 2) continue;
@@ -86,10 +90,14 @@ export class PassportService {
       return { best, done: false };
     };
 
-    // Base pass; if no fully-valid MRZ yet, retry binarized. Beyond recovering low-contrast/blurry
-    // scans, the threshold pass also cleans filler noise that yields a check-valid-but-wrong name.
-    let r = await attempt(false, null);
-    if (!r.done) r = await attempt(true, r.best);
+    // Each band: base pass; if no fully-valid MRZ yet, retry binarized (recovers low-contrast/blur
+    // and cleans filler noise). Stop as soon as a band yields a valid parse.
+    let r: { best: Candidate | null; done: boolean } = { best: null, done: false };
+    for (const band of bands) {
+      r = await attempt(false, band, r.best);
+      if (!r.done) r = await attempt(true, band, r.best);
+      if (r.done) break;
+    }
     const best = r.best;
     // No candidate, or one where EVERY check digit failed (conf 0), means OCR latched onto
     // non-MRZ text (e.g. the passport header) that normalizeMrzLines padded into a parseable
@@ -106,10 +114,69 @@ export class PassportService {
     return { confidence: best.conf, fields, perField, format: best.parsed.format ?? '', rawMrz: best.lines, warnings };
   }
 
-  /** Rotate + grayscale + normalize + sharpen (+ optional threshold) + upscale for a legible MRZ read. */
-  private async preprocess(file: Buffer, angle: number, binarize: boolean): Promise<Buffer> {
+  /** Scan the BACK of an ID card → TD1 MRZ fields (name is ignored by callers — taken from front). */
+  async scanIdBack(file: Buffer, ocr?: OcrFn): Promise<PassportScanResult> {
+    // Try the cropped MRZ band first (that is where the ID-back MRZ reads cleanly), full frame as
+    // a fallback (e.g. the card small in frame). PSM 4 (single column of variable-size text) reads
+    // the cropped MRZ block far better than the default layout analysis.
+    if (ocr) return this.run(file, ocr, [true, false]);
+    const worker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
+    try {
+      await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
+      return await this.run(file, async (img) => (await worker.recognize(img)).data.text, [true, false]);
+    } finally {
+      await worker.terminate();
+    }
+  }
+
+  /**
+   * Scan an ID card (front + back) → merged fields. `mrzOcr` reads the back MRZ (mrz model),
+   * `textOcr` reads the printed front/back text (eng model). Inject both in tests.
+   */
+  async scanIdCard(front: Buffer, back: Buffer, mrzOcr?: OcrFn, textOcr?: OcrFn): Promise<PassportScanResult> {
+    if (mrzOcr && textOcr) return this.mergeId(front, back, mrzOcr, textOcr);
+    const mrzWorker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
+    const textWorker = await createWorker('eng', 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
+    try {
+      await mrzWorker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
+      const mrzOcrFn: OcrFn = async (img) => (await mrzWorker.recognize(img)).data.text;
+      const textOcrFn: OcrFn = async (img) => (await textWorker.recognize(img)).data.text;
+      return await this.mergeId(front, back, mrzOcrFn, textOcrFn);
+    } finally {
+      await mrzWorker.terminate();
+      await textWorker.terminate();
+    }
+  }
+
+  private async mergeId(front: Buffer, back: Buffer, mrzOcr: OcrFn, textOcr: OcrFn): Promise<PassportScanResult> {
+    const backMrz = await this.scanIdBack(back, mrzOcr);
+    const frontText = await textOcr(await this.preprocess(front, 0, false));
+    const backText = await textOcr(await this.preprocess(back, 0, false));
+    const merged = mergeIdResult(backMrz, extractIdFront(frontText), extractIdBackViz(backText));
+    if (backMrz.warnings.includes('mrz_not_found')) {
+      merged.warnings = [...merged.warnings.filter((w) => w !== 'mrz_not_found'), 'id_back_mrz_not_found'];
+    }
+    return merged;
+  }
+
+  /** Rotate + grayscale + normalize + sharpen (+ optional threshold/band crop) + upscale. */
+  private async preprocess(file: Buffer, angle: number, binarize: boolean, cropBand = false): Promise<Buffer> {
     let img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen();
     if (binarize) img = img.threshold(140);
+    if (cropBand) {
+      // The ID-back MRZ sits at the bottom over a security pattern; crop the bottom band (drops the
+      // QR/chip/hologram noise that shifts the lines) at FULL resolution, THEN upscale the band to
+      // ~1600px — far bigger OCR-B glyphs than cropping a pre-shrunk image. Materialize first so
+      // metadata reflects the applied rotation (metadata() on a lazy .rotate() returns input dims).
+      const base = await img.toBuffer();
+      const meta = await sharp(base).metadata();
+      const h = meta.height ?? 0;
+      if (h > 0) {
+        const top = Math.round(h * 0.66);
+        return sharp(base).extract({ left: 0, top, width: meta.width ?? 1, height: h - top }).resize({ width: 1600 }).toBuffer();
+      }
+      return sharp(base).resize({ width: 1600 }).toBuffer();
+    }
     // Upscale small scans too: a rotated phone photo often leaves the MRZ only ~800px wide, which
     // tesseract reads poorly. Targeting ~1600px gives it legible OCR-B glyphs.
     return img.resize({ width: 1600 }).toBuffer();

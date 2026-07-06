@@ -186,6 +186,14 @@ export const api = {
     const { data } = await http.post<PassportScanResult>('/passport/scan', fd);
     return data;
   },
+  /** Scan an ID card (front + back) → merged fields + confidence (stateless). */
+  async scanIdCard(front: File, back: File): Promise<PassportScanResult> {
+    const fd = new FormData();
+    fd.append('front', front);
+    fd.append('back', back);
+    const { data } = await http.post<PassportScanResult>('/passport/scan-id', fd);
+    return data;
+  },
   documentUrl(id: string): string {
     return `${apiBaseUrl}/api/documents/${id}/download`;
   },

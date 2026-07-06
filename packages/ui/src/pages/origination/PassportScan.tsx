@@ -80,17 +80,36 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PassportScanResult | null>(null);
   const [form, setForm] = useState<Fields>(EMPTY);
+  const [docType, setDocType] = useState<'PASSPORT' | 'ID'>('PASSPORT');
+  const [idFront, setIdFront] = useState<File | null>(null);
+  const [idBack, setIdBack] = useState<File | null>(null);
+
+  const applyResult = (r: PassportScanResult) => {
+    setResult(r);
+    // Only prefill when the read is trustworthy; a low-confidence read is likely wrong (it may be
+    // header/visa text misread as an MRZ), so we prompt a retake rather than seed the form with it.
+    setForm(r.confidence >= TRUST ? r.fields : EMPTY);
+  };
 
   const runScan = async (file: File) => {
     setBusy(true);
     setError(null);
     setResult(null);
     try {
-      const r = await api.scanPassport(file);
-      setResult(r);
-      // Only prefill when the read is trustworthy; a low-confidence read is likely wrong (it may be
-      // header/visa text misread as an MRZ), so we prompt a retake rather than seed the form with it.
-      setForm(r.confidence >= TRUST ? r.fields : EMPTY);
+      applyResult(await api.scanPassport(file));
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runIdScan = async (front: File, back: File) => {
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      applyResult(await api.scanIdCard(front, back));
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -123,6 +142,9 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
     if (form.gender) patch.gender = form.gender;
     if (form.nationality) patch.nationality = form.nationality;
     if (form.pinfl) patch.pinfl = form.pinfl;
+    if (form.placeOfBirth) patch.placeOfBirth = form.placeOfBirth;
+    if (form.passportIssueDate) patch.passportIssueDate = form.passportIssueDate;
+    if (form.passportIssuer) patch.passportIssuer = form.passportIssuer;
     onExtract(patch);
     setResult(null);
   };
@@ -142,26 +164,62 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
         </div>
       </div>
 
-      {/* Upload / drag-drop / camera zone. sr-only inputs stay keyboard-focusable. */}
-      <label
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={onDrop}
-        className={cn(
-          'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition duration-200 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-brand-600/30',
-          drag ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10' : 'border-gray-300 hover:border-brand-400 dark:border-gray-700',
-        )}
-      >
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm dark:bg-gray-800"><Upload className="h-5 w-5" /></span>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Rasmni bu yerga tashlang yoki tanlang</span>
-        <span className="text-xs text-gray-400">MRZ qatorlari tekis (qiyshaymasdan) va yorug‘ ko‘rinsin</span>
-        <input type="file" accept="image/*" aria-label="Passport rasmini yuklash" className="sr-only" onChange={onFile} />
-      </label>
+      {/* Document type: passport = one image; ID card = front + back. */}
+      <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700">
+        {(['PASSPORT', 'ID'] as const).map((d) => (
+          <button
+            key={d}
+            type="button"
+            onClick={() => { setDocType(d); setResult(null); setError(null); }}
+            className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition', docType === d ? 'bg-brand-600 text-white' : 'text-gray-600 hover:text-gray-800 dark:text-gray-300')}
+          >
+            {d === 'PASSPORT' ? 'Passport' : 'ID-karta'}
+          </button>
+        ))}
+      </div>
 
-      <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:hidden">
-        <Camera className="h-4 w-4" /> Kamera bilan olish
-        <input type="file" accept="image/*" capture="environment" aria-label="Kamera bilan passport olish" className="sr-only" onChange={onFile} />
-      </label>
+      {docType === 'PASSPORT' && (
+        <>
+          {/* Upload / drag-drop / camera zone. sr-only inputs stay keyboard-focusable. */}
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={onDrop}
+            className={cn(
+              'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition duration-200 motion-reduce:transition-none focus-within:ring-2 focus-within:ring-brand-600/30',
+              drag ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10' : 'border-gray-300 hover:border-brand-400 dark:border-gray-700',
+            )}
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm dark:bg-gray-800"><Upload className="h-5 w-5" /></span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Rasmni bu yerga tashlang yoki tanlang</span>
+            <span className="text-xs text-gray-400">MRZ qatorlari tekis (qiyshaymasdan) va yorug‘ ko‘rinsin</span>
+            <input type="file" accept="image/*" aria-label="Passport rasmini yuklash" className="sr-only" onChange={onFile} />
+          </label>
+
+          <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:hidden">
+            <Camera className="h-4 w-4" /> Kamera bilan olish
+            <input type="file" accept="image/*" capture="environment" aria-label="Kamera bilan passport olish" className="sr-only" onChange={onFile} />
+          </label>
+        </>
+      )}
+
+      {docType === 'ID' && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {([['Old tomon', idFront, setIdFront], ['Orqa tomon (MRZ)', idBack, setIdBack]] as const).map(([label, val, setter]) => (
+              <label key={label} className="flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-dashed border-gray-300 px-3 py-5 text-center text-xs transition hover:border-brand-400 focus-within:ring-2 focus-within:ring-brand-600/30 dark:border-gray-700">
+                <Upload className="h-5 w-5 text-brand-600" />
+                <span className="font-medium text-gray-700 dark:text-gray-200">{label}</span>
+                <span className="max-w-full truncate text-gray-400">{val ? val.name : 'tanlang'}</span>
+                <input type="file" accept="image/*" aria-label={`ID-karta ${label}`} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setter(f); e.target.value = ''; }} />
+              </label>
+            ))}
+          </div>
+          <Button disabled={!idFront || !idBack || busy} onClick={() => idFront && idBack && runIdScan(idFront, idBack)}>
+            <IdCard className="h-4 w-4" /> Skanerlash
+          </Button>
+        </div>
+      )}
 
       {busy && (
         <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-lg bg-white/70 px-4 py-3 text-sm text-gray-600 dark:bg-white/5 dark:text-gray-300">
@@ -230,7 +288,21 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
             </FieldWithChip>
             <ReadonlyRow label="Tug‘ilgan sana" value={fmtDate(form.birthDate)} valid={validOf('birthDateCheckDigit')} />
             <ReadonlyRow label="Amal qilish muddati" value={fmtDate(form.passportExpiry)} valid={validOf('expirationDateCheckDigit')} />
+            {/* ID-card only: present (even if empty) for an ID scan, absent for a passport. */}
+            {form.placeOfBirth !== undefined && (
+              <Field label="Tug‘ilgan joy"><Input value={form.placeOfBirth ?? ''} onChange={(e) => setForm({ ...form, placeOfBirth: e.target.value })} /></Field>
+            )}
+            {form.passportIssueDate !== undefined && (
+              <ReadonlyRow label="Berilgan sana" value={fmtDate(form.passportIssueDate ?? null)} />
+            )}
+            {form.passportIssuer !== undefined && (
+              <Field label="Pasport kim bergan"><Input value={form.passportIssuer ?? ''} onChange={(e) => setForm({ ...form, passportIssuer: e.target.value })} /></Field>
+            )}
           </div>
+
+          {result.docType === 'ID' && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">Ism va sanalar old tomondan o‘qildi — ✓ belgisiz maydonlarni tekshiring.</p>
+          )}
 
           <div className="flex items-center gap-2">
             <Button onClick={confirm}><CheckCircle2 className="h-4 w-4" /> Formani to‘ldirish</Button>

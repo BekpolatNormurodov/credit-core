@@ -277,12 +277,20 @@ export interface PassportScanResult {
     gender: 'MALE' | 'FEMALE' | '';
     nationality: string; // localized citizenship name, '' if unknown
     pinfl: string;
+    // ID-card only (optional; passport results omit these):
+    placeOfBirth?: string;
+    passportIssueDate?: string | null; // ISO
+    passportIssuer?: string;
   };
   /** Per check-digit outcome, for the UI validity chips. */
   perField: { key: string; value: string; valid: boolean }[];
   format: string; // 'TD1' | 'TD2' | 'TD3' | ''
   rawMrz: string[];
-  warnings: string[]; // 'mrz_not_found' | 'low_confidence' | 'expired' | 'expiring_soon'
+  // 'mrz_not_found' | 'low_confidence' | 'expired' | 'expiring_soon' | 'id_back_mrz_not_found' | 'front_back_mismatch'
+  warnings: string[];
+  docType?: 'PASSPORT' | 'ID';
+  /** Field keys whose values come from OCR (no check digit) → UI shows a "tekshiring" hint. */
+  unverifiedFields?: string[];
 }
 
 export interface StatsResponse {

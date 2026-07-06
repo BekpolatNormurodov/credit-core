@@ -1,7 +1,7 @@
 import {
-  BadRequestException, Controller, Logger, Module, Post, UploadedFile, UseGuards, UseInterceptors,
+  BadRequestException, Controller, Logger, Module, Post, UploadedFile, UploadedFiles, UseGuards, UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import path from 'path';
 import type { PassportScanResult } from '@credit-core/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -34,6 +34,29 @@ class PassportController {
       this.logger.log(scanSummary(result, path.basename(saved)));
     } catch (e) {
       this.logger.warn(`failed to archive scan: ${(e as Error).message}`);
+    }
+    return result;
+  }
+
+  /** Scan an ID card: front + back images → merged fields (verified numbers from the back MRZ,
+   *  name + a few fields from the front). Both images are archived and the outcome logged. */
+  @Post('scan-id')
+  @UseInterceptors(FileFieldsInterceptor([{ name: 'front', maxCount: 1 }, { name: 'back', maxCount: 1 }]))
+  async scanId(@UploadedFiles() files: { front?: Express.Multer.File[]; back?: Express.Multer.File[] }): Promise<PassportScanResult> {
+    const front = files?.front?.[0];
+    const back = files?.back?.[0];
+    if (!front || !back) throw new BadRequestException('Old va orqa tomon rasmlari kerak');
+    if (!(front.mimetype || '').startsWith('image/') || !(back.mimetype || '').startsWith('image/')) {
+      throw new BadRequestException('Faqat rasm fayllari qabul qilinadi');
+    }
+    const result = await this.svc.scanIdCard(front.buffer, back.buffer);
+    const now = new Date();
+    try {
+      await archiveScan(SCAN_DIR, front.buffer, front.mimetype, result, now, 'front');
+      const saved = await archiveScan(SCAN_DIR, back.buffer, back.mimetype, result, now, 'back');
+      this.logger.log(scanSummary(result, path.basename(saved)));
+    } catch (e) {
+      this.logger.warn(`failed to archive id scan: ${(e as Error).message}`);
     }
     return result;
   }

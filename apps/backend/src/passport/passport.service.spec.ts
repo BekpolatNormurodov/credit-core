@@ -8,6 +8,13 @@ const VALID_TD3 = [
   'L898902C36UTO7408122F1204159ZE184226B<<<<<10',
 ].join('\n');
 
+// Real UZ ID (TD1) MRZ with valid check digits; PINFL is in optional1 (line 1, cols 16-29).
+const VALID_TD1 = [
+  'IUUZBAE1295616040807841080026<',
+  '8407085F3501209UZBUZB<<<<<<<<8',
+  'QODIROVA<<XOLISXON<<<<<<<<<<<<',
+].join('\n');
+
 describe('PassportService', () => {
   const svc = new PassportService();
   // A realistic-scan-sized blank (OCR is stubbed, so content is irrelevant — but a 12px image would
@@ -72,5 +79,33 @@ describe('PassportService', () => {
     const noisy = [l1 + '<<', l2].join('\n'); // 46 + 44: raw parse() throws "unrecognized document format"
     const res = await svc.scan(blankImage, async () => noisy);
     expect(res.confidence).toBe(100);
+  });
+
+  it('scanIdBack reads a TD1 MRZ (stubbed) → PINFL + series/number', async () => {
+    const res = await svc.scanIdBack(blankImage, async () => VALID_TD1);
+    expect(res.confidence).toBe(100);
+    expect(res.format).toBe('TD1');
+    expect(res.fields.passportSeries).toBe('AE');
+    expect(res.fields.passportNumber).toBe('1295616');
+    expect(res.fields.pinfl).toBe('40807841080026');
+  });
+
+  it('scanIdCard merges back MRZ numbers with the front name', async () => {
+    const frontText = ['Surname', 'QODIROVA', 'Given name(s)', 'XOLISXON', 'Patronymic', 'MUXTOROVNA', 'Date of issue', '21.01.2025'].join('\n');
+    const res = await svc.scanIdCard(
+      blankImage, blankImage, // content irrelevant — OCR is stubbed; must be valid images for sharp
+      async () => VALID_TD1, // mrz OCR (back)
+      async () => frontText, // text OCR (front + back VIZ)
+    );
+    expect(res.docType).toBe('ID');
+    expect(res.fields.fullName).toBe('QODIROVA XOLISXON MUXTOROVNA');
+    expect(res.fields.pinfl).toBe('40807841080026');
+    expect(res.fields.passportIssueDate).toBe('2025-01-21T00:00:00.000Z');
+    expect(res.unverifiedFields).toContain('fullName');
+  });
+
+  it('scanIdCard reports id_back_mrz_not_found when the back has no MRZ', async () => {
+    const res = await svc.scanIdCard(blankImage, blankImage, async () => 'no mrz', async () => 'Surname\nQODIROVA');
+    expect(res.warnings).toContain('id_back_mrz_not_found');
   });
 });

@@ -49,6 +49,12 @@ describe('mapMrzToBorrower', () => {
   it('drops a non-14-digit PINFL', () => {
     expect(mapMrzToBorrower({ personalNumber: '123' }).pinfl).toBe('');
   });
+  it('takes PINFL from TD1 optional1 when personalNumber is absent', () => {
+    const out = mapMrzToBorrower({ documentNumber: 'AE1295616', optional1: '40807841080026' });
+    expect(out.pinfl).toBe('40807841080026');
+    expect(out.passportSeries).toBe('AE');
+    expect(out.passportNumber).toBe('1295616');
+  });
 });
 
 describe('extractMrzLines', () => {

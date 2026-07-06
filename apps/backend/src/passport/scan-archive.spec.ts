@@ -37,6 +37,9 @@ describe('buildScanFilename', () => {
     const name = buildScanFilename(now, result({ confidence: 42, warnings: ['low_confidence'] }), 'jpg');
     expect(name).toContain('__lowconf__conf042__');
   });
+  it('includes a side tag when given', () => {
+    expect(buildScanFilename(now, result(), 'jpg', 'back')).toContain('__back__');
+  });
 });
 
 describe('scanSummary', () => {
