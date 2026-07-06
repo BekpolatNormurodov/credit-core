@@ -68,7 +68,7 @@ function FieldWithChip({ label, valid, children }: { label: string; valid?: bool
 function ReadonlyRow({ label, value, valid }: { label: string; value: string; valid?: boolean }) {
   return (
     <FieldWithChip label={label} valid={valid}>
-      <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">{value || '—'}</div>
+      <div className="flex h-11 items-center rounded-lg border border-gray-200 bg-gray-50 px-3.5 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">{value || '—'}</div>
     </FieldWithChip>
   );
 }
