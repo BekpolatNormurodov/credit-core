@@ -8,6 +8,9 @@ import { cn } from '../../lib/cn';
 
 type Fields = PassportScanResult['fields'];
 
+/** Below this check-digit confidence the read is untrustworthy — prompt a retake, don't prefill. */
+const TRUST = 60;
+
 const EMPTY: Fields = {
   fullName: '', passportSeries: '', passportNumber: '',
   birthDate: null, passportExpiry: null, gender: '', nationality: '', pinfl: '',
@@ -85,7 +88,9 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
     try {
       const r = await api.scanPassport(file);
       setResult(r);
-      setForm(r.fields);
+      // Only prefill when the read is trustworthy; a low-confidence read is likely wrong (it may be
+      // header/visa text misread as an MRZ), so we prompt a retake rather than seed the form with it.
+      setForm(r.confidence >= TRUST ? r.fields : EMPTY);
     } catch (e) {
       setError(getErrorMessage(e));
     } finally {
@@ -123,6 +128,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
   };
 
   const t = result ? tone(result.confidence) : null;
+  const trusted = !!result && result.confidence >= TRUST;
   const expired = result?.warnings.includes('expired');
   const expiringSoon = result?.warnings.includes('expiring_soon');
 
@@ -131,8 +137,8 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
       <div className="flex items-center gap-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white"><IdCard className="h-5 w-5" /></span>
         <div>
-          <h3 className="font-semibold text-gray-800 dark:text-white">Passportni skanerlash</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">MRZ (pastdagi 2 qator) o‘qiladi — maydonlar avtomatik to‘ladi</p>
+          <h3 className="font-semibold text-gray-800 dark:text-white">Passport / ID-karta skanerlash</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Passport asosiy sahifasi yoki ID-karta <b>orqa tomoni</b> (MRZ) — maydonlar avtomatik to‘ladi</p>
         </div>
       </div>
 
@@ -148,7 +154,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
       >
         <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm dark:bg-gray-800"><Upload className="h-5 w-5" /></span>
         <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Rasmni bu yerga tashlang yoki tanlang</span>
-        <span className="text-xs text-gray-400">MRZ (pastki qatorlar) tekis va yorug‘ ko‘rinsin</span>
+        <span className="text-xs text-gray-400">MRZ qatorlari tekis (qiyshaymasdan) va yorug‘ ko‘rinsin</span>
         <input type="file" accept="image/*" aria-label="Passport rasmini yuklash" className="sr-only" onChange={onFile} />
       </label>
 
@@ -177,6 +183,16 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
             </div>
           </div>
 
+          {!trusted && (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setResult(null)} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                <RotateCcw className="h-4 w-4" /> Boshqa rasm bilan qayta urinish
+              </button>
+            </div>
+          )}
+
+          {trusted && (
+          <>
           {(expired || expiringSoon) && (
             <div
               role="alert"
@@ -222,6 +238,8 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
               <RotateCcw className="h-4 w-4" /> Qayta
             </button>
           </div>
+          </>
+          )}
         </div>
       )}
     </Card>

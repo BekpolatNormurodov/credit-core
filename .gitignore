@@ -42,6 +42,9 @@ Thumbs.db
 __pycache__/
 *.pyc
 
-# tesseract traineddata (bundled into the prod image at build; dev caches it from the CDN)
+# tesseract traineddata (bundled into the prod image at build; dev fetches via `npm run setup:ocr`)
 *.traineddata
 apps/backend/tessdata/
+
+# passport scan fixtures — real documents (PII), kept local only for the OCR integration test
+apps/backend/test-fixtures/

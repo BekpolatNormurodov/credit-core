@@ -62,6 +62,20 @@ describe('extractMrzLines', () => {
     expect(lines).toHaveLength(2);
     expect(lines[0].startsWith('P<UZB')).toBe(true);
   });
+
+  it('keeps the number line even when it has NO "<" filler (fully-populated personal number)', () => {
+    // Real UZ passport: line 2 is all digits/letters, no '<'. Requiring '<' per line dropped it,
+    // leaving a single line that never parses. The '<' need only appear on the GROUP (line 1 here).
+    const text = [
+      'OZBEKISTON RESPUBLIKASI',
+      'P<UZBISMOILOV<<KHURSHID<<<<<<<<<<<<<<<<<<<<<<',
+      'AB69352446UZB0007319M27061445310700532003968',
+    ].join('\n');
+    const lines = extractMrzLines(text);
+    expect(lines).toHaveLength(2);
+    expect(lines[1].startsWith('AB69352446')).toBe(true);
+    expect(lines[1].includes('<')).toBe(false);
+  });
 });
 
 describe('normalizeMrzLines', () => {

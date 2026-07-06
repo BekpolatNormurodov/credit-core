@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import path from 'path';
 import sharp from 'sharp';
 import { createWorker } from 'tesseract.js';
+
+// Each scan preprocesses 8 one-shot images (4 orientations × 2 passes) that are never reused, so
+// libvips' operation cache only piles up memory with no hit benefit — disable it.
+sharp.cache(false);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { parse } = require('mrz');
 import type { PassportScanResult } from '@credit-core/shared';
@@ -11,6 +16,12 @@ export type OcrFn = (image: Buffer) => Promise<string>;
 
 const ORIENTATIONS = [0, 90, 180, 270];
 const MRZ_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<';
+// Dedicated OCR-B / MRZ model (BSD-3, DoubangoTelecom/tesseractMRZ). The general 'eng' model
+// misreads the MRZ font — '<' as K/C/L, A→4, Z→2 — so the header text wins; 'mrz' reads it cleanly.
+const OCR_LANG = 'mrz';
+// The 'mrz' model is not on the tesseract CDN, so a local traineddata dir is mandatory. Prod sets
+// TESSDATA_PATH; otherwise resolve the bundled dir next to the backend root (works in dist + tests).
+const TESSDATA_DIR = process.env.TESSDATA_PATH || path.join(__dirname, '..', '..', 'tessdata');
 
 /** One orientation's parse result plus its check-digit confidence. */
 interface Candidate {
@@ -35,15 +46,9 @@ export class PassportService {
   /** Scan a passport image buffer. Pass `ocr` in tests to stub OCR; production uses tesseract.js. */
   async scan(file: Buffer, ocr?: OcrFn): Promise<PassportScanResult> {
     if (ocr) return this.run(file, ocr);
-    // Prod image bundles raw .traineddata at TESSDATA_PATH → gzip:false, no cache needed.
-    // Local dev (no TESSDATA_PATH) falls back to tesseract's CDN, which serves gzipped data
-    // and must be cached — using gzip:false there requests a non-existent URL and 404s.
-    const langPath = process.env.TESSDATA_PATH;
-    const worker = await createWorker('eng', 1, {
-      langPath: langPath || undefined,
-      cacheMethod: langPath ? 'none' : 'write',
-      gzip: langPath ? false : true,
-    });
+    // The MRZ model ships as a raw (non-gzipped) .traineddata under TESSDATA_DIR — read locally,
+    // no CDN fetch and no cache needed. Run `npm run setup:ocr` once in dev to fetch it.
+    const worker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
     try {
       await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST });
       return await this.run(file, async (img) => (await worker.recognize(img)).data.text);
@@ -71,17 +76,25 @@ export class PassportService {
           continue;
         }
         const conf = scoreConfidence((parsed.details ?? []) as MrzDetail[]);
-        if (!best || conf > best.conf) best = { parsed, conf, lines: norm };
+        // Prefer a fully-valid parse over a higher-conf-but-invalid one. MRZ check digits do NOT
+        // cover the name field, so a parse with a corrupted name (stray leading char shifting line 1)
+        // can still score 100%; only `valid` reflects a self-consistent, correctly-framed read.
+        const better = !best || (parsed.valid && !best.parsed.valid) || (parsed.valid === best.parsed.valid && conf > best.conf);
+        if (better) best = { parsed, conf, lines: norm };
         if (parsed.valid) return { best, done: true };
       }
       return { best, done: false };
     };
 
-    // Base pass; if nothing confident, retry binarized (recovers low-contrast / blurry scans).
+    // Base pass; if no fully-valid MRZ yet, retry binarized. Beyond recovering low-contrast/blurry
+    // scans, the threshold pass also cleans filler noise that yields a check-valid-but-wrong name.
     let r = await attempt(false, null);
-    if (!r.done && (!r.best || r.best.conf < 60)) r = await attempt(true, r.best);
+    if (!r.done) r = await attempt(true, r.best);
     const best = r.best;
-    if (!best) return emptyResult();
+    // No candidate, or one where EVERY check digit failed (conf 0), means OCR latched onto
+    // non-MRZ text (e.g. the passport header) that normalizeMrzLines padded into a parseable
+    // shape. Surface a clean "not found" so the UI prompts a retake instead of fake fields.
+    if (!best || best.conf === 0) return emptyResult();
 
     const fields = mapMrzToBorrower(best.parsed.fields ?? {});
     const perField = ((best.parsed.details ?? []) as MrzDetail[])
@@ -97,6 +110,8 @@ export class PassportService {
   private async preprocess(file: Buffer, angle: number, binarize: boolean): Promise<Buffer> {
     let img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen();
     if (binarize) img = img.threshold(140);
-    return img.resize({ width: 1500, withoutEnlargement: true }).toBuffer();
+    // Upscale small scans too: a rotated phone photo often leaves the MRZ only ~800px wide, which
+    // tesseract reads poorly. Targeting ~1600px gives it legible OCR-B glyphs.
+    return img.resize({ width: 1600 }).toBuffer();
   }
 }

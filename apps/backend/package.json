@@ -13,7 +13,9 @@
     "db:seed": "ts-node prisma/seed.ts",
     "db:seed:demo": "ts-node prisma/seed-demo.ts",
     "db:push": "prisma db push",
+    "setup:ocr": "node scripts/fetch-ocr-model.mjs",
     "test": "jest",
+    "test:ocr": "node scripts/test-ocr.mjs",
     "lint": "eslint \"src/**/*.ts\""
   },
   "prisma": {

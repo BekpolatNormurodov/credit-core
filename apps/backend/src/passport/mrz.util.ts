@@ -94,19 +94,22 @@ export function expiryWarnings(expiryIso: string | null, now: Date = new Date())
 }
 
 /**
- * Pull the MRZ lines out of noisy OCR text. MRZ lines are uppercase [A-Z0-9<] of length
- * ≥28 with at least one filler '<'. Returns the trailing 2 (TD2/TD3) or 3 (TD1) lines.
+ * Pull the MRZ lines out of noisy OCR text. MRZ lines are uppercase [A-Z0-9<] of length ≥28,
+ * and sit at the bottom of the page, so we take the trailing 2 (TD2/TD3) or 3 (TD1) long lines.
+ * The '<' filler is required on the GROUP, not every line: the document/number line is often all
+ * digits with no '<' (e.g. a fully-populated 14-digit personal number), and requiring '<' per line
+ * dropped it — leaving a single line that never parses.
  */
 export function extractMrzLines(ocrText: string): string[] {
-  const candidates = ocrText
+  const lines = ocrText
     .split(/\r?\n/)
     .map((l) => l.replace(/\s+/g, '').toUpperCase())
-    .filter((l) => l.length >= 28 && /^[A-Z0-9<]+$/.test(l) && l.includes('<'));
-  if (candidates.length < 2) return candidates;
-  const lastLen = candidates[candidates.length - 1].length;
+    .filter((l) => l.length >= 28 && /^[A-Z0-9<]+$/.test(l));
+  if (lines.length < 2) return lines.filter((l) => l.includes('<'));
+  const lastLen = lines[lines.length - 1].length;
   // TD1 = 3×30; TD2 = 2×36; TD3 = 2×44.
-  if (lastLen >= 34) return candidates.slice(-2);
-  return candidates.slice(-3);
+  const group = lastLen >= 34 ? lines.slice(-2) : lines.slice(-3);
+  return group.some((l) => l.includes('<')) ? group : [];
 }
 
 /**
