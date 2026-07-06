@@ -15,9 +15,9 @@ export interface IdBackViz {
   issuer: string;
 }
 
-/** "21.01.2025" → ISO at UTC midnight, or null. */
+/** "21.01.2025" or "15 06 2017" → ISO at UTC midnight, or null. (ID uses dots; passport uses spaces.) */
 export function ddmmyyyyToIso(s: string | null | undefined): string | null {
-  const m = (s ?? '').match(/(\d{2})[.\-/](\d{2})[.\-/](\d{4})/);
+  const m = (s ?? '').match(/(\d{2})[.\s\-/](\d{2})[.\s\-/](\d{4})/);
   if (!m) return null;
   const dd = +m[1], mm = +m[2], yyyy = +m[3];
   if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
@@ -147,4 +147,33 @@ export function mergeIdResult(back: PassportScanResult, front: IdFrontFields, vi
     if (!warnings.includes('front_back_mismatch')) warnings.push('front_back_mismatch');
   }
   return { ...back, fields, warnings, docType: 'ID', unverifiedFields: unverified };
+}
+
+export interface PassportViz {
+  placeOfBirth: string;
+  issueDate: string | null;
+  issuer: string;
+}
+
+/**
+ * Passport visible page (VIZ) — the MRZ carries none of these, so read them from the printed fields:
+ * place of birth, date of issue, and the issuing authority. All are OCR (no check digit) → the
+ * caller flags them unverified.
+ */
+export function extractPassportViz(text: string): PassportViz {
+  const ls = lines(text);
+  // Place of birth: the first line carrying an Uzbek place suffix (…TUMANI/SHAHRI/VILOYATI). It
+  // prints above the issuer authority, so first-match wins (digits/labels are dropped by capsPhrase).
+  const suffix = /(TUMANI|TUMAN|SHAHRI|SHAHAR|VILOYATI|QISHLOG)/;
+  let placeOfBirth = '';
+  for (const l of ls) { const c = capsPhrase(l); if (suffix.test(c)) { placeOfBirth = c; break; } }
+  // Issuer: the authority after "KIM TOMONIDAN BERILGAN" / "ORGANI" / "AUTHORITY", spanning up to two
+  // lines (e.g. "BUXORO VILOYATI QORAKUL TUMANI IIB"). Best-effort; flagged unverified.
+  const ai = labelIdx(ls, ['TOMONIDAN', 'ORGANI', 'AUTHOR']);
+  const issuer = ai >= 0 ? capsPhrase([ls[ai + 1], ls[ai + 2]].filter(Boolean).join(' ')) : '';
+  return {
+    placeOfBirth,
+    issueDate: dateAfter(ls, ['DATE OF ISSUE', 'BERILGAN SANASI']),
+    issuer,
+  };
 }

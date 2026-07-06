@@ -1,13 +1,42 @@
-import { ddmmyyyyToIso, extractIdFront, extractIdBackViz, mergeIdResult } from './id-fields.util';
+import { ddmmyyyyToIso, extractIdFront, extractIdBackViz, extractPassportViz, mergeIdResult } from './id-fields.util';
 import type { PassportScanResult } from '@credit-core/shared';
 
 describe('ddmmyyyyToIso', () => {
-  it('parses a dd.mm.yyyy date', () => {
+  it('parses a dot-separated date (ID)', () => {
     expect(ddmmyyyyToIso('21.01.2025')).toBe('2025-01-21T00:00:00.000Z');
+  });
+  it('parses a space-separated date (passport)', () => {
+    expect(ddmmyyyyToIso('15 06 2017')).toBe('2017-06-15T00:00:00.000Z');
   });
   it('rejects junk', () => {
     expect(ddmmyyyyToIso('x')).toBeNull();
     expect(ddmmyyyyToIso('40.13.2025')).toBeNull();
+  });
+});
+
+describe('extractPassportViz', () => {
+  // Verbatim-style noisy eng-OCR of the passport visible page (space dates, garbled labels,
+  // multi-line issuer, junk tokens on value lines).
+  const viz = [
+    'FAMILIYAS! ISMOILOV',
+    "TUG'ILGAN SANASi | TUGTLGAN JOY!",
+    "31 07 2000 | QORAKO'L TUMANI avera",
+    'MILLATI',
+    'KiM TOMONIDAN BERILGAN',
+    'BUXORO VILOYATI QORAKUL : oy',
+    ': TUMANI IIB S Se 73',
+    'BERILGAN SANASI / DATE OF ISSUE PERSOMALLASHTIRISH ORGANI/AUTHORETY',
+    "15 06 2017 'STATE PERSONALIZATION",
+  ].join('\n');
+
+  it('reads place of birth via the place suffix', () => {
+    expect(extractPassportViz(viz).placeOfBirth).toBe("QORAKO'L TUMANI");
+  });
+  it('reads the multi-line issuing authority', () => {
+    expect(extractPassportViz(viz).issuer).toBe('BUXORO VILOYATI QORAKUL TUMANI IIB');
+  });
+  it('reads the space-separated issue date', () => {
+    expect(extractPassportViz(viz).issueDate).toBe('2017-06-15T00:00:00.000Z');
   });
 });
 

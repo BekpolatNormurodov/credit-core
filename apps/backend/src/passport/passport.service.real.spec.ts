@@ -12,8 +12,8 @@ sharp.concurrency(1);
 // is opt-in and never runs in the default parallel suite (where it would starve the fast tests).
 // Run it deliberately:  npm run test:ocr -w @credit-core/backend
 const FIXTURE = path.join(__dirname, '..', '..', 'test-fixtures', 'passport-uz.jpg');
-const MODEL = path.join(__dirname, '..', '..', 'tessdata', 'mrz.traineddata');
-const ready = process.env.RUN_OCR_IT === '1' && existsSync(FIXTURE) && existsSync(MODEL);
+const MODELS = ['mrz', 'eng'].map((m) => path.join(__dirname, '..', '..', 'tessdata', `${m}.traineddata`));
+const ready = process.env.RUN_OCR_IT === '1' && existsSync(FIXTURE) && MODELS.every(existsSync);
 
 (ready ? describe : describe.skip)('PassportService — real image OCR (mrz model)', () => {
   const svc = new PassportService();
@@ -31,5 +31,9 @@ const ready = process.env.RUN_OCR_IT === '1' && existsSync(FIXTURE) && existsSyn
     expect(res.fields.passportExpiry).toBe('2027-06-14T00:00:00.000Z');
     expect(res.fields.pinfl).toBe('53107005320039');
     expect(res.fields.nationality).toContain('zbekiston');
+    // VIZ (visible page) fields the MRZ lacks, read from the passport's printed side.
+    expect(res.fields.placeOfBirth).toContain('QORAKO');
+    expect(res.fields.passportIssueDate).toBe('2017-06-15T00:00:00.000Z');
+    expect(res.fields.passportIssuer).toContain('IIB');
   }, 180000);
 });

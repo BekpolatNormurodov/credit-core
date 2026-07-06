@@ -10,7 +10,7 @@ sharp.cache(false);
 const { parse } = require('mrz');
 import type { PassportScanResult } from '@credit-core/shared';
 import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
-import { extractIdFront, extractIdBackViz, mergeIdResult } from './id-fields.util';
+import { extractIdFront, extractIdBackViz, mergeIdResult, extractPassportViz } from './id-fields.util';
 
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
@@ -25,11 +25,12 @@ const OCR_LANG = 'mrz';
 // TESSDATA_PATH; otherwise resolve the bundled dir next to the backend root (works in dist + tests).
 const TESSDATA_DIR = process.env.TESSDATA_PATH || path.join(__dirname, '..', '..', 'tessdata');
 
-/** One orientation's parse result plus its check-digit confidence. */
+/** One orientation's parse result plus its check-digit confidence and the orientation it came from. */
 interface Candidate {
   parsed: any;
   conf: number;
   lines: string[];
+  angle: number;
 }
 
 function emptyResult(): PassportScanResult {
@@ -51,23 +52,44 @@ export class PassportService {
     // ~5s for a full page), so a well-framed passport reads in a few seconds instead of ~20s. Full
     // frame is the fallback for a passport small/high in the frame (MRZ not at the bottom).
     if (ocr) return this.run(file, ocr, [true, false]);
-    // The MRZ model ships as a raw (non-gzipped) .traineddata under TESSDATA_DIR — read locally,
-    // no CDN fetch and no cache needed. Run `npm run setup:ocr` once in dev to fetch it.
-    const worker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
+    // mrz model reads the MRZ; eng model reads the visible page (VIZ) for the fields the MRZ lacks
+    // (place of birth, issue date, issuer). Both ship as raw .traineddata under TESSDATA_DIR.
+    const [mrzWorker, textWorker] = await Promise.all([
+      createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
+      createWorker('eng', 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
+    ]);
     try {
-      await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST });
-      return await this.run(file, async (img) => (await worker.recognize(img)).data.text, [true, false]);
+      await mrzWorker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST });
+      const best = await this.findBestMrz(file, async (img) => (await mrzWorker.recognize(img)).data.text, [true, false]);
+      const result = this.mrzToResult(best);
+      // Fill the VIZ-only fields the MRZ lacks by OCR-ing the visible page at the orientation the MRZ
+      // was found. Best-effort: a VIZ hiccup must never fail the (verified) MRZ result.
+      if (best && best.conf > 0) {
+        try {
+          const vizText = (await textWorker.recognize(await this.preprocessViz(file, best.angle, 1500))).data.text;
+          const viz = extractPassportViz(vizText);
+          const unverified: string[] = [];
+          if (viz.placeOfBirth) { result.fields.placeOfBirth = viz.placeOfBirth; unverified.push('placeOfBirth'); }
+          if (viz.issueDate) { result.fields.passportIssueDate = viz.issueDate; unverified.push('passportIssueDate'); }
+          if (viz.issuer) { result.fields.passportIssuer = viz.issuer; unverified.push('passportIssuer'); }
+          result.docType = 'PASSPORT';
+          if (unverified.length) result.unverifiedFields = unverified;
+        } catch {
+          /* VIZ is best-effort; keep the verified MRZ result */
+        }
+      }
+      return result;
     } finally {
-      await worker.terminate();
+      await Promise.all([mrzWorker.terminate(), textWorker.terminate()]);
     }
   }
 
   /**
-   * MRZ read across orientations. `bands` selects preprocessing variants: `false` = full frame,
-   * `true` = cropped to the bottom MRZ band (for ID backs, whose MRZ sits over a noisy pattern).
-   * Each band runs a base + binarized pass; the best (prefer fully-valid) candidate wins.
+   * Find the best MRZ candidate across orientations/bands (or null). `bands`: `false` = full frame,
+   * `true` = cropped bottom MRZ band. Exposes the winning orientation so the passport VIZ can be
+   * OCR'd at the same angle. Prefers a fully-valid parse; ID back stops early on high confidence.
    */
-  private async run(file: Buffer, ocr: OcrFn, bands: boolean[] = [false], earlyExitConf?: number): Promise<PassportScanResult> {
+  private async findBestMrz(file: Buffer, ocr: OcrFn, bands: boolean[] = [false], earlyExitConf?: number): Promise<Candidate | null> {
     const attempt = async (binarize: boolean, cropBand: boolean, carried: Candidate | null): Promise<{ best: Candidate | null; done: boolean }> => {
       let best = carried;
       for (const angle of ORIENTATIONS) {
@@ -88,7 +110,7 @@ export class PassportService {
         // cover the name field, so a parse with a corrupted name (stray leading char shifting line 1)
         // can still score 100%; only `valid` reflects a self-consistent, correctly-framed read.
         const better = !best || (parsed.valid && !best.parsed.valid) || (parsed.valid === best.parsed.valid && conf > best.conf);
-        if (better) best = { parsed, conf, lines: norm };
+        if (better) best = { parsed, conf, lines: norm, angle };
         // Stop early on a fully-valid parse, or (ID back only) once check-digit confidence is high
         // enough — its MRZ name line is corrupt so `valid` never trips, but the numbers are solid.
         if (parsed.valid || (earlyExitConf != null && conf >= earlyExitConf)) return { best, done: true };
@@ -104,12 +126,14 @@ export class PassportService {
       if (!r.done) r = await attempt(true, band, r.best);
       if (r.done) break;
     }
-    const best = r.best;
-    // No candidate, or one where EVERY check digit failed (conf 0), means OCR latched onto
-    // non-MRZ text (e.g. the passport header) that normalizeMrzLines padded into a parseable
-    // shape. Surface a clean "not found" so the UI prompts a retake instead of fake fields.
-    if (!best || best.conf === 0) return emptyResult();
+    return r.best;
+  }
 
+  /** Map the best MRZ candidate to the API result (or an empty "not found" result). */
+  private mrzToResult(best: Candidate | null): PassportScanResult {
+    // conf 0 = every check digit failed → OCR latched onto non-MRZ text (e.g. the passport header)
+    // that normalizeMrzLines padded into a parseable shape. Surface a clean "not found".
+    if (!best || best.conf === 0) return emptyResult();
     const fields = mapMrzToBorrower(best.parsed.fields ?? {});
     const perField = ((best.parsed.details ?? []) as MrzDetail[])
       .filter((d) => d.field.endsWith('CheckDigit'))
@@ -118,6 +142,11 @@ export class PassportService {
     if (best.conf < 60) warnings.push('low_confidence');
     warnings.push(...expiryWarnings(fields.passportExpiry));
     return { confidence: best.conf, fields, perField, format: best.parsed.format ?? '', rawMrz: best.lines, warnings };
+  }
+
+  /** MRZ read → API result. `bands`: full-frame and/or bottom-band crop. */
+  private async run(file: Buffer, ocr: OcrFn, bands: boolean[] = [false], earlyExitConf?: number): Promise<PassportScanResult> {
+    return this.mrzToResult(await this.findBestMrz(file, ocr, bands, earlyExitConf));
   }
 
   /** Scan the BACK of an ID card → TD1 MRZ fields (name is ignored by callers — taken from front). */
@@ -175,8 +204,8 @@ export class PassportService {
 
   /** Preprocess the printed (VIZ) side for the eng text OCR: the labels/values are large and upright,
    *  so grayscale/normalize/sharpen at ~1300px reads cleanly and fast (bigger only adds latency). */
-  private async preprocessViz(file: Buffer): Promise<Buffer> {
-    return sharp(file, { failOn: 'none' }).grayscale().normalize().sharpen().resize({ width: 1300 }).toBuffer();
+  private async preprocessViz(file: Buffer, angle = 0, width = 1300): Promise<Buffer> {
+    return sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen().resize({ width }).toBuffer();
   }
 
   /** Rotate + grayscale + normalize + sharpen (+ optional threshold/band crop) + upscale. */

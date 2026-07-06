@@ -300,8 +300,8 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
             )}
           </div>
 
-          {result.docType === 'ID' && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">Ism va sanalar old tomondan o‘qildi — ✓ belgisiz maydonlarni tekshiring.</p>
+          {result.unverifiedFields && result.unverifiedFields.length > 0 && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">Ba’zi maydonlar rasmdan o‘qildi (check-digit yo‘q) — ✓ belgisiz maydonlarni tekshiring.</p>
           )}
 
           <div className="flex items-center gap-2">
