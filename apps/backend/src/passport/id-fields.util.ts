@@ -25,6 +25,14 @@ export function ddmmyyyyToIso(s: string | null | undefined): string | null {
 }
 
 const NAME = /^[A-Z][A-Z'`‘’-]{3,29}$/; // a single uppercase name token (≥4 chars, drops OCR noise)
+// Header/label words that are all-caps and could be mistaken for a name when the OCR is noisy (e.g.
+// the "GUVOHNOMASI" anchor is unreadable). Compared apostrophe-stripped, uppercased.
+const NAME_STOP = new Set([
+  'OZBEKISTON', 'RESPUBLIKASI', 'SHAXS', 'GUVOHNOMASI', 'REPUBLIC', 'UZBEKISTAN', 'IDENTITY', 'CARD',
+  'FAMILIYASI', 'SURNAME', 'ISMI', 'GIVEN', 'NAME', 'NAMES', 'OTASINING', 'PATRONYMIC', 'TUGILGAN',
+  'SANASI', 'DATE', 'BIRTH', 'JINSI', 'SEX', 'ERKAK', 'AYOL', 'BERILGAN', 'ISSUE', 'FUQAROLIGI',
+  'CITIZENSHIP', 'AMAL', 'MUDDATI', 'EXPIRY', 'KARTA', 'RAQAMI', 'NUMBER', 'IMZOSI', 'SIGNATURE',
+]);
 
 /** Lines with whitespace collapsed; blank lines dropped. */
 function lines(text: string): string[] {
@@ -75,7 +83,10 @@ function extractNames(ls: string[]): string[] {
   const names: string[] = [];
   for (let i = from; i < end && names.length < 3; i++) {
     if (ls[i].includes('/') || ls[i].includes('|')) continue; // a label line, not a value
-    const toks = ls[i].split(' ').filter((t) => NAME.test(t)).sort((a, b) => b.length - a.length);
+    const toks = ls[i]
+      .split(' ')
+      .filter((t) => NAME.test(t) && !NAME_STOP.has(t.replace(/['`‘’]/g, '')))
+      .sort((a, b) => b.length - a.length);
     if (toks.length) names.push(toks[0]);
   }
   return names;
@@ -125,7 +136,9 @@ export function extractIdBackViz(text: string): IdBackViz {
   const m = after(['ISSUE', 'BERILGAN']).toUpperCase().match(/([A-Z]{1,4})\s?(\d{3,5})/);
   let issuer = '';
   if (m) {
-    const code = m[1].endsWith('V') ? 'IIV' : m[1].endsWith('B') ? 'IIB' : m[1];
+    // UZ ID authorities are always IIV (…IIV) or district IIB. OCR mangles the letters (IIV→HV/PY/NV),
+    // so normalize the code to IIV, or IIB when it ends in B. Keeps the (unverified) office number.
+    const code = m[1].endsWith('B') ? 'IIB' : 'IIV';
     issuer = `${code} ${m[2]}`;
   }
   return { placeOfBirth, issuer };

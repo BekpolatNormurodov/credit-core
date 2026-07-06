@@ -75,6 +75,20 @@ describe('extractIdFront', () => {
     expect(extractIdFront(noPatr).fullName).toBe('QODIROVA XOLISXON');
   });
 
+  it('does not pick header words as the name when the "GUVOHNOMASI" anchor is unreadable', () => {
+    const noisy = [
+      "O'ZBEKISTON RESPUBLIKAS!",
+      'wees SHAXS aA',
+      'MIRZAKARIMOV',
+      'NIZOMIDIN',
+      'Otasining ismi / Patronymic',
+      'MIRZABDULLAYEVICH',
+      'Tugilgan sanasi / Date of birth',
+      '29.12.1970 ERKAK',
+    ].join('\n');
+    expect(extractIdFront(noisy).fullName).toBe('MIRZAKARIMOV NIZOMIDIN MIRZABDULLAYEVICH');
+  });
+
   it('extracts names from real noisy OCR (dropped/garbled labels, junk tokens)', () => {
     // Verbatim from a real eng-OCR of the fixture: no "Surname" label, "EER" junk before the
     // patronymic, label words on "/"-separated lines. The layout heuristic must still win.
@@ -116,6 +130,7 @@ describe('extractIdBackViz', () => {
   it('normalizes the issuer code and ignores a line with no code+number', () => {
     expect(extractIdBackViz(['Place of issue', 'IIV 6230'].join('\n')).issuer).toBe('IIV 6230');
     expect(extractIdBackViz(['Place of issue', 'NB 6230'].join('\n')).issuer).toBe('IIB 6230');
+    expect(extractIdBackViz(['Place of issue', 'TAME py 14294 ye'].join('\n')).issuer).toBe('IIV 14294'); // IIV misread as "py"
     expect(extractIdBackViz(['Place of issue', 'just some words'].join('\n')).issuer).toBe('');
   });
 });
