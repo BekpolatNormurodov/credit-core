@@ -171,7 +171,10 @@ export function extractPassportViz(text: string): PassportViz {
   // Issuer: the authority after "KIM TOMONIDAN BERILGAN" / "ORGANI" / "AUTHORITY", spanning up to two
   // lines (e.g. "BUXORO VILOYATI QORAKUL TUMANI IIB"). Best-effort; flagged unverified.
   const ai = labelIdx(ls, ['TOMONIDAN', 'ORGANI', 'AUTHOR']);
-  const issuer = ai >= 0 ? capsPhrase([ls[ai + 1], ls[ai + 2]].filter(Boolean).join(' ')) : '';
+  let issuer = ai >= 0 ? capsPhrase([ls[ai + 1], ls[ai + 2]].filter(Boolean).join(' ')) : '';
+  // The authority ends at its office suffix (…IIB / …IIV); drop trailing OCR garbage after it.
+  const cut = issuer.match(/^(.*\bII[BV])\b/);
+  if (cut) issuer = cut[1];
   return {
     placeOfBirth,
     issueDate: dateAfter(ls, ['DATE OF ISSUE', 'BERILGAN SANASI']),
