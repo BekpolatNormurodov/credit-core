@@ -95,10 +95,11 @@ export function extractIdFront(text: string): IdFrontFields {
   };
 }
 
-/** Keep only ALL-CAPS words, dropping mixed-case OCR noise + punctuation:
- *  "Re Al QORAKO'L TUMANI :" → "QORAKO'L TUMANI". */
+/** Keep only ALL-CAPS words of ≥3 letters, dropping mixed-case noise, punctuation, and short
+ *  all-caps OCR junk ("QF"): "QF ZAFAROBOD TUMANI" → "ZAFAROBOD TUMANI". Real place/authority words
+ *  (ZAFAROBOD, TUMANI, VILOYATI, IIB, IIV) are ≥3 letters. */
 function capsPhrase(s: string): string {
-  return s.split(/\s+/).filter((t) => /^[A-Z][A-Z'`‘’]+$/.test(t)).join(' ');
+  return s.split(/\s+/).filter((t) => /^[A-Z][A-Z'`‘’]{2,}$/.test(t)).join(' ');
 }
 
 export function extractIdBackViz(text: string): IdBackViz {

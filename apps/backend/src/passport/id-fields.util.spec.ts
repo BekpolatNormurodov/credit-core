@@ -109,6 +109,10 @@ describe('extractIdBackViz', () => {
     expect(v.placeOfBirth).toBe("QORAKO'L TUMANI");
     expect(v.issuer).toBe('IIV 6230'); // OCR read IIV→HV; normalized back by the trailing V
   });
+  it('drops a short all-caps OCR prefix like "QF" from the place of birth', () => {
+    const t = ['Place of birth', 'QF ZAFAROBOD TUMANI', 'Place of issue', 'IIV 1234'].join('\n');
+    expect(extractIdBackViz(t).placeOfBirth).toBe('ZAFAROBOD TUMANI');
+  });
   it('normalizes the issuer code and ignores a line with no code+number', () => {
     expect(extractIdBackViz(['Place of issue', 'IIV 6230'].join('\n')).issuer).toBe('IIV 6230');
     expect(extractIdBackViz(['Place of issue', 'NB 6230'].join('\n')).issuer).toBe('IIB 6230');
