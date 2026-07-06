@@ -127,6 +127,10 @@ describe('extractIdBackViz', () => {
     const t = ['Place of birth', 'QF ZAFAROBOD TUMANI', 'Place of issue', 'IIV 1234'].join('\n');
     expect(extractIdBackViz(t).placeOfBirth).toBe('ZAFAROBOD TUMANI');
   });
+  it('drops country/header words (O‘ZBEKISTON) that bleed into the place of birth', () => {
+    const t = ['Place of birth', "ZAFAROBOD TUMANI O'ZBEKISTON", 'Place of issue', 'IIV 1234'].join('\n');
+    expect(extractIdBackViz(t).placeOfBirth).toBe('ZAFAROBOD TUMANI');
+  });
   it('normalizes the issuer code and ignores a line with no code+number', () => {
     expect(extractIdBackViz(['Place of issue', 'IIV 6230'].join('\n')).issuer).toBe('IIV 6230');
     expect(extractIdBackViz(['Place of issue', 'NB 6230'].join('\n')).issuer).toBe('IIB 6230');

@@ -106,11 +106,15 @@ export function extractIdFront(text: string): IdFrontFields {
   };
 }
 
-/** Keep only ALL-CAPS words of ≥3 letters, dropping mixed-case noise, punctuation, and short
- *  all-caps OCR junk ("QF"): "QF ZAFAROBOD TUMANI" → "ZAFAROBOD TUMANI". Real place/authority words
- *  (ZAFAROBOD, TUMANI, VILOYATI, IIB, IIV) are ≥3 letters. */
+/** Keep only ALL-CAPS words of ≥3 letters, dropping mixed-case noise, punctuation, short all-caps
+ *  junk ("QF"), and header/label/country words ("O'ZBEKISTON", "RESPUBLIKASI" — which otherwise
+ *  bleed into a place/authority phrase): "QF ZAFAROBOD TUMANI O'ZBEKISTON" → "ZAFAROBOD TUMANI".
+ *  Real place/authority words (ZAFAROBOD, TUMANI, VILOYATI, IIB, IIV) survive. */
 function capsPhrase(s: string): string {
-  return s.split(/\s+/).filter((t) => /^[A-Z][A-Z'`‘’]{2,}$/.test(t)).join(' ');
+  return s
+    .split(/\s+/)
+    .filter((t) => /^[A-Z][A-Z'`‘’]{2,}$/.test(t) && !NAME_STOP.has(t.replace(/['`‘’]/g, '')))
+    .join(' ');
 }
 
 export function extractIdBackViz(text: string): IdBackViz {
