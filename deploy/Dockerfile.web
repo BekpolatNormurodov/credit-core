@@ -10,7 +10,7 @@ WORKDIR /app
 # Copy only the manifests first so the `npm ci` layer is cached across source-only
 # changes (a re-deploy that doesn't touch deps skips the reinstall). Add a line here
 # if a new workspace is introduced.
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/api-client/package.json packages/api-client/
 COPY packages/ui/package.json packages/ui/

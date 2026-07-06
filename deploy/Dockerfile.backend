@@ -2,7 +2,7 @@
 FROM node:22-slim AS build
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl curl && rm -rf /var/lib/apt/lists/*
-COPY package*.json ./
+COPY package*.json .npmrc ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/backend/package.json apps/backend/
 RUN npm install
@@ -17,8 +17,8 @@ RUN npm run build -w @credit-core/shared \
 # and `eng` (general text) for ID-card printed fields (name, dates). mrz.traineddata is BSD-3
 # (DoubangoTelecom/tesseractMRZ). Orientation is brute-forced in code, so no OSD data is needed.
 RUN mkdir -p apps/backend/tessdata \
-  && curl -fsSL -o apps/backend/tessdata/mrz.traineddata https://github.com/DoubangoTelecom/tesseractMRZ/raw/master/tessdata_fast/mrz.traineddata \
-  && curl -fsSL -o apps/backend/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata
+  && curl -fsSL --retry 5 --retry-delay 3 --retry-connrefused -o apps/backend/tessdata/mrz.traineddata https://github.com/DoubangoTelecom/tesseractMRZ/raw/master/tessdata_fast/mrz.traineddata \
+  && curl -fsSL --retry 5 --retry-delay 3 --retry-connrefused -o apps/backend/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata
 # Drop devDependencies (jest, ts-jest, @nestjs/cli|schematics|testing, @types/*) from the
 # install tree — the biggest size win. prisma + ts-node + typescript are in "dependencies"
 # because the container needs them at runtime (prisma db push on start; ts-node
