@@ -1,4 +1,4 @@
-import { scoreConfidence, mapMrzToBorrower, yymmddToIso, extractMrzLines, expiryWarnings, MrzDetail } from './mrz.util';
+import { scoreConfidence, mapMrzToBorrower, yymmddToIso, extractMrzLines, normalizeMrzLines, expiryWarnings, MrzDetail } from './mrz.util';
 
 const detail = (field: string, valid: boolean): MrzDetail => ({ field, value: '', valid });
 
@@ -61,6 +61,23 @@ describe('extractMrzLines', () => {
     const lines = extractMrzLines(text);
     expect(lines).toHaveLength(2);
     expect(lines[0].startsWith('P<UZB')).toBe(true);
+  });
+});
+
+describe('normalizeMrzLines', () => {
+  it('truncates an over-long TD3 line and pads a short one to 44', () => {
+    const out = normalizeMrzLines([
+      'P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<<<', // 45
+      'L898902C36UTO7408122F1204159ZE184226B<<<<<1',   // 43
+    ]);
+    expect(out.every((l) => l.length === 44)).toBe(true);
+  });
+  it('normalizes a 3-line TD1 to 30 chars each', () => {
+    const out = normalizeMrzLines(['I<UTOD231458907', '7408122F1204159UTO', 'ERIKSSON<<ANNA<MARIA']);
+    expect(out.every((l) => l.length === 30)).toBe(true);
+  });
+  it('leaves a single line untouched (needs 2+ to infer a format)', () => {
+    expect(normalizeMrzLines(['ABC<<<'])).toEqual(['ABC<<<']);
   });
 });
 

@@ -41,3 +41,7 @@ Thumbs.db
 # python (skill CLI)
 __pycache__/
 *.pyc
+
+# tesseract traineddata (bundled into the prod image at build; dev caches it from the CDN)
+*.traineddata
+apps/backend/tessdata/

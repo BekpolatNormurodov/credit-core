@@ -48,4 +48,11 @@ describe('PassportService', () => {
     const res = await svc.scan(tinyImage, async () => VALID_TD3);
     expect(typeof res.fields.nationality).toBe('string');
   });
+
+  it('recovers when OCR adds stray filler chars (wrong line length) — mrz.parse is strict on length', async () => {
+    const [l1, l2] = VALID_TD3.split('\n');
+    const noisy = [l1 + '<<', l2].join('\n'); // 46 + 44: raw parse() throws "unrecognized document format"
+    const res = await svc.scan(tinyImage, async () => noisy);
+    expect(res.confidence).toBe(100);
+  });
 });

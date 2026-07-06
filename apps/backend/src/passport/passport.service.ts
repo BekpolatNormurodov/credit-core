@@ -4,7 +4,7 @@ import { createWorker } from 'tesseract.js';
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { parse } = require('mrz');
 import type { PassportScanResult } from '@credit-core/shared';
-import { extractMrzLines, mapMrzToBorrower, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
+import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
 
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
@@ -35,10 +35,14 @@ export class PassportService {
   /** Scan a passport image buffer. Pass `ocr` in tests to stub OCR; production uses tesseract.js. */
   async scan(file: Buffer, ocr?: OcrFn): Promise<PassportScanResult> {
     if (ocr) return this.run(file, ocr);
+    // Prod image bundles raw .traineddata at TESSDATA_PATH → gzip:false, no cache needed.
+    // Local dev (no TESSDATA_PATH) falls back to tesseract's CDN, which serves gzipped data
+    // and must be cached — using gzip:false there requests a non-existent URL and 404s.
+    const langPath = process.env.TESSDATA_PATH;
     const worker = await createWorker('eng', 1, {
-      langPath: process.env.TESSDATA_PATH || undefined,
-      cacheMethod: 'none',
-      gzip: false,
+      langPath: langPath || undefined,
+      cacheMethod: langPath ? 'none' : 'write',
+      gzip: langPath ? false : true,
     });
     try {
       await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST });
@@ -58,14 +62,16 @@ export class PassportService {
         const text = await ocr(img);
         const lines = extractMrzLines(text);
         if (lines.length < 2) continue;
+        // OCR rarely nails the exact 44/36/30-char width; the strict parser throws otherwise.
+        const norm = normalizeMrzLines(lines);
         let parsed: any;
         try {
-          parsed = parse(lines);
+          parsed = parse(norm);
         } catch {
           continue;
         }
         const conf = scoreConfidence((parsed.details ?? []) as MrzDetail[]);
-        if (!best || conf > best.conf) best = { parsed, conf, lines };
+        if (!best || conf > best.conf) best = { parsed, conf, lines: norm };
         if (parsed.valid) return { best, done: true };
       }
       return { best, done: false };

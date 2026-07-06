@@ -108,3 +108,17 @@ export function extractMrzLines(ocrText: string): string[] {
   if (lastLen >= 34) return candidates.slice(-2);
   return candidates.slice(-3);
 }
+
+/**
+ * Normalize OCR'd MRZ lines to a standard width so the strict `mrz` parser accepts them.
+ * OCR frequently drops or adds a few '<' fillers, and `parse()` THROWS unless each line is
+ * exactly 30 (TD1), 36 (TD2) or 44 (TD3). Pad short lines / truncate long ones to the width
+ * implied by the line count (3 → TD1/30) and the longest observed line (2 → nearest of 44/36).
+ */
+export function normalizeMrzLines(lines: string[]): string[] {
+  if (lines.length < 2) return lines;
+  const widths = lines.length >= 3 ? [30] : [44, 36];
+  const maxLen = Math.max(...lines.map((l) => l.length));
+  const target = widths.reduce((a, b) => (Math.abs(b - maxLen) < Math.abs(a - maxLen) ? b : a));
+  return lines.map((l) => (l.length >= target ? l.slice(0, target) : l + '<'.repeat(target - l.length)));
+}
