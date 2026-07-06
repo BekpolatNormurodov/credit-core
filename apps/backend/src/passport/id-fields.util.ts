@@ -28,7 +28,8 @@ const NAME = /^[A-Z][A-Z'`‘’-]{3,29}$/; // a single uppercase name token (�
 // Header/label words that are all-caps and could be mistaken for a name when the OCR is noisy (e.g.
 // the "GUVOHNOMASI" anchor is unreadable). Compared apostrophe-stripped, uppercased.
 const NAME_STOP = new Set([
-  'OZBEKISTON', 'RESPUBLIKASI', 'SHAXS', 'GUVOHNOMASI', 'REPUBLIC', 'UZBEKISTAN', 'IDENTITY', 'CARD',
+  'OZBEKISTON', 'OZBEKISTAN', 'RESPUBLIKASI', 'RESPUBLIKA', 'RESPUBLIKAS', 'SHAXS', 'GUVOHNOMASI',
+  'GUVOHNOMAS', 'REPUBLIC', 'UZBEKISTAN', 'IDENTITY', 'CARD',
   'FAMILIYASI', 'SURNAME', 'ISMI', 'GIVEN', 'NAME', 'NAMES', 'OTASINING', 'PATRONYMIC', 'TUGILGAN',
   'SANASI', 'DATE', 'BIRTH', 'JINSI', 'SEX', 'ERKAK', 'AYOL', 'BERILGAN', 'ISSUE', 'FUQAROLIGI',
   'CITIZENSHIP', 'AMAL', 'MUDDATI', 'EXPIRY', 'KARTA', 'RAQAMI', 'NUMBER', 'IMZOSI', 'SIGNATURE',
@@ -155,8 +156,19 @@ export function extractIdBackViz(text: string): IdBackViz {
  */
 export function mergeIdResult(back: PassportScanResult, front: IdFrontFields, viz: IdBackViz): PassportScanResult {
   const unverified: string[] = [];
-  const fields = { ...back.fields };
-  if (front.fullName) { fields.fullName = front.fullName; unverified.push('fullName'); }
+  const fields = { ...back.fields }; // starts with the MRZ name (surname + given)
+  // Two name sources: the MRZ (surname+given) and the front VIZ (adds the patronymic). Either can be
+  // garbled on a small/blurry card. Use the front when its surname AGREES with the MRZ (contains the
+  // other, tolerating OCR noise) — the reliable, richer case — OR when the MRZ read is weak
+  // (conf < 90), where the MRZ name is not trustworthy either. Otherwise keep the clean MRZ name.
+  const mrzSurname = (back.fields.fullName || '').split(' ')[0] || '';
+  const frontSurname = (front.fullName || '').split(' ')[0] || '';
+  const agree =
+    frontSurname.length >= 4 &&
+    mrzSurname.length >= 4 &&
+    (mrzSurname === frontSurname || mrzSurname.includes(frontSurname) || frontSurname.includes(mrzSurname));
+  const chosenName = front.fullName && (agree || back.confidence < 90) ? front.fullName : back.fields.fullName;
+  if (chosenName) { fields.fullName = chosenName; unverified.push('fullName'); }
   if (front.issueDate) { fields.passportIssueDate = front.issueDate; unverified.push('passportIssueDate'); }
   if (viz.placeOfBirth) { fields.placeOfBirth = viz.placeOfBirth; unverified.push('placeOfBirth'); }
   if (viz.issuer) { fields.passportIssuer = viz.issuer; unverified.push('passportIssuer'); }

@@ -263,6 +263,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
               </label>
             ))}
           </div>
+          <p className="text-xs text-gray-400">Kartani kadrni to‘ldirib, tekis va yorug‘ oling — mayda yoki qiyshiq surat yomon o‘qiladi.</p>
           <Button disabled={!idFront || !idBack || busy} onClick={() => idFront && idBack && runIdScan(idFront, idBack)}>
             <IdCard className="h-4 w-4" /> Skanerlash
           </Button>

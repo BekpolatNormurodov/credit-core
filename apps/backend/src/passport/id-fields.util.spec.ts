@@ -154,6 +154,14 @@ describe('mergeIdResult', () => {
     expect(r.docType).toBe('ID');
     expect(r.unverifiedFields).toEqual(expect.arrayContaining(['fullName', 'passportIssueDate', 'placeOfBirth']));
   });
+  it('keeps the MRZ name when the front surname disagrees (garbage front OCR)', () => {
+    const r = mergeIdResult(backMrz({ fullName: 'BAYMIRZAYEVA GULNORA' }), { ...front, fullName: 'RESPUBLIKA GULNORA ESSER' }, viz);
+    expect(r.fields.fullName).toBe('BAYMIRZAYEVA GULNORA');
+  });
+  it('uses the richer front name when its surname is contained in the (noisy) MRZ surname', () => {
+    const r = mergeIdResult(backMrz({ fullName: 'CQODIROVA XOLISX0O8' }), front, viz);
+    expect(r.fields.fullName).toBe('QODIROVA XOLISXON MUXTOROVNA');
+  });
   it('flags a front/back date mismatch and keeps the MRZ value', () => {
     const r = mergeIdResult(backMrz(), { ...front, birthDate: '1990-01-01T00:00:00.000Z' }, viz);
     expect(r.warnings).toContain('front_back_mismatch');
