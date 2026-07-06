@@ -95,15 +95,35 @@ export function extractIdFront(text: string): IdFrontFields {
   };
 }
 
+/** Keep only ALL-CAPS words, dropping mixed-case OCR noise + punctuation:
+ *  "Re Al QORAKO'L TUMANI :" → "QORAKO'L TUMANI". */
+function capsPhrase(s: string): string {
+  return s.split(/\s+/).filter((t) => /^[A-Z][A-Z'`‘’]+$/.test(t)).join(' ');
+}
+
 export function extractIdBackViz(text: string): IdBackViz {
   const ls = lines(text);
   const after = (kw: string[]) => {
     const i = labelIdx(ls, kw);
     return i >= 0 && i + 1 < ls.length ? ls[i + 1] : '';
   };
+  // Anchor on the single stable label word — "of birth" OCRs as "ofvbirth", "Place" as "Plage" —
+  // so match just BIRTH / ISSUE (the back has no other such rows). If the label is too garbled,
+  // fall back to the line carrying an Uzbek place suffix (…TUMANI / SHAHRI / VILOYATI).
+  let placeOfBirth = capsPhrase(after(['BIRTH', 'TUGILGAN']));
+  if (!placeOfBirth) {
+    const suffix = /(TUMANI|TUMAN|SHAHRI|SHAHAR|VILOYATI|QISHLOG)/;
+    for (const l of ls) {
+      const c = capsPhrase(l);
+      if (suffix.test(c)) { placeOfBirth = c; break; }
+    }
+  }
+  // The issuer ("IIV 6230") OCRs unreliably, so only accept a recognizable agency code + number —
+  // otherwise leave it blank rather than surface garbage.
+  const issuerM = after(['ISSUE', 'BERILGAN']).toUpperCase().match(/\b(?:IIV|IIB|DXV|IIH|FVV)\s?\d{3,5}\b/);
   return {
-    placeOfBirth: after(['PLACE OF BIRTH', 'TUGILGAN JOYI']),
-    issuer: after(['PLACE OF ISSUE', 'BERILGAN JOYI']),
+    placeOfBirth,
+    issuer: issuerM ? issuerM[0].replace(/\s+/g, ' ') : '',
   };
 }
 

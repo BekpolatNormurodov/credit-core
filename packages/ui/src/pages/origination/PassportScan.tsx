@@ -170,7 +170,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
           <button
             key={d}
             type="button"
-            onClick={() => { setDocType(d); setResult(null); setError(null); }}
+            onClick={() => { setDocType(d); setResult(null); setError(null); setForm(EMPTY); setIdFront(null); setIdBack(null); }}
             className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition', docType === d ? 'bg-brand-600 text-white' : 'text-gray-600 hover:text-gray-800 dark:text-gray-300')}
           >
             {d === 'PASSPORT' ? 'Passport' : 'ID-karta'}

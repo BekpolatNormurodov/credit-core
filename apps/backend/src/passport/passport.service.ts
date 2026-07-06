@@ -63,7 +63,7 @@ export class PassportService {
    * `true` = cropped to the bottom MRZ band (for ID backs, whose MRZ sits over a noisy pattern).
    * Each band runs a base + binarized pass; the best (prefer fully-valid) candidate wins.
    */
-  private async run(file: Buffer, ocr: OcrFn, bands: boolean[] = [false]): Promise<PassportScanResult> {
+  private async run(file: Buffer, ocr: OcrFn, bands: boolean[] = [false], earlyExitConf?: number): Promise<PassportScanResult> {
     const attempt = async (binarize: boolean, cropBand: boolean, carried: Candidate | null): Promise<{ best: Candidate | null; done: boolean }> => {
       let best = carried;
       for (const angle of ORIENTATIONS) {
@@ -85,7 +85,9 @@ export class PassportService {
         // can still score 100%; only `valid` reflects a self-consistent, correctly-framed read.
         const better = !best || (parsed.valid && !best.parsed.valid) || (parsed.valid === best.parsed.valid && conf > best.conf);
         if (better) best = { parsed, conf, lines: norm };
-        if (parsed.valid) return { best, done: true };
+        // Stop early on a fully-valid parse, or (ID back only) once check-digit confidence is high
+        // enough — its MRZ name line is corrupt so `valid` never trips, but the numbers are solid.
+        if (parsed.valid || (earlyExitConf != null && conf >= earlyExitConf)) return { best, done: true };
       }
       return { best, done: false };
     };
@@ -119,11 +121,11 @@ export class PassportService {
     // Try the cropped MRZ band first (that is where the ID-back MRZ reads cleanly), full frame as
     // a fallback (e.g. the card small in frame). PSM 4 (single column of variable-size text) reads
     // the cropped MRZ block far better than the default layout analysis.
-    if (ocr) return this.run(file, ocr, [true, false]);
+    if (ocr) return this.run(file, ocr, [true, false], 90);
     const worker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
     try {
       await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
-      return await this.run(file, async (img) => (await worker.recognize(img)).data.text, [true, false]);
+      return await this.run(file, async (img) => (await worker.recognize(img)).data.text, [true, false], 90);
     } finally {
       await worker.terminate();
     }
@@ -135,28 +137,42 @@ export class PassportService {
    */
   async scanIdCard(front: Buffer, back: Buffer, mrzOcr?: OcrFn, textOcr?: OcrFn): Promise<PassportScanResult> {
     if (mrzOcr && textOcr) return this.mergeId(front, back, mrzOcr, textOcr);
-    const mrzWorker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
-    const textWorker = await createWorker('eng', 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
+    // Create both workers concurrently (the eng model load is a fixed per-scan cost).
+    const [mrzWorker, textWorker] = await Promise.all([
+      createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
+      createWorker('eng', 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
+    ]);
     try {
       await mrzWorker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
       const mrzOcrFn: OcrFn = async (img) => (await mrzWorker.recognize(img)).data.text;
       const textOcrFn: OcrFn = async (img) => (await textWorker.recognize(img)).data.text;
       return await this.mergeId(front, back, mrzOcrFn, textOcrFn);
     } finally {
-      await mrzWorker.terminate();
-      await textWorker.terminate();
+      await Promise.all([mrzWorker.terminate(), textWorker.terminate()]);
     }
   }
 
   private async mergeId(front: Buffer, back: Buffer, mrzOcr: OcrFn, textOcr: OcrFn): Promise<PassportScanResult> {
-    const backMrz = await this.scanIdBack(back, mrzOcr);
-    const frontText = await textOcr(await this.preprocess(front, 0, false));
-    const backText = await textOcr(await this.preprocess(back, 0, false));
-    const merged = mergeIdResult(backMrz, extractIdFront(frontText), extractIdBackViz(backText));
+    // The back MRZ (mrz worker) runs in parallel with the front/back VIZ text (eng worker); the two
+    // text reads share one worker so stay sequential, but overlap the MRZ read.
+    const [backMrz, texts] = await Promise.all([
+      this.scanIdBack(back, mrzOcr),
+      (async () => ({
+        frontText: await textOcr(await this.preprocessViz(front)),
+        backText: await textOcr(await this.preprocessViz(back)),
+      }))(),
+    ]);
+    const merged = mergeIdResult(backMrz, extractIdFront(texts.frontText), extractIdBackViz(texts.backText));
     if (backMrz.warnings.includes('mrz_not_found')) {
       merged.warnings = [...merged.warnings.filter((w) => w !== 'mrz_not_found'), 'id_back_mrz_not_found'];
     }
     return merged;
+  }
+
+  /** Preprocess the printed (VIZ) side for the eng text OCR: the labels/values are large and upright,
+   *  so grayscale/normalize/sharpen at ~1300px reads cleanly and fast (bigger only adds latency). */
+  private async preprocessViz(file: Buffer): Promise<Buffer> {
+    return sharp(file, { failOn: 'none' }).grayscale().normalize().sharpen().resize({ width: 1300 }).toBuffer();
   }
 
   /** Rotate + grayscale + normalize + sharpen (+ optional threshold/band crop) + upscale. */

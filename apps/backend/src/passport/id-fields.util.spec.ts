@@ -74,9 +74,14 @@ const backMrz = (over: Partial<PassportScanResult['fields']> = {}): PassportScan
 });
 
 describe('extractIdBackViz', () => {
-  it('reads place of birth', () => {
-    const t = ['Personal number', '40807841080026', 'Place of birth', "QORAKO'L TUMANI", 'Place of issue', 'IIV 6230'].join('\n');
-    expect(extractIdBackViz(t).placeOfBirth).toBe("QORAKO'L TUMANI");
+  it('cleans place of birth (drops OCR prefix noise + punctuation, garbled "Plage" label)', () => {
+    const t = ['Plage of birth', "Re Al QORAKO'L TUMANI :", 'Place of issue', '~ ST dx nv 6230 |'].join('\n');
+    const v = extractIdBackViz(t);
+    expect(v.placeOfBirth).toBe("QORAKO'L TUMANI");
+    expect(v.issuer).toBe(''); // unrecognizable issuer → blank, not garbage
+  });
+  it('keeps a recognizable issuer code', () => {
+    expect(extractIdBackViz(['Place of issue', 'IIV 6230'].join('\n')).issuer).toBe('IIV 6230');
   });
 });
 

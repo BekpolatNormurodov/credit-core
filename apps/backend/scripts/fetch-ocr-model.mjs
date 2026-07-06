@@ -10,7 +10,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const DIR = process.env.TESSDATA_PATH || join(HERE, '..', 'tessdata');
 const MODELS = [
   ['mrz.traineddata', 'https://github.com/DoubangoTelecom/tesseractMRZ/raw/master/tessdata_fast/mrz.traineddata'],
-  ['eng.traineddata', 'https://github.com/tesseract-ocr/tessdata_best/raw/main/eng.traineddata'],
+  ['eng.traineddata', 'https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata'],
 ];
 
 const exists = async (p) => stat(p).then((s) => s.isFile()).catch(() => false);
