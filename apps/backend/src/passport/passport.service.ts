@@ -15,7 +15,8 @@ import { extractIdFront, extractIdBackViz, mergeIdResult } from './id-fields.uti
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
 
-const ORIENTATIONS = [0, 90, 180, 270];
+// Ordered by likelihood so the early-exit fires sooner: upright, then the common phone-rotations.
+const ORIENTATIONS = [0, 270, 90, 180];
 const MRZ_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<';
 // Dedicated OCR-B / MRZ model (BSD-3, DoubangoTelecom/tesseractMRZ). The general 'eng' model
 // misreads the MRZ font — '<' as K/C/L, A→4, Z→2 — so the header text wins; 'mrz' reads it cleanly.
@@ -46,13 +47,16 @@ function emptyResult(): PassportScanResult {
 export class PassportService {
   /** Scan a passport image buffer. Pass `ocr` in tests to stub OCR; production uses tesseract.js. */
   async scan(file: Buffer, ocr?: OcrFn): Promise<PassportScanResult> {
-    if (ocr) return this.run(file, ocr);
+    // Crop the bottom MRZ band FIRST: a strip has far less for the model to process (~1.3s/call vs
+    // ~5s for a full page), so a well-framed passport reads in a few seconds instead of ~20s. Full
+    // frame is the fallback for a passport small/high in the frame (MRZ not at the bottom).
+    if (ocr) return this.run(file, ocr, [true, false]);
     // The MRZ model ships as a raw (non-gzipped) .traineddata under TESSDATA_DIR — read locally,
     // no CDN fetch and no cache needed. Run `npm run setup:ocr` once in dev to fetch it.
     const worker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
     try {
       await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST });
-      return await this.run(file, async (img) => (await worker.recognize(img)).data.text);
+      return await this.run(file, async (img) => (await worker.recognize(img)).data.text, [true, false]);
     } finally {
       await worker.terminate();
     }
