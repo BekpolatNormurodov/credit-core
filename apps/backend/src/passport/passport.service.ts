@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import path from 'path';
 import sharp from 'sharp';
-import { createWorker, PSM } from 'tesseract.js';
+import { createWorker, createScheduler, PSM } from 'tesseract.js';
 
 // Each scan preprocesses 8 one-shot images (4 orientations × 2 passes) that are never reused, so
 // libvips' operation cache only piles up memory with no hit benefit — disable it.
@@ -15,8 +15,11 @@ import { extractIdFront, extractIdBackViz, mergeIdResult, extractPassportViz } f
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
 
-// Ordered by likelihood so the early-exit fires sooner: upright, then the common phone-rotations.
 const ORIENTATIONS = [0, 270, 90, 180];
+// Worker-pool sizes. The MRZ pool OCRs all 4 orientations concurrently (one worker each); the text
+// pool reads the two ID sides (or one passport page) in parallel. Bounded well under the host cores.
+const MRZ_POOL = 4;
+const TEXT_POOL = 2;
 const MRZ_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<';
 // Dedicated OCR-B / MRZ model (BSD-3, DoubangoTelecom/tesseractMRZ). The general 'eng' model
 // misreads the MRZ font — '<' as K/C/L, A→4, Z→2 — so the header text wins; 'mrz' reads it cleanly.
@@ -52,22 +55,20 @@ export class PassportService {
     // ~5s for a full page), so a well-framed passport reads in a few seconds instead of ~20s. Full
     // frame is the fallback for a passport small/high in the frame (MRZ not at the bottom).
     if (ocr) return this.run(file, ocr, [true, false]);
-    // mrz model reads the MRZ; eng model reads the visible page (VIZ) for the fields the MRZ lacks
-    // (place of birth, issue date, issuer). Both ship as raw .traineddata under TESSDATA_DIR.
-    const [mrzWorker, textWorker] = await Promise.all([
-      createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
-      createWorker('eng', 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
+    // mrz pool OCRs all orientations in parallel; eng reads the visible page (VIZ) for the fields the
+    // MRZ lacks (place of birth, issue date, issuer). Both models ship as raw .traineddata locally.
+    const [mrz, text] = await Promise.all([
+      this.makeScheduler(OCR_LANG, MRZ_POOL, { tessedit_char_whitelist: MRZ_WHITELIST }),
+      this.makeScheduler('eng', 1),
     ]);
     try {
-      await mrzWorker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST });
-      const best = await this.findBestMrz(file, async (img) => (await mrzWorker.recognize(img)).data.text, [true, false]);
+      const best = await this.findBestMrz(file, mrz.ocr, [true, false]);
       const result = this.mrzToResult(best);
       // Fill the VIZ-only fields the MRZ lacks by OCR-ing the visible page at the orientation the MRZ
       // was found. Best-effort: a VIZ hiccup must never fail the (verified) MRZ result.
       if (best && best.conf > 0) {
         try {
-          const vizText = (await textWorker.recognize(await this.preprocessViz(file, best.angle, 1500))).data.text;
-          const viz = extractPassportViz(vizText);
+          const viz = extractPassportViz(await text.ocr(await this.preprocessViz(file, best.angle, 1500)));
           const unverified: string[] = [];
           if (viz.placeOfBirth) { result.fields.placeOfBirth = viz.placeOfBirth; unverified.push('placeOfBirth'); }
           if (viz.issueDate) { result.fields.passportIssueDate = viz.issueDate; unverified.push('passportIssueDate'); }
@@ -80,7 +81,7 @@ export class PassportService {
       }
       return result;
     } finally {
-      await Promise.all([mrzWorker.terminate(), textWorker.terminate()]);
+      await Promise.all([mrz.terminate(), text.terminate()]);
     }
   }
 
@@ -89,44 +90,58 @@ export class PassportService {
    * `true` = cropped bottom MRZ band. Exposes the winning orientation so the passport VIZ can be
    * OCR'd at the same angle. Prefers a fully-valid parse; ID back stops early on high confidence.
    */
-  private async findBestMrz(file: Buffer, ocr: OcrFn, bands: boolean[] = [false], earlyExitConf?: number): Promise<Candidate | null> {
-    const attempt = async (binarize: boolean, cropBand: boolean, carried: Candidate | null): Promise<{ best: Candidate | null; done: boolean }> => {
-      let best = carried;
-      for (const angle of ORIENTATIONS) {
-        const img = await this.preprocess(file, angle, binarize, cropBand);
-        const text = await ocr(img);
-        const lines = extractMrzLines(text);
-        if (lines.length < 2) continue;
-        // OCR rarely nails the exact 44/36/30-char width; the strict parser throws otherwise.
-        const norm = normalizeMrzLines(lines);
-        let parsed: any;
-        try {
-          parsed = parse(norm);
-        } catch {
-          continue;
-        }
-        const conf = scoreConfidence((parsed.details ?? []) as MrzDetail[]);
-        // Prefer a fully-valid parse over a higher-conf-but-invalid one. MRZ check digits do NOT
-        // cover the name field, so a parse with a corrupted name (stray leading char shifting line 1)
-        // can still score 100%; only `valid` reflects a self-consistent, correctly-framed read.
-        const better = !best || (parsed.valid && !best.parsed.valid) || (parsed.valid === best.parsed.valid && conf > best.conf);
-        if (better) best = { parsed, conf, lines: norm, angle };
-        // Stop early on a fully-valid parse, or (ID back only) once check-digit confidence is high
-        // enough — its MRZ name line is corrupt so `valid` never trips, but the numbers are solid.
-        if (parsed.valid || (earlyExitConf != null && conf >= earlyExitConf)) return { best, done: true };
-      }
-      return { best, done: false };
-    };
-
-    // Each band: base pass; if no fully-valid MRZ yet, retry binarized (recovers low-contrast/blur
-    // and cleans filler noise). Stop as soon as a band yields a valid parse.
-    let r: { best: Candidate | null; done: boolean } = { best: null, done: false };
-    for (const band of bands) {
-      r = await attempt(false, band, r.best);
-      if (!r.done) r = await attempt(true, band, r.best);
-      if (r.done) break;
+  /** OCR one orientation → a parse candidate (or null if no MRZ is there). */
+  private async ocrOrientation(file: Buffer, angle: number, binarize: boolean, cropBand: boolean, ocr: OcrFn): Promise<Candidate | null> {
+    const img = await this.preprocess(file, angle, binarize, cropBand);
+    const text = await ocr(img);
+    const lines = extractMrzLines(text);
+    if (lines.length < 2) return null;
+    // OCR rarely nails the exact 44/36/30-char width; the strict parser throws otherwise.
+    const norm = normalizeMrzLines(lines);
+    let parsed: any;
+    try {
+      parsed = parse(norm);
+    } catch {
+      return null;
     }
-    return r.best;
+    return { parsed, conf: scoreConfidence((parsed.details ?? []) as MrzDetail[]), lines: norm, angle };
+  }
+
+  private async findBestMrz(file: Buffer, ocr: OcrFn, bands: boolean[] = [false], earlyExitConf?: number): Promise<Candidate | null> {
+    let best: Candidate | null = null;
+    // Prefer a fully-valid parse over a higher-conf-but-invalid one. MRZ check digits do NOT cover
+    // the name field, so a parse with a corrupted name can still score 100%; only `valid` reflects a
+    // self-consistent, correctly-framed read.
+    const consider = (c: Candidate | null) => {
+      if (!c) return;
+      const better = !best || (c.parsed.valid && !best.parsed.valid) || (c.parsed.valid === best.parsed.valid && c.conf > best.conf);
+      if (better) best = c;
+    };
+    // Stop after a pass once we have a fully-valid parse, or (ID back) high enough check-digit confidence.
+    const done = () => best != null && (best.parsed.valid || (earlyExitConf != null && best.conf >= earlyExitConf));
+    for (const cropBand of bands) {
+      for (const binarize of [false, true]) {
+        // All 4 orientations OCR CONCURRENTLY (the injected ocr is pool-backed) → wall-clock ≈ 1 call.
+        (await Promise.all(ORIENTATIONS.map((angle) => this.ocrOrientation(file, angle, binarize, cropBand, ocr)))).forEach(consider);
+        if (done()) return best;
+      }
+    }
+    return best;
+  }
+
+  /** A tesseract worker pool exposing one `ocr` fn that distributes jobs across the workers, so
+   *  concurrent OCR calls run in parallel. `terminate` frees all workers. */
+  private async makeScheduler(lang: string, size: number, params?: Record<string, unknown>): Promise<{ ocr: OcrFn; terminate: () => Promise<void> }> {
+    const scheduler = createScheduler();
+    const workers = await Promise.all(
+      Array.from({ length: size }, () => createWorker(lang, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false })),
+    );
+    if (params) await Promise.all(workers.map((w) => w.setParameters(params as any)));
+    workers.forEach((w) => scheduler.addWorker(w));
+    return {
+      ocr: async (img: Buffer) => (await scheduler.addJob('recognize', img)).data.text,
+      terminate: () => scheduler.terminate(),
+    };
   }
 
   /** Map the best MRZ candidate to the API result (or an empty "not found" result). */
@@ -155,12 +170,11 @@ export class PassportService {
     // a fallback (e.g. the card small in frame). PSM 4 (single column of variable-size text) reads
     // the cropped MRZ block far better than the default layout analysis.
     if (ocr) return this.run(file, ocr, [true, false], 90);
-    const worker = await createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false });
+    const mrz = await this.makeScheduler(OCR_LANG, MRZ_POOL, { tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
     try {
-      await worker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
-      return await this.run(file, async (img) => (await worker.recognize(img)).data.text, [true, false], 90);
+      return await this.run(file, mrz.ocr, [true, false], 90);
     } finally {
-      await worker.terminate();
+      await mrz.terminate();
     }
   }
 
@@ -170,31 +184,26 @@ export class PassportService {
    */
   async scanIdCard(front: Buffer, back: Buffer, mrzOcr?: OcrFn, textOcr?: OcrFn): Promise<PassportScanResult> {
     if (mrzOcr && textOcr) return this.mergeId(front, back, mrzOcr, textOcr);
-    // Create both workers concurrently (the eng model load is a fixed per-scan cost).
-    const [mrzWorker, textWorker] = await Promise.all([
-      createWorker(OCR_LANG, 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
-      createWorker('eng', 1, { langPath: TESSDATA_DIR, cacheMethod: 'none', gzip: false }),
+    // mrz pool (all orientations parallel) + eng pool (front & back read in parallel), created together.
+    const [mrz, text] = await Promise.all([
+      this.makeScheduler(OCR_LANG, MRZ_POOL, { tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN }),
+      this.makeScheduler('eng', TEXT_POOL),
     ]);
     try {
-      await mrzWorker.setParameters({ tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
-      const mrzOcrFn: OcrFn = async (img) => (await mrzWorker.recognize(img)).data.text;
-      const textOcrFn: OcrFn = async (img) => (await textWorker.recognize(img)).data.text;
-      return await this.mergeId(front, back, mrzOcrFn, textOcrFn);
+      return await this.mergeId(front, back, mrz.ocr, text.ocr);
     } finally {
-      await Promise.all([mrzWorker.terminate(), textWorker.terminate()]);
+      await Promise.all([mrz.terminate(), text.terminate()]);
     }
   }
 
   private async mergeId(front: Buffer, back: Buffer, mrzOcr: OcrFn, textOcr: OcrFn): Promise<PassportScanResult> {
-    // The back MRZ (mrz worker) runs in parallel with the front/back VIZ text (eng worker); the two
-    // text reads share one worker so stay sequential, but overlap the MRZ read.
-    const [backMrz, texts] = await Promise.all([
+    // Back MRZ (mrz pool, orientations parallel) + both VIZ text reads (eng pool) all run concurrently.
+    const [backMrz, frontText, backText] = await Promise.all([
       this.scanIdBack(back, mrzOcr),
-      (async () => ({
-        frontText: await textOcr(await this.preprocessViz(front)),
-        backText: await textOcr(await this.preprocessViz(back)),
-      }))(),
+      (async () => textOcr(await this.preprocessViz(front)))(),
+      (async () => textOcr(await this.preprocessViz(back)))(),
     ]);
+    const texts = { frontText, backText };
     const merged = mergeIdResult(backMrz, extractIdFront(texts.frontText), extractIdBackViz(texts.backText));
     if (backMrz.warnings.includes('mrz_not_found')) {
       merged.warnings = [...merged.warnings.filter((w) => w !== 'mrz_not_found'), 'id_back_mrz_not_found'];
