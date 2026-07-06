@@ -8,9 +8,11 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PassportService } from './passport.service';
 import { archiveScan, scanSummary } from './scan-archive';
 
-// Where uploaded scans are kept. Under uploads/ (gitignored). In prod, mount a volume here for
-// persistence across restarts, or point PASSPORT_SCAN_DIR elsewhere.
-const SCAN_DIR = process.env.PASSPORT_SCAN_DIR || path.join(process.cwd(), 'uploads', 'passport-scans');
+// Where uploaded scans are kept. In prod, UPLOAD_DIR (/data/uploads) is a persistent volume, so
+// default under it; otherwise a local uploads/ dir (gitignored). Override with PASSPORT_SCAN_DIR.
+const SCAN_DIR =
+  process.env.PASSPORT_SCAN_DIR ||
+  path.join(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'), 'passport-scans');
 
 @UseGuards(JwtAuthGuard)
 @Controller('passport')
