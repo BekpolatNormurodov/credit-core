@@ -48,12 +48,15 @@ export interface CollateralDto {
   agreedValue: number | null;
   agreedValueWords: string | null;
   // real estate
+  realtyKind?: 'HOUSE' | 'APARTMENT' | null; // Hovli | Kvartira
   address?: string | null;
   registryNo?: string | null;
   propertyType?: string | null;
   cadastreNo?: string | null;
   registrationDate?: string | null;
+  landAreaM2?: number | null; // Hovli: yer maydoni (registered land area)
   totalAreaM2?: number | null;
+  usableAreaM2?: number | null; // Hovli: umumiy foydali maydon
   livingAreaM2?: number | null;
   roomNames?: string | null;
   roomCount?: number | null;

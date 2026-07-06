@@ -245,6 +245,7 @@ model Collateral {
   agreedValueWords String?     @db.Text
 
   // Real estate fields
+  realtyKind       String?   // HOUSE | APARTMENT (Hovli | Kvartira), for type = REAL_ESTATE
   address          String?   @db.Text
   registryNo       String?
   propertyType     String?

@@ -7,7 +7,13 @@ import {
 } from '@credit-core/shared';
 
 const emptyBorrower = { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, birthDate: null, address: null, phone: null };
-const newCollateral = (type: ProductType): CollateralDto => ({ type, agreedValue: null, agreedValueWords: null, owners: [] });
+const newCollateral = (type: ProductType): CollateralDto => ({
+  type,
+  agreedValue: null,
+  agreedValueWords: null,
+  owners: [],
+  ...(type === ProductType.REAL_ESTATE ? { realtyKind: 'APARTMENT' as const } : {}),
+});
 
 const emptyForm: UpsertCasePayload = {
   amount: null, termMonths: null, borrower: { ...emptyBorrower }, guarantors: [],

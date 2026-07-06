@@ -57,8 +57,10 @@ export class PdfService {
     ];
 
     const collateralBlocks = c.collaterals.flatMap((col, i) => {
+      const isHouse = col.realtyKind === 'HOUSE';
+      const realtyLabel = col.type === 'AUTO' ? 'Avtotransport' : `Uy-joy — ${isHouse ? 'Hovli' : 'Kvartira'}`;
       const head = {
-        text: `Garov ${i + 1} — ${col.type === 'AUTO' ? 'Avtotransport' : 'Uy-joy (ko‘chmas mulk)'}`,
+        text: `Garov ${i + 1} — ${realtyLabel}`,
         bold: true,
         margin: [0, 12, 0, 4] as [number, number, number, number],
       };
@@ -78,8 +80,10 @@ export class PdfService {
               row('Kadastr №', col.cadastreNo ?? '—'),
               row('Reestr №', col.registryNo ?? '—'),
               row('Mulk turi', col.propertyType ?? '—'),
-              row('Maydon (umumiy/yashash)', `${col.totalAreaM2 ?? '—'} / ${col.livingAreaM2 ?? '—'} m²`),
-              row('Xonalar', [col.roomNames, col.roomCount != null ? `(${col.roomCount})` : ''].filter(Boolean).join(' ')),
+              ...(isHouse ? [row('Yer maydoni', col.landAreaM2 != null ? `${col.landAreaM2} m²` : '—')] : []),
+              row(isHouse ? 'Umumiy / foydali maydon' : 'Umumiy maydon', isHouse ? `${col.totalAreaM2 ?? '—'} / ${col.usableAreaM2 ?? '—'} m²` : `${col.totalAreaM2 ?? '—'} m²`),
+              row('Yashash maydoni', col.livingAreaM2 != null ? `${col.livingAreaM2} m²` : '—'),
+              row('Xonalar', [isHouse ? null : col.roomNames, col.roomCount != null ? `(${col.roomCount})` : ''].filter(Boolean).join(' ') || '—'),
               row('Garov qiymati', fmtMoney(col.agreedValue)),
             ];
       return [head, { table: { widths: [180, '*'], body: rows } }];

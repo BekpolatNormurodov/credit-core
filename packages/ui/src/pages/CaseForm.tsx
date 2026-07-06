@@ -31,7 +31,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           <span className={cn('flex h-8 w-8 items-center justify-center rounded-lg text-white', isAuto ? 'bg-warning-600' : 'bg-brand-700')}>
             {isAuto ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
           </span>
-          <h3 className="font-semibold text-gray-800 dark:text-white">Garov {index + 1} — {isAuto ? 'Avtotransport' : 'Uy-joy'}</h3>
+          <h3 className="font-semibold text-gray-800 dark:text-white">Garov {index + 1} — {isAuto ? 'Avtotransport' : `Uy-joy · ${(c.realtyKind ?? 'APARTMENT') === 'HOUSE' ? 'Hovli' : 'Kvartira'}`}</h3>
         </div>
         {canRemove && <Button variant="ghost" onClick={onRemove}><Trash2 className="h-4 w-4" /> O'chirish</Button>}
       </div>
@@ -53,16 +53,39 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           <Field label="Probeg (km)" icon={Clock}><Input type="number" value={c.mileage ?? ''} onChange={(e) => onChange({ mileage: num(e.target.value) })} /></Field>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Manzil" required className="sm:col-span-2" icon={Location} error={error}><Input value={c.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} /></Field>
-          <Field label="Reestr №" icon={Hashtag}><Input value={c.registryNo ?? ''} onChange={(e) => onChange({ registryNo: e.target.value })} /></Field>
-          <Field label="Kadastr №" icon={Hashtag}><Input value={c.cadastreNo ?? ''} onChange={(e) => onChange({ cadastreNo: e.target.value })} /></Field>
-          <Field label="Mulk turi" icon={House}><Input value={c.propertyType ?? ''} onChange={(e) => onChange({ propertyType: e.target.value })} /></Field>
-          <Field label="Ko'chirma sanasi" icon={Calendar}><DatePicker value={c.registrationDate ?? null} onChange={(iso) => onChange({ registrationDate: iso })} /></Field>
-          <Field label="Umumiy maydon (m²)" icon={Ruler}><Input type="number" value={c.totalAreaM2 ?? ''} onChange={(e) => onChange({ totalAreaM2: num(e.target.value) })} /></Field>
-          <Field label="Yashash maydoni (m²)" icon={Ruler}><Input type="number" value={c.livingAreaM2 ?? ''} onChange={(e) => onChange({ livingAreaM2: num(e.target.value) })} /></Field>
-          <Field label="Xonalar nomi" icon={Tag}><Input value={c.roomNames ?? ''} onChange={(e) => onChange({ roomNames: e.target.value })} /></Field>
-          <Field label="Xonalar soni" icon={Hashtag}><Input type="number" value={c.roomCount ?? ''} onChange={(e) => onChange({ roomCount: num(e.target.value) })} /></Field>
+        <div className="space-y-4">
+          {/* Uy-joy turi: Kvartira (apartment) yoki Hovli (house) — maydonlar shунга qarab o'zgaradi. */}
+          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700">
+            {([['APARTMENT', 'Kvartira'], ['HOUSE', 'Hovli']] as const).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => onChange({ realtyKind: k })}
+                className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition', (c.realtyKind ?? 'APARTMENT') === k ? 'bg-brand-700 text-white' : 'text-gray-600 hover:text-gray-800 dark:text-gray-300')}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Manzil" required className="sm:col-span-2" icon={Location} error={error}><Input value={c.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} /></Field>
+            <Field label="Reestr №" icon={Hashtag}><Input value={c.registryNo ?? ''} onChange={(e) => onChange({ registryNo: e.target.value })} /></Field>
+            <Field label="Kadastr №" icon={Hashtag}><Input value={c.cadastreNo ?? ''} onChange={(e) => onChange({ cadastreNo: e.target.value })} /></Field>
+            <Field label="Mulk turi" icon={House}><Input value={c.propertyType ?? ''} onChange={(e) => onChange({ propertyType: e.target.value })} placeholder={(c.realtyKind ?? 'APARTMENT') === 'HOUSE' ? "YAKKA TARTIBDAGI TURAR JOY" : "KO'P QAVATLI UYDAGI XONADON"} /></Field>
+            <Field label="Ko'chirma sanasi" icon={Calendar}><DatePicker value={c.registrationDate ?? null} onChange={(iso) => onChange({ registrationDate: iso })} /></Field>
+            {(c.realtyKind ?? 'APARTMENT') === 'HOUSE' && (
+              <Field label="Yer maydoni (m²)" icon={Ruler}><Input type="number" value={c.landAreaM2 ?? ''} onChange={(e) => onChange({ landAreaM2: num(e.target.value) })} /></Field>
+            )}
+            <Field label={(c.realtyKind ?? 'APARTMENT') === 'HOUSE' ? 'Umumiy maydon, tashqi (m²)' : 'Umumiy maydon (m²)'} icon={Ruler}><Input type="number" value={c.totalAreaM2 ?? ''} onChange={(e) => onChange({ totalAreaM2: num(e.target.value) })} /></Field>
+            {(c.realtyKind ?? 'APARTMENT') === 'HOUSE' && (
+              <Field label="Foydali maydon (m²)" icon={Ruler}><Input type="number" value={c.usableAreaM2 ?? ''} onChange={(e) => onChange({ usableAreaM2: num(e.target.value) })} /></Field>
+            )}
+            <Field label="Yashash maydoni (m²)" icon={Ruler}><Input type="number" value={c.livingAreaM2 ?? ''} onChange={(e) => onChange({ livingAreaM2: num(e.target.value) })} /></Field>
+            {(c.realtyKind ?? 'APARTMENT') !== 'HOUSE' && (
+              <Field label="Xonalar nomi" icon={Tag}><Input value={c.roomNames ?? ''} onChange={(e) => onChange({ roomNames: e.target.value })} /></Field>
+            )}
+            <Field label="Xonalar soni" icon={Hashtag}><Input type="number" value={c.roomCount ?? ''} onChange={(e) => onChange({ roomCount: num(e.target.value) })} /></Field>
+          </div>
         </div>
       )}
 

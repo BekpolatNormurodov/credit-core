@@ -72,12 +72,15 @@ export class CollateralInput {
   @IsOptional() @IsString() agreedValueWords?: string | null;
 
   // real estate
+  @IsOptional() @IsIn(['HOUSE', 'APARTMENT']) realtyKind?: 'HOUSE' | 'APARTMENT' | null;
   @IsOptional() @IsString() address?: string | null;
   @IsOptional() @IsString() registryNo?: string | null;
   @IsOptional() @IsString() propertyType?: string | null;
   @IsOptional() @IsString() cadastreNo?: string | null;
   @IsOptional() @IsString() registrationDate?: string | null;
+  @IsOptional() @IsNumber() landAreaM2?: number | null;
   @IsOptional() @IsNumber() totalAreaM2?: number | null;
+  @IsOptional() @IsNumber() usableAreaM2?: number | null;
   @IsOptional() @IsNumber() livingAreaM2?: number | null;
   @IsOptional() @IsString() roomNames?: string | null;
   @IsOptional() @IsInt() roomCount?: number | null;
