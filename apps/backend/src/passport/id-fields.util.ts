@@ -118,15 +118,16 @@ export function extractIdBackViz(text: string): IdBackViz {
       if (suffix.test(c)) { placeOfBirth = c; break; }
     }
   }
-  // Issuer looks like "IIV 6230" (agency code + number). OCR often mangles the letters (IIV→HV),
-  // so accept any short code + number from the issue line — a plausible value the operator verifies
-  // (it is unverified anyway). Only the code-immediately-before-the-number matches, so stray words
-  // are ignored; if there is no code+number at all, it stays blank rather than surfacing garbage.
-  const issuerM = after(['ISSUE', 'BERILGAN']).toUpperCase().match(/[A-Z]{2,4}\s?\d{3,5}/);
-  return {
-    placeOfBirth,
-    issuer: issuerM ? issuerM[0].replace(/\s+/g, ' ') : '',
-  };
+  // Issuer looks like "IIV 6230" (agency code + number). UZ codes are IIV / IIB, but OCR mangles the
+  // letters (IIV→HV/NV, II→H). Take the code+number from the issue line and normalize by the trailing
+  // agency letter: V → IIV, B → IIB. No code+number at all → blank rather than garbage.
+  const m = after(['ISSUE', 'BERILGAN']).toUpperCase().match(/([A-Z]{1,4})\s?(\d{3,5})/);
+  let issuer = '';
+  if (m) {
+    const code = m[1].endsWith('V') ? 'IIV' : m[1].endsWith('B') ? 'IIB' : m[1];
+    issuer = `${code} ${m[2]}`;
+  }
+  return { placeOfBirth, issuer };
 }
 
 /**

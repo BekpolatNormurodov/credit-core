@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { PassportScanResult } from '@credit-core/shared';
 import { api, getErrorMessage } from '@credit-core/api-client';
 import { Upload, Camera, IdCard, CheckCircle2, RotateCcw, Globe, Warning, ShieldCheck } from '../../lib/icons';
@@ -73,6 +73,23 @@ function ReadonlyRow({ label, value, valid }: { label: string; value: string; va
   );
 }
 
+/** Thumbnail preview of an uploaded image file; revokes its object URL on unmount/replace. */
+function Thumb({ file, label }: { file: File; label: string }) {
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  if (!url) return null;
+  return (
+    <figure className="space-y-1">
+      <img src={url} alt={label} className="h-28 w-full rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+      <figcaption className="text-center text-[11px] text-gray-400">{label}</figcaption>
+    </figure>
+  );
+}
+
 /** Passport MRZ scanner — prefills the borrower form. Mounted in the origination borrower step. */
 export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>) => void }) {
   const [busy, setBusy] = useState(false);
@@ -81,6 +98,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
   const [result, setResult] = useState<PassportScanResult | null>(null);
   const [form, setForm] = useState<Fields>(EMPTY);
   const [docType, setDocType] = useState<'PASSPORT' | 'ID'>('PASSPORT');
+  const [passportFile, setPassportFile] = useState<File | null>(null);
   const [idFront, setIdFront] = useState<File | null>(null);
   const [idBack, setIdBack] = useState<File | null>(null);
 
@@ -92,6 +110,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
   };
 
   const runScan = async (file: File) => {
+    setPassportFile(file);
     setBusy(true);
     setError(null);
     setResult(null);
@@ -170,7 +189,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
           <button
             key={d}
             type="button"
-            onClick={() => { setDocType(d); setResult(null); setError(null); setForm(EMPTY); setIdFront(null); setIdBack(null); }}
+            onClick={() => { setDocType(d); setResult(null); setError(null); setForm(EMPTY); setPassportFile(null); setIdFront(null); setIdBack(null); }}
             className={cn('rounded-md px-3 py-1.5 text-sm font-medium transition', docType === d ? 'bg-brand-600 text-white' : 'text-gray-600 hover:text-gray-800 dark:text-gray-300')}
           >
             {d === 'PASSPORT' ? 'Passport' : 'ID-karta'}
@@ -218,6 +237,15 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
           <Button disabled={!idFront || !idBack || busy} onClick={() => idFront && idBack && runIdScan(idFront, idBack)}>
             <IdCard className="h-4 w-4" /> Skanerlash
           </Button>
+        </div>
+      )}
+
+      {/* Uploaded image preview(s) — stay visible beside the extracted fields. */}
+      {(docType === 'PASSPORT' ? passportFile : idFront || idBack) && (
+        <div className={cn('grid gap-3', docType === 'ID' ? 'grid-cols-2' : 'max-w-[220px] grid-cols-1')}>
+          {docType === 'PASSPORT' && passportFile && <Thumb file={passportFile} label="Passport" />}
+          {docType === 'ID' && idFront && <Thumb file={idFront} label="Old tomon" />}
+          {docType === 'ID' && idBack && <Thumb file={idBack} label="Orqa tomon" />}
         </div>
       )}
 
