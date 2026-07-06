@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PassportScanResult } from '@credit-core/shared';
 import { api, getErrorMessage } from '@credit-core/api-client';
-import { Upload, Camera, IdCard, CheckCircle2, RotateCcw, Globe, Warning, ShieldCheck } from '../../lib/icons';
+import { Upload, Camera, IdCard, CheckCircle2, RotateCcw, Globe, Warning, ShieldCheck, Eye, X } from '../../lib/icons';
 import { Button, Card, Field, Input } from '../../components/primitives';
 import { Select } from '../../components/forms';
 import { cn } from '../../lib/cn';
@@ -73,8 +73,9 @@ function ReadonlyRow({ label, value, valid }: { label: string; value: string; va
   );
 }
 
-/** Thumbnail preview of an uploaded image file; revokes its object URL on unmount/replace. */
-function Thumb({ file, label }: { file: File; label: string }) {
+/** Thumbnail of an uploaded image; click to view it full-size via `onView`. Revokes its object URL
+ *  on unmount/replace. */
+function Thumb({ file, label, onView }: { file: File; label: string; onView: (url: string, label: string) => void }) {
   const [url, setUrl] = useState('');
   useEffect(() => {
     const u = URL.createObjectURL(file);
@@ -84,7 +85,12 @@ function Thumb({ file, label }: { file: File; label: string }) {
   if (!url) return null;
   return (
     <figure className="space-y-1">
-      <img src={url} alt={label} className="h-28 w-full rounded-lg border border-gray-200 object-cover dark:border-gray-700" />
+      <button type="button" onClick={() => onView(url, label)} className="group relative block w-full overflow-hidden rounded-lg border border-gray-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-600/40 dark:border-gray-700" aria-label={`${label} — to‘liq ko‘rish`}>
+        <img src={url} alt={label} className="h-28 w-full object-cover" />
+        <span className="absolute inset-0 flex items-center justify-center gap-1 bg-black/0 text-xs font-medium text-transparent transition group-hover:bg-black/45 group-hover:text-white">
+          <Eye className="h-4 w-4" /> Ko‘rish
+        </span>
+      </button>
       <figcaption className="text-center text-[11px] text-gray-400">{label}</figcaption>
     </figure>
   );
@@ -101,6 +107,14 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
   const [passportFile, setPassportFile] = useState<File | null>(null);
   const [idFront, setIdFront] = useState<File | null>(null);
   const [idBack, setIdBack] = useState<File | null>(null);
+  const [lightbox, setLightbox] = useState<{ url: string; label: string } | null>(null);
+
+  useEffect(() => {
+    if (!lightbox) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setLightbox(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox]);
 
   const applyResult = (r: PassportScanResult) => {
     setResult(r);
@@ -240,12 +254,12 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
         </div>
       )}
 
-      {/* Uploaded image preview(s) — stay visible beside the extracted fields. */}
+      {/* Uploaded image preview(s) — stay visible beside the extracted fields; click to view full-size. */}
       {(docType === 'PASSPORT' ? passportFile : idFront || idBack) && (
         <div className={cn('grid gap-3', docType === 'ID' ? 'grid-cols-2' : 'max-w-[220px] grid-cols-1')}>
-          {docType === 'PASSPORT' && passportFile && <Thumb file={passportFile} label="Passport" />}
-          {docType === 'ID' && idFront && <Thumb file={idFront} label="Old tomon" />}
-          {docType === 'ID' && idBack && <Thumb file={idBack} label="Orqa tomon" />}
+          {docType === 'PASSPORT' && passportFile && <Thumb file={passportFile} label="Passport" onView={(url, label) => setLightbox({ url, label })} />}
+          {docType === 'ID' && idFront && <Thumb file={idFront} label="Old tomon" onView={(url, label) => setLightbox({ url, label })} />}
+          {docType === 'ID' && idBack && <Thumb file={idBack} label="Orqa tomon" onView={(url, label) => setLightbox({ url, label })} />}
         </div>
       )}
 
@@ -340,6 +354,23 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
           </div>
           </>
           )}
+        </div>
+      )}
+
+      {/* Full-size image viewer — click anywhere / ✕ / Esc to close. */}
+      {lightbox && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${lightbox.label} — to‘liq ko‘rish`}
+          onClick={() => setLightbox(null)}
+          className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-3 bg-black/80 p-4 backdrop-blur-sm"
+        >
+          <button type="button" onClick={() => setLightbox(null)} className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white outline-none transition hover:bg-white/20 focus-visible:ring-2 focus-visible:ring-white/50" aria-label="Yopish">
+            <X className="h-5 w-5" />
+          </button>
+          <img src={lightbox.url} alt={lightbox.label} onClick={(e) => e.stopPropagation()} className="max-h-[85vh] max-w-full rounded-lg object-contain shadow-2xl" />
+          <span className="text-sm text-white/80">{lightbox.label}</span>
         </div>
       )}
     </Card>
