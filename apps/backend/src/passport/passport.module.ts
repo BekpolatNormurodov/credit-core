@@ -14,6 +14,9 @@ const SCAN_DIR =
   process.env.PASSPORT_SCAN_DIR ||
   path.join(process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads'), 'passport-scans');
 
+/** Accept image uploads and PDF scans (rendered to an image server-side). */
+const isScannable = (m?: string) => (m || '').startsWith('image/') || (m || '').includes('pdf');
+
 @UseGuards(JwtAuthGuard)
 @Controller('passport')
 class PassportController {
@@ -26,7 +29,7 @@ class PassportController {
   @UseInterceptors(FileInterceptor('file'))
   async scan(@UploadedFile() file?: Express.Multer.File): Promise<PassportScanResult> {
     if (!file) throw new BadRequestException('Rasm yuborilmadi');
-    if (!(file.mimetype || '').startsWith('image/')) throw new BadRequestException('Faqat rasm fayli qabul qilinadi');
+    if (!isScannable(file.mimetype)) throw new BadRequestException('Faqat rasm yoki PDF fayli qabul qilinadi');
     const result = await this.svc.scan(file.buffer);
     // Archiving/logging must never fail the scan response.
     try {
@@ -46,8 +49,8 @@ class PassportController {
     const front = files?.front?.[0];
     const back = files?.back?.[0];
     if (!front || !back) throw new BadRequestException('Old va orqa tomon rasmlari kerak');
-    if (!(front.mimetype || '').startsWith('image/') || !(back.mimetype || '').startsWith('image/')) {
-      throw new BadRequestException('Faqat rasm fayllari qabul qilinadi');
+    if (!isScannable(front.mimetype) || !isScannable(back.mimetype)) {
+      throw new BadRequestException('Faqat rasm yoki PDF fayllari qabul qilinadi');
     }
     const result = await this.svc.scanIdCard(front.buffer, back.buffer);
     const now = new Date();

@@ -47,10 +47,33 @@ function emptyResult(): PassportScanResult {
   };
 }
 
+/** A PDF upload (by magic bytes) — passports/IDs are often scanned as PDF rather than an image. */
+function isPdf(file: Buffer): boolean {
+  return file.length >= 5 && file.subarray(0, 5).toString('latin1') === '%PDF-';
+}
+
+// pdf-to-img is ESM-only; the backend compiles to CommonJS, which would down-level a TS `import()`
+// to `require()` (fatal for ESM). Wrap it in `new Function` so a genuine dynamic import survives.
+const esmImport = new Function('s', 'return import(s)') as (s: string) => Promise<any>;
+
+/** Rasterize a PDF's first page to a PNG buffer for the OCR pipeline. */
+async function pdfFirstPageToPng(file: Buffer): Promise<Buffer> {
+  const { pdf } = await esmImport('pdf-to-img');
+  const doc = await pdf(file, { scale: 2.5 });
+  for await (const page of doc) return page as Buffer; // first page only
+  throw new Error('empty PDF');
+}
+
 @Injectable()
 export class PassportService {
-  /** Scan a passport image buffer. Pass `ocr` in tests to stub OCR; production uses tesseract.js. */
+  /** Normalize an upload to a raster image — a PDF's first page is rendered to PNG. */
+  private async toImage(file: Buffer): Promise<Buffer> {
+    return isPdf(file) ? pdfFirstPageToPng(file) : file;
+  }
+
+  /** Scan a passport image/PDF buffer. Pass `ocr` in tests to stub OCR; production uses tesseract.js. */
   async scan(file: Buffer, ocr?: OcrFn): Promise<PassportScanResult> {
+    file = await this.toImage(file);
     // Crop the bottom MRZ band FIRST: a strip has far less for the model to process (~1.3s/call vs
     // ~5s for a full page), so a well-framed passport reads in a few seconds instead of ~20s. Full
     // frame is the fallback for a passport small/high in the frame (MRZ not at the bottom).
@@ -166,6 +189,7 @@ export class PassportService {
 
   /** Scan the BACK of an ID card → TD1 MRZ fields (name is ignored by callers — taken from front). */
   async scanIdBack(file: Buffer, ocr?: OcrFn): Promise<PassportScanResult> {
+    file = await this.toImage(file);
     // Try the cropped MRZ band first (that is where the ID-back MRZ reads cleanly), full frame as
     // a fallback (e.g. the card small in frame). PSM 4 (single column of variable-size text) reads
     // the cropped MRZ block far better than the default layout analysis.
@@ -183,6 +207,7 @@ export class PassportService {
    * `textOcr` reads the printed front/back text (eng model). Inject both in tests.
    */
   async scanIdCard(front: Buffer, back: Buffer, mrzOcr?: OcrFn, textOcr?: OcrFn): Promise<PassportScanResult> {
+    [front, back] = await Promise.all([this.toImage(front), this.toImage(back)]);
     if (mrzOcr && textOcr) return this.mergeId(front, back, mrzOcr, textOcr);
     // mrz pool (all orientations parallel) + eng pool (front & back read in parallel), created together.
     const [mrz, text] = await Promise.all([

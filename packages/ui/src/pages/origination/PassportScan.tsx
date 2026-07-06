@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { PassportScanResult } from '@credit-core/shared';
 import { api, getErrorMessage } from '@credit-core/api-client';
-import { Upload, Camera, IdCard, CheckCircle2, RotateCcw, Globe, Warning, ShieldCheck, Eye, X } from '../../lib/icons';
+import { Upload, Camera, IdCard, CheckCircle2, RotateCcw, Globe, Warning, ShieldCheck, Eye, X, FileText } from '../../lib/icons';
 import { Button, Card, Field, Input } from '../../components/primitives';
 import { Select } from '../../components/forms';
 import { cn } from '../../lib/cn';
@@ -83,13 +83,28 @@ function Thumb({ file, label, onView }: { file: File; label: string; onView: (ur
     return () => URL.revokeObjectURL(u);
   }, [file]);
   if (!url) return null;
+  const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   return (
     <figure className="space-y-1">
-      <button type="button" onClick={() => onView(url, label)} className="group relative block w-full overflow-hidden rounded-lg border border-gray-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-600/40 dark:border-gray-700" aria-label={`${label} — to‘liq ko‘rish`}>
-        <img src={url} alt={label} className="h-28 w-full object-cover" />
-        <span className="absolute inset-0 flex items-center justify-center gap-1 bg-black/0 text-xs font-medium text-transparent transition group-hover:bg-black/45 group-hover:text-white">
-          <Eye className="h-4 w-4" /> Ko‘rish
-        </span>
+      <button
+        type="button"
+        onClick={() => (isPdf ? window.open(url, '_blank', 'noopener') : onView(url, label))}
+        className="group relative block w-full overflow-hidden rounded-lg border border-gray-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-600/40 dark:border-gray-700"
+        aria-label={`${label} — to‘liq ko‘rish`}
+      >
+        {isPdf ? (
+          <div className="flex h-28 w-full flex-col items-center justify-center gap-1 bg-gray-50 px-2 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+            <FileText className="h-8 w-8" />
+            <span className="max-w-full truncate text-[11px]">{file.name}</span>
+          </div>
+        ) : (
+          <>
+            <img src={url} alt={label} className="h-28 w-full object-cover" />
+            <span className="absolute inset-0 flex items-center justify-center gap-1 bg-black/0 text-xs font-medium text-transparent transition group-hover:bg-black/45 group-hover:text-white">
+              <Eye className="h-4 w-4" /> Ko‘rish
+            </span>
+          </>
+        )}
       </button>
       <figcaption className="text-center text-[11px] text-gray-400">{label}</figcaption>
     </figure>
@@ -160,7 +175,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
     e.preventDefault();
     setDrag(false);
     const f = e.dataTransfer.files?.[0];
-    if (f && f.type.startsWith('image/')) runScan(f);
+    if (f && (f.type.startsWith('image/') || f.type === 'application/pdf')) runScan(f);
   };
 
   const validOf = (key: string) => result?.perField.find((p) => p.key === key)?.valid;
@@ -225,8 +240,8 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
           >
             <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand-600 shadow-sm dark:bg-gray-800"><Upload className="h-5 w-5" /></span>
             <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Rasmni bu yerga tashlang yoki tanlang</span>
-            <span className="text-xs text-gray-400">MRZ qatorlari tekis (qiyshaymasdan) va yorug‘ ko‘rinsin</span>
-            <input type="file" accept="image/*" aria-label="Passport rasmini yuklash" className="sr-only" onChange={onFile} />
+            <span className="text-xs text-gray-400">Rasm yoki PDF — MRZ qatorlari tekis va yorug‘ ko‘rinsin</span>
+            <input type="file" accept="image/*,application/pdf" aria-label="Passport rasm/PDF yuklash" className="sr-only" onChange={onFile} />
           </label>
 
           <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-700 outline-none transition hover:bg-gray-50 focus-within:ring-2 focus-within:ring-brand-600/30 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 sm:hidden">
@@ -244,7 +259,7 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
                 <Upload className="h-5 w-5 text-brand-600" />
                 <span className="font-medium text-gray-700 dark:text-gray-200">{label}</span>
                 <span className="max-w-full truncate text-gray-400">{val ? val.name : 'tanlang'}</span>
-                <input type="file" accept="image/*" aria-label={`ID-karta ${label}`} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setter(f); e.target.value = ''; }} />
+                <input type="file" accept="image/*,application/pdf" aria-label={`ID-karta ${label}`} className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) setter(f); e.target.value = ''; }} />
               </label>
             ))}
           </div>

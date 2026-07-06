@@ -38,6 +38,7 @@
     "mrz": "^3.4.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-to-img": "^6.2.0",
     "pdfmake": "^0.2.15",
     "prisma": "^6.2.1",
     "reflect-metadata": "^0.2.2",

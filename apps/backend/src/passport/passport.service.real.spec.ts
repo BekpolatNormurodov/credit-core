@@ -36,4 +36,28 @@ const ready = process.env.RUN_OCR_IT === '1' && existsSync(FIXTURE) && MODELS.ev
     expect(res.fields.passportIssueDate).toBe('2017-06-15T00:00:00.000Z');
     expect(res.fields.passportIssuer).toContain('IIB');
   }, 180000);
+
+  it('reads a passport delivered as a PDF (first page rasterized)', async () => {
+    // Wrap the passport image in a single-page PDF, then scan the PDF buffer.
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const PdfPrinter = require('pdfmake');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const vfsMod = require('pdfmake/build/vfs_fonts');
+    const vfs = vfsMod.vfs ?? vfsMod.pdfMake?.vfs ?? vfsMod.default?.vfs ?? vfsMod.default ?? vfsMod;
+    const f = (n: string) => Buffer.from(vfs[n], 'base64');
+    const printer = new PdfPrinter({ Roboto: { normal: f('Roboto-Regular.ttf'), bold: f('Roboto-Medium.ttf'), italics: f('Roboto-Italic.ttf'), bolditalics: f('Roboto-MediumItalic.ttf') } });
+    const img = readFileSync(FIXTURE).toString('base64');
+    const doc = printer.createPdfKitDocument({ pageMargins: [10, 10, 10, 10], content: [{ image: `data:image/jpeg;base64,${img}`, width: 560 }] });
+    const pdf: Buffer = await new Promise((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      doc.on('data', (d: Buffer) => chunks.push(d));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      doc.end();
+    });
+    const res = await svc.scan(pdf);
+    expect(res.confidence).toBe(100);
+    expect(res.fields.fullName).toBe('ISMOILOV KHURSHID');
+    expect(res.fields.passportSeries).toBe('AB');
+  }, 180000);
 });

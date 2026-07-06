@@ -13,10 +13,11 @@ const JEST = join(BACKEND, '..', '..', 'node_modules', 'jest', 'bin', 'jest.js')
 let r = spawnSync(process.execPath, [join(HERE, 'fetch-ocr-model.mjs')], { stdio: 'inherit' });
 if (r.status !== 0) process.exit(r.status ?? 1);
 
-// 2) Run the one heavy spec, single-worker, with headroom.
+// 2) Run the heavy real-image specs, single-worker, with headroom. --experimental-vm-modules lets
+//    the PDF path's dynamic ESM import (pdf-to-img) work inside jest's VM (prod needs no flag).
 r = spawnSync(
   process.execPath,
-  ['--max-old-space-size=2048', JEST, '--rootDir', 'src', '--runInBand', 'passport.service.real'],
+  ['--experimental-vm-modules', '--max-old-space-size=2048', JEST, '--rootDir', 'src', '--runInBand', 'real.spec'],
   { cwd: BACKEND, stdio: 'inherit', env: { ...process.env, RUN_OCR_IT: '1' } },
 );
 process.exit(r.status ?? 1);
