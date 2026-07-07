@@ -3,6 +3,11 @@ import { pmt } from './loan';
 
 /** Insurance partners currently on-boarded (the "Kompaniya" dropdown). */
 export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as const;
+/** Insurance is a fixed 2%/yil on the insured sum (×1.3 of the policy-backed loan), max 2 years. */
+export const INSURANCE_ANNUAL_RATE = 0.02;
+export const INSURANCE_MAX_MONTHS = 24;
+/** Collateral must cover 140% of the property-backed loan portion (amountAuto). */
+export const COLLATERAL_COVERAGE_TARGET = 1.4;
 
 /** Relationship options for a borrower's close contacts (yaqin kishilar). */
 export const RELATIVE_RELATIONS = ['Ota', 'Ona', 'Aka', 'Uka', 'Opa', 'Singil', 'Turmush o‘rtog‘i', 'Farzand', 'Qarindosh', 'Boshqa'] as const;

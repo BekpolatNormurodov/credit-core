@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { addBusinessDays, CaseStatus, DocumentType, hasDeadline, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, Role } from '@credit-core/shared';
+import { addBusinessDays, CaseStatus, DocumentType, hasDeadline, INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -89,11 +89,17 @@ export class CreditCasesService {
   private creditLineNested(l: CreditLineInput, rate: number) {
     const t = l.tranche ?? null;
     const ins = l.insurance ?? null;
+    // Insurance rules are server-authoritative: the policy-backed portion (amountPolis) is the loan
+    // under policy, the rate is a fixed 2%/yil, and the term is capped at 2 years (24 months).
+    const insured = ins?.insured ?? false;
+    const insLoan = insured ? (l.amountPolis ?? ins?.loanUnderPolicy ?? null) : (ins?.loanUnderPolicy ?? null);
+    const insRate = insured ? INSURANCE_ANNUAL_RATE : (ins?.insuranceRate ?? null);
+    const insMonths = ins?.policyTermMonths != null ? Math.min(ins.policyTermMonths, INSURANCE_MAX_MONTHS) : null;
     const d = originationPersistedValues({
       amountTotal: l.amountTotal ?? null,
-      loanUnderPolicy: ins?.loanUnderPolicy ?? null,
-      insuranceRate: ins?.insuranceRate ?? null,
-      policyTermMonths: ins?.policyTermMonths ?? null,
+      loanUnderPolicy: insLoan,
+      insuranceRate: insRate,
+      policyTermMonths: insMonths,
       trancheMonthlyPayment: t?.monthlyPayment ?? null,
     });
     return {
@@ -101,7 +107,7 @@ export class CreditCasesService {
       amountAuto: l.amountAuto ?? null, amountPolis: l.amountPolis ?? null, amountTotal: l.amountTotal ?? null,
       termMonths: l.termMonths ?? null, lineDate: parseDate(l.lineDate), lineMaturity: parseDate(l.lineMaturity),
       interestRate: rate, penaltyRate: l.penaltyRate ?? 1.05, orderNumber: l.orderNumber ?? null,
-      ...(ins ? { insurance: { create: { insured: ins.insured ?? false, company: ins.company ?? null, genAgreementNo: ins.genAgreementNo ?? null, genAgreementDate: parseDate(ins.genAgreementDate), policyNo: ins.policyNo ?? null, policyIssueDate: parseDate(ins.policyIssueDate), policyTermMonths: ins.policyTermMonths ?? null, policyExpiry: parseDate(ins.policyExpiry), loanUnderPolicy: ins.loanUnderPolicy ?? null, insuredSum: d.insuredSum, insuranceRate: ins.insuranceRate ?? null, premium: d.premium } } } : {}),
+      ...(ins ? { insurance: { create: { insured, company: ins.company ?? null, genAgreementNo: ins.genAgreementNo ?? null, genAgreementDate: parseDate(ins.genAgreementDate), policyNo: ins.policyNo ?? null, policyIssueDate: parseDate(ins.policyIssueDate), policyTermMonths: insMonths, policyExpiry: parseDate(ins.policyExpiry), loanUnderPolicy: insLoan, insuredSum: d.insuredSum, insuranceRate: insRate, premium: d.premium } } } : {}),
       ...(t ? { tranches: { create: [{ trancheNo: t.trancheNo ?? 1, applicationNo: t.applicationNo ?? null, applicationDate: parseDate(t.applicationDate), contractNo: t.contractNo ?? null, contractDate: parseDate(t.contractDate), principal: t.principal ?? null, termMonths: t.termMonths ?? null, maturity: parseDate(t.maturity), scheduleType: t.scheduleType ?? null, monthlyPayment: t.monthlyPayment ?? null, paymentDay: paymentDayFor(t.applicationDate), insurancePayment: t.insurancePayment ?? null }] } } : {}),
     };
   }

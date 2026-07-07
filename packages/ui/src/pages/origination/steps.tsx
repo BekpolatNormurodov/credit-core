@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS,
+  INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, COLLATERAL_COVERAGE_TARGET,
   monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
@@ -147,19 +148,22 @@ export function Step3({ f }: { f: OriginationForm }) {
     // Only recompute the total when a split field changed — never wipe a loaded amountTotal.
     const recompute = 'amountAuto' in p || 'amountPolis' in p;
     const amountTotal = recompute ? ((merged.amountAuto ?? 0) + (merged.amountPolis ?? 0) || null) : (merged.amountTotal ?? null);
-    f.patch({ creditLine: { ...merged, amountTotal, loanType: loanTypeFor(amountTotal), penaltyRate: merged.penaltyRate ?? 1.05 } });
+    // The insurance-backed portion (amountPolis) IS the loan-under-policy; keep them in lockstep so
+    // the insured sum (×1.3) and premium (2%/yil) always track the split.
+    const insurance = 'amountPolis' in p
+      ? ({ ...(merged.insurance ?? {}), loanUnderPolicy: merged.amountPolis ?? null, insuranceRate: (merged.insurance?.insuranceRate ?? INSURANCE_ANNUAL_RATE) } as Ins)
+      : merged.insurance;
+    f.patch({ creditLine: { ...merged, amountTotal, insurance, loanType: loanTypeFor(amountTotal), penaltyRate: merged.penaltyRate ?? 1.05 } });
   };
   const setIns = (p: Partial<Ins>) => setLine({ insurance: { ...ins, ...p } as Ins });
-  // Local string state for the % field so fractional input and float noise don't clobber typing.
-  const [rateStr, setRateStr] = useState(ins.insuranceRate != null ? String(+(ins.insuranceRate * 100).toFixed(4)) : '');
-  useEffect(() => {
-    const cur = rateStr === '' ? null : Number(rateStr) / 100;
-    if ((ins.insuranceRate ?? null) !== cur) setRateStr(ins.insuranceRate != null ? String(+(ins.insuranceRate * 100).toFixed(4)) : '');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ins.insuranceRate]);
   const collateralTotal = f.form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
-  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, insuranceRate: ins.insuranceRate, policyTermMonths: ins.policyTermMonths });
+  // Insurance is a fixed 2%/yil, capped at 24 months (2 years) — clamp the effective term for premium.
+  const insuranceRate = ins.insured ? INSURANCE_ANNUAL_RATE : (ins.insuranceRate ?? null);
+  const policyMonths = Math.min(ins.policyTermMonths ?? 0, INSURANCE_MAX_MONTHS) || null;
+  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, insuranceRate, policyTermMonths: policyMonths });
+  const termTooLong = (ins.policyTermMonths ?? 0) > INSURANCE_MAX_MONTHS;
   const amountTotal = l.amountTotal ?? null;
+  const amountAuto = l.amountAuto ?? null;
   return (
     <div className="space-y-6">
       <Card className="space-y-4">
@@ -203,24 +207,31 @@ export function Step3({ f }: { f: OriginationForm }) {
 
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi</h2>
-          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns({ insured: v })} label="Sug‘urtalangan" />
+          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi <span className="text-gray-500 dark:text-gray-400">(polis qismi ×130%, 2%/yil, max 2 yil)</span></h2>
+          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, insuranceRate: INSURANCE_ANNUAL_RATE, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
         </div>
         {ins.insured && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Kompaniya"><Select value={(ins.company ?? '') as string} onChange={(v) => setIns({ company: v })} options={opt([...INSURANCE_COMPANIES])} /></Field>
             <Field label="Polis №"><Input value={ins.policyNo ?? ''} onChange={(e) => setIns({ policyNo: e.target.value })} /></Field>
             <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
-            <Field label="Polis muddati (oy)"><Input type="number" value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
-            <Field label="Polis ostidagi kredit"><MoneyInput value={ins.loanUnderPolicy ?? null} onChange={(v) => setIns({ loanUnderPolicy: v })} /></Field>
-            <Field label="Sug‘urta stavkasi (%)"><Input type="number" step="0.1" value={rateStr} onChange={(e) => { setRateStr(e.target.value); setIns({ insuranceRate: e.target.value === '' ? null : Number(e.target.value) / 100 }); }} /></Field>
-            <Field label="Sug‘urta summasi" hint="×1.3 auto"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-            <Field label="Sug‘urta puli" hint="auto"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Polis muddati (oy)" hint="max 24 oy (2 yil)" error={termTooLong ? 'Sug‘urta muddati 24 oydan oshmaydi' : undefined}><Input type="number" min={1} max={INSURANCE_MAX_MONTHS} value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
+            <Field label="Polis ostidagi kredit" hint="= polis summasi"><Input readOnly value={ins.loanUnderPolicy != null ? formatMoney(ins.loanUnderPolicy) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Sug‘urta stavkasi" hint="qat’iy"><Input readOnly value="2% / yil" className="bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Sug‘urta summasi" hint="polis ×130%"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Sug‘urta puli" hint="summa ×2%/yil"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           </div>
         )}
       </Card>
-      {amountTotal != null && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Garov qoplami: <b className="nums text-gray-800 dark:text-white">{((collateralTotal / amountTotal) * 100).toFixed(0)}%</b> (maqsad ≥ 140%)</p>
+      {(amountAuto || amountTotal) != null && (
+        <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
+          {amountAuto != null && amountAuto > 0 && (
+            <p>Garov qoplami (mol-mulk qismi): <b className={`nums ${collateralTotal >= amountAuto * COLLATERAL_COVERAGE_TARGET ? 'text-gray-800 dark:text-white' : 'text-error-600 dark:text-error-500'}`}>{((collateralTotal / amountAuto) * 100).toFixed(0)}%</b> (maqsad ≥ 140%)</p>
+          )}
+          {(l.amountPolis ?? 0) > 0 && (
+            <p>Sug‘urta qoplami (polis qismi): <b className="nums text-gray-800 dark:text-white">130%</b> → sug‘urta summasi {formatMoney(calc.insuredSum)}</p>
+          )}
+        </div>
       )}
     </div>
   );
