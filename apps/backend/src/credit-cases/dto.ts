@@ -236,6 +236,13 @@ export class SetRateDto {
   @IsString() @MinLength(1) reason!: string;
 }
 
+/** Director sets the loan split: property-backed (avto) vs insurance-backed (polis) portions. */
+export class SetSplitDto {
+  @IsNumber() @Min(0) amountAuto!: number;
+  @IsNumber() @Min(0) amountPolis!: number;
+  @IsOptional() @IsString() reason?: string;
+}
+
 export class CaseSectionDto {
   @IsIn(['borrower', 'employment', 'affordability', 'creditLine', 'creditHistory'])
   section!: 'borrower' | 'employment' | 'affordability' | 'creditLine' | 'creditHistory';

@@ -607,6 +607,7 @@ model SalaryMonth {
 
 enum AuditAction {
   RATE_CHANGE
+  SPLIT_CHANGE
   KATM_PRICE
   CONFIG_CHANGE
   PAUSE

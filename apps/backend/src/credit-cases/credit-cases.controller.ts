@@ -7,7 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { CreditCasesService } from './credit-cases.service';
 import { exportCasesListToExcel } from '../output/excel-export.util';
-import { CaseSectionDto, SetKatmPriceDto, SetRateDto, TransitionDto, UpsertCaseDto } from './dto';
+import { CaseSectionDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases')
@@ -101,5 +101,12 @@ export class CreditCasesController {
   @Patch(':id/rate')
   setRate(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: SetRateDto) {
     return this.service.setRate(id, user, dto.interestRate, dto.reason);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.DIRECTOR, Role.ADMIN)
+  @Patch(':id/split')
+  setSplit(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: SetSplitDto) {
+    return this.service.setSplit(id, user, dto.amountAuto, dto.amountPolis, dto.reason);
   }
 }

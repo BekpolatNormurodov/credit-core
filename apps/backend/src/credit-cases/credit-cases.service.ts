@@ -491,4 +491,38 @@ export class CreditCasesService {
     await this.audit.rateChange(user, id, oldRate, interestRate, reason);
     return this.getOne(id);
   }
+
+  /**
+   * Director sets the loan split: the property-backed (avto) vs insurance-backed (polis) portions of
+   * the requested amount. Recomputes the total, loan type, and — since amountPolis IS the loan under
+   * policy — the insured sum (×1.3) and premium (2%/yil, ≤2 yil). Only in the director's review stage.
+   */
+  async setSplit(id: string, user: RequestUser, amountAuto: number, amountPolis: number, reason?: string) {
+    if (user.role !== Role.DIRECTOR && user.role !== Role.ADMIN) {
+      throw new ForbiddenException('Summa taqsimotini faqat rahbar yoki admin belgilaydi');
+    }
+    const c = await this.prisma.creditCase.findUnique({ where: { id }, include: { creditLine: { include: { insurance: true } } } });
+    if (!c) throw new NotFoundException('Ariza topilmadi');
+    if (c.status !== CaseStatus.DIRECTOR_REVIEW) throw new ForbiddenException('Faqat direktor ko‘rigida taqsimotni belgilash mumkin');
+    if (!c.creditLine) throw new NotFoundException('Kredit liniyasi to‘ldirilmagan');
+    const ins = c.creditLine.insurance;
+    const insured = ins?.insured ?? false;
+    const amountTotal = (amountAuto || 0) + (amountPolis || 0) || null;
+    const insMonths = ins?.policyTermMonths != null ? Math.min(Number(ins.policyTermMonths), INSURANCE_MAX_MONTHS) : null;
+    const insLoan = insured ? amountPolis : (ins?.loanUnderPolicy != null ? Number(ins.loanUnderPolicy) : null);
+    const insRate = insured ? INSURANCE_ANNUAL_RATE : (ins?.insuranceRate != null ? Number(ins.insuranceRate) : null);
+    const d = originationPersistedValues({ amountTotal, loanUnderPolicy: insLoan, insuranceRate: insRate, policyTermMonths: insMonths });
+    const old = { amountAuto: Number(c.creditLine.amountAuto ?? 0), amountPolis: Number(c.creditLine.amountPolis ?? 0) };
+    await this.prisma.creditLine.update({
+      where: { caseId: id },
+      data: {
+        amountAuto, amountPolis, amountTotal, loanType: d.loanType,
+        ...(ins ? { insurance: { update: { loanUnderPolicy: insLoan, insuredSum: d.insuredSum, premium: d.premium, policyTermMonths: insMonths, insuranceRate: insRate } } } : {}),
+      },
+    });
+    // Keep the case-level amount (used by lists/stats/documents) in sync with the new total.
+    await this.prisma.creditCase.update({ where: { id }, data: { amount: amountTotal } });
+    await this.audit.splitChange(user, id, old, { amountAuto, amountPolis }, reason);
+    return this.getOne(id);
+  }
 }

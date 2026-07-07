@@ -795,6 +795,15 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
   });
   const canEdit = (role === Role.OPERATOR || role === Role.ADMIN) && c.status === CaseStatus.DRAFT;
   const canSetRate = role === Role.MODERATOR && c.status === CaseStatus.MODERATION;
+  const canSetSplit = role === Role.DIRECTOR && c.status === CaseStatus.DIRECTOR_REVIEW;
+  const [autoAmt, setAutoAmt] = useState<number | null>(line?.amountAuto ?? null);
+  const [polisAmt, setPolisAmt] = useState<number | null>(line?.amountPolis ?? null);
+  const splitTotal = (autoAmt ?? 0) + (polisAmt ?? 0);
+  const split = useMutation({
+    mutationFn: () => api.setCaseSplit(c.id, autoAmt ?? 0, polisAmt ?? 0),
+    onSuccess: () => { onChange(); toast.success('Saqlandi', 'Summa taqsimoti'); },
+    onError: () => toast.error('Xatolik', 'Taqsimotni saqlab bo‘lmadi'),
+  });
 
   const minPct = Math.round((cfg.data?.minRate ?? 0.55) * 100);
   const maxPct = Math.round((cfg.data?.maxRate ?? 0.6) * 100);
@@ -824,6 +833,9 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
         )}
       </div>
       {row('Kredit turi', line?.loanType ? (line.loanType === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz') : '—')}
+      {row('Summa — mol-mulk', line?.amountAuto != null ? formatMoney(line.amountAuto) : '—')}
+      {row('Summa — sug‘urta', line?.amountPolis != null ? formatMoney(line.amountPolis) : '—')}
+      {row('Jami summa', (line?.amountTotal ?? c.amount) != null ? formatMoney((line?.amountTotal ?? c.amount)!) : '—')}
       {row('Yillik foiz', line?.interestRate != null ? `${Math.round(line.interestRate * 100)}%` : '—')}
       {row('Jami daromad', calc.totalIncome ? formatMoney(calc.totalIncome) : '—')}
       {row('DTI', calc.totalIncome ? `${(calc.dtiRatio * 100).toFixed(1)}%` : '—')}
@@ -839,6 +851,18 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
           </div>
           <Input value={rateReason} onChange={(e) => setRateReason(e.target.value)} placeholder="Sabab (majburiy)" />
           <Button className="w-full" loading={rate.isPending} disabled={!rateReason.trim()} onClick={() => rate.mutate()}>Saqlash</Button>
+        </div>
+      )}
+
+      {canSetSplit && (
+        <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 dark:border-white/10">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Summa taqsimoti — rahbar baholaydi (mol-mulk ×140% garov, polis ×130% sug‘urta 2%/yil)</p>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Mol-mulk (avto)"><MoneyInput value={autoAmt} onChange={setAutoAmt} /></Field>
+            <Field label="Sug‘urta (polis)"><MoneyInput value={polisAmt} onChange={setPolisAmt} /></Field>
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Jami: <b className="nums text-gray-800 dark:text-white">{formatMoney(splitTotal)}</b></p>
+          <Button className="w-full" loading={split.isPending} disabled={splitTotal <= 0} onClick={() => split.mutate()}>Taqsimotni saqlash</Button>
         </div>
       )}
     </Card>

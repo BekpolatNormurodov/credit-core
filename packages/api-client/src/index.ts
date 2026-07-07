@@ -135,6 +135,11 @@ export const api = {
     const { data } = await http.patch<CreditCaseDto>(`/cases/${id}/rate`, { interestRate, reason });
     return data;
   },
+  /** Director sets the property-backed (avto) vs insurance-backed (polis) split. */
+  async setCaseSplit(id: string, amountAuto: number, amountPolis: number, reason?: string): Promise<CreditCaseDto> {
+    const { data } = await http.patch<CreditCaseDto>(`/cases/${id}/split`, { amountAuto, amountPolis, reason });
+    return data;
+  },
   async transition(id: string, payload: TransitionPayload): Promise<CreditCaseDto> {
     const { data } = await http.post<CreditCaseDto>(`/cases/${id}/transition`, payload);
     return data;

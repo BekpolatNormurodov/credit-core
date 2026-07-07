@@ -30,6 +30,9 @@ export class AuditService {
   rateChange(u: RequestUser, caseId: string, oldRate: unknown, newRate: unknown, reason: string) {
     return this.write('RATE_CHANGE', u, { caseId, field: 'interestRate', oldValue: oldRate, newValue: newRate, reason });
   }
+  splitChange(u: RequestUser, caseId: string, oldV: unknown, newV: unknown, reason?: string) {
+    return this.write('SPLIT_CHANGE', u, { caseId, field: 'amountSplit', oldValue: oldV, newValue: newV, reason });
+  }
   katmPrice(u: RequestUser, caseId: string, oldV: unknown, newV: unknown) {
     return this.write('KATM_PRICE', u, { caseId, field: 'katmPrice', oldValue: oldV, newValue: newV });
   }
