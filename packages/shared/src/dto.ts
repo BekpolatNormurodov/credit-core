@@ -115,6 +115,9 @@ export interface BorrowerDto {
   ownsHome?: string | null;
   depositsBand?: string | null;
   closeContacts?: CloseContactDto[] | null;
+  // >100M (mikrokredit): entrepreneur status + certificate (guvohnoma) number.
+  entrepreneurType?: string | null;
+  entrepreneurCertNo?: string | null;
 }
 
 export interface EmploymentDto {

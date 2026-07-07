@@ -211,8 +211,10 @@ model Borrower {
   actualAddress     String?   @db.Text
   actualLandmark    String?
   actualTenure      String?
-  phones            Json?
-  closeContacts     Json?     // [{ relation, fullName, phone }] — yaqin kishilar (2 majburiy, 5 gacha)
+  phones             Json?
+  closeContacts      Json?     // [{ relation, fullName, phone }] — yaqin kishilar (2 majburiy, 5 gacha)
+  entrepreneurType   String?   // >100M: yakka tartibdagi tadbirkor / o'zini o'zi band qilgan
+  entrepreneurCertNo String?   // guvohnoma raqami
   maritalStatus     String?
   familySize        Int?
   childrenCount     Int?

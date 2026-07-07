@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
-  NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS,
+  NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
   INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET,
   monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
   type UpsertCasePayload,
@@ -109,6 +109,15 @@ export function Step2({ f }: { f: OriginationForm }) {
           ? 'Mikrokredit (100 mln+) — ish staji va daromad ma’lumotlarini to‘ldirish tavsiya etiladi (ixtiyoriy).'
           : 'Mikroqarz (100 mln gacha) — bu bo‘lim shart emas (ixtiyoriy). Xohlasangiz to‘ldiring.'}
       </div>
+      {bigLoan && (
+        <Card className="space-y-4">
+          <h2 className="font-semibold text-gray-800 dark:text-white">Tadbirkorlik guvohnomasi <span className="text-gray-500 dark:text-gray-400">(100 mln+)</span></h2>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Guvohnoma turi"><Select value={(f.form.borrower.entrepreneurType ?? '') as string} onChange={(v) => f.setBorrower({ entrepreneurType: v })} options={opt([...ENTREPRENEUR_TYPES])} /></Field>
+            <Field label="Guvohnoma raqami"><Input value={f.form.borrower.entrepreneurCertNo ?? ''} onChange={(e) => f.setBorrower({ entrepreneurCertNo: e.target.value })} /></Field>
+          </div>
+        </Card>
+      )}
       <Card className="space-y-4">
         <h2 className="font-semibold text-gray-800 dark:text-white">Ish joyi</h2>
         <div className="grid gap-4 sm:grid-cols-2">

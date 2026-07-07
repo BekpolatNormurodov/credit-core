@@ -8,6 +8,7 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
   const tr = line?.tranches?.[0];
   const b = c.borrower;
   const amount = Number(tr?.principal ?? line?.amountTotal ?? c.amount ?? 0);
+  const totalCollateral = c.collaterals.reduce((s, x) => s + Number(x.agreedValue ?? 0), 0);
   return {
     defaultStyle: { font: 'Roboto', fontSize: 10 },
     pageMargins: [40, 50, 40, 50],
@@ -27,10 +28,14 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
         kv("To'lov turi", tr?.scheduleType === 'DIFFERENTIATED' ? 'differensial' : 'annuitet'),
       ] } },
       { text: "2. TA'MINOT (GAROV)", style: 'h2' },
-      { table: { widths: [180, '*'], body: c.collaterals.flatMap((col) => [
-        kv(col.type === 'AUTO' ? 'Avtotransport' : "Ko'chmas mulk", col.type === 'AUTO' ? (col.model ?? '—') : (col.address ?? '—')),
-        kv('Kelishilgan qiymati', money(col.agreedValue)),
-      ]) } },
+      { table: { widths: [180, '*'], body: [
+        ...c.collaterals.flatMap((col) => [
+          kv(col.type === 'AUTO' ? 'Avtotransport' : "Ko'chmas mulk", col.type === 'AUTO' ? (col.model ?? '—') : (col.address ?? '—')),
+          kv('Kelishilgan qiymati', money(col.agreedValue)),
+        ]),
+        kv('Kelishilgan garov qiymati (jami)', money(totalCollateral)),
+        kv("So'z bilan", totalCollateral ? sumToWordsUz(totalCollateral) : '—'),
+      ] } },
       { text: '3. TOMONLAR REKVIZITLARI', style: 'h2' },
       { columns: [
         { width: '*', stack: [{ text: 'MMT:', bold: true }, { text: c.organization?.nameMixed ?? '—' }, { text: `h/r ${c.organization?.bankAccount ?? '—'}` }, { text: `MFO ${c.organization?.bankMfo ?? '—'}` }, { text: '\n\n_______________ (imzo)' }] },

@@ -124,6 +124,7 @@ export class CreditCasesService {
       actualLandmark: b.actualLandmark ?? null, actualTenure: b.actualTenure ?? null,
       phones: b.phones ?? undefined,
       closeContacts: (b.closeContacts ?? undefined) as object | undefined,
+      entrepreneurType: b.entrepreneurType ?? null, entrepreneurCertNo: b.entrepreneurCertNo ?? null,
       maritalStatus: b.maritalStatus ?? null, familySize: b.familySize ?? null,
       childrenCount: b.childrenCount ?? null, education: b.education ?? null, residenceDuration: b.residenceDuration ?? null,
       ownsHome: b.ownsHome ?? null, depositsBand: b.depositsBand ?? null,

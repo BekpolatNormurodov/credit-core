@@ -126,6 +126,8 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
           actualTenure: c.borrower.actualTenure,
           phones: (c.borrower.phones as string[] | null) ?? null,
           closeContacts: (c.borrower.closeContacts as CloseContactDto[] | null) ?? null,
+          entrepreneurType: c.borrower.entrepreneurType,
+          entrepreneurCertNo: c.borrower.entrepreneurCertNo,
           maritalStatus: c.borrower.maritalStatus,
           familySize: c.borrower.familySize,
           childrenCount: c.borrower.childrenCount,

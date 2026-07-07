@@ -48,6 +48,8 @@ export class BorrowerInput {
   @IsOptional() @IsString() ownsHome?: string | null;
   @IsOptional() @IsString() depositsBand?: string | null;
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => CloseContactInput) closeContacts?: CloseContactInput[] | null;
+  @IsOptional() @IsString() entrepreneurType?: string | null;
+  @IsOptional() @IsString() entrepreneurCertNo?: string | null;
 }
 
 export class CloseContactInput {

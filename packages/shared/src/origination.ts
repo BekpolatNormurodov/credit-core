@@ -14,6 +14,9 @@ export const COLLATERAL_COVERAGE_TARGET = 1.4;
 /** Relationship options for a borrower's close contacts (yaqin kishilar). */
 export const RELATIVE_RELATIONS = ['Ota', 'Ona', 'Aka', 'Uka', 'Opa', 'Singil', 'Turmush o‘rtog‘i', 'Farzand', 'Qarindosh', 'Boshqa'] as const;
 
+/** Over 100M (mikrokredit) the borrower's entrepreneur status + guvohnoma raqami is captured. */
+export const ENTREPRENEUR_TYPES = ['Yakka tartibdagi tadbirkor', 'O‘zini o‘zi band qilgan'] as const;
+
 /**
  * Monthly payment day-of-month, derived from the formalization (tranche application) date: the day
  * the client is formalized, capped at the 15th. Formalized on the 7th → pays on the 7th each month;
