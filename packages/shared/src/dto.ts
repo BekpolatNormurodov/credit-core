@@ -165,6 +165,7 @@ export interface TrancheDto {
   maturity: string | null;
   scheduleType: 'ANNUITY' | 'DIFFERENTIATED' | null;
   monthlyPayment: number | null;
+  paymentDay: number | null; // har oy to'lov kuni — min(ariza kuni, 15)
   insurancePayment: number | null;
 }
 

@@ -31,6 +31,7 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
       {row('Jami summa', amountTotal ? formatMoney(amountTotal) : '—')}
       {row('Transh muddati', form.creditLine?.tranche?.termMonths ? `${form.creditLine.tranche.termMonths} oy` : '—')}
       {row('Oylik to‘lov', form.creditLine?.tranche?.monthlyPayment ? formatMoney(form.creditLine.tranche.monthlyPayment) : '—')}
+      {row('To‘lov kuni', form.creditLine?.tranche?.paymentDay ? `Har oyning ${form.creditLine.tranche.paymentDay}-kuni` : '—')}
       {row('Jami daromad', formatMoney(calc.totalIncome))}
       {row('Jami xarajat', formatMoney(calc.totalExpenses))}
       {row('DTI (qarz yuki)', `${(calc.dtiRatio * 100).toFixed(1)}%`)}

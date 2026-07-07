@@ -160,6 +160,7 @@ export class TrancheInput {
   @IsOptional() @IsString() maturity?: string | null;
   @IsOptional() @IsIn(['ANNUITY', 'DIFFERENTIATED']) scheduleType?: 'ANNUITY' | 'DIFFERENTIATED' | null;
   @IsOptional() @IsNumber() @Min(0) monthlyPayment?: number | null;
+  @IsOptional() @IsInt() @Min(1) @Max(31) paymentDay?: number | null;
   @IsOptional() @IsNumber() @Min(0) insurancePayment?: number | null;
 }
 

@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { addBusinessDays, CaseStatus, DocumentType, hasDeadline, isCaseInScope, loanRuleViolations, originationPersistedValues, ProductType, Role } from '@credit-core/shared';
+import { addBusinessDays, CaseStatus, DocumentType, hasDeadline, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -102,7 +102,7 @@ export class CreditCasesService {
       termMonths: l.termMonths ?? null, lineDate: parseDate(l.lineDate), lineMaturity: parseDate(l.lineMaturity),
       interestRate: rate, penaltyRate: l.penaltyRate ?? 1.05, orderNumber: l.orderNumber ?? null,
       ...(ins ? { insurance: { create: { insured: ins.insured ?? false, company: ins.company ?? null, genAgreementNo: ins.genAgreementNo ?? null, genAgreementDate: parseDate(ins.genAgreementDate), policyNo: ins.policyNo ?? null, policyIssueDate: parseDate(ins.policyIssueDate), policyTermMonths: ins.policyTermMonths ?? null, policyExpiry: parseDate(ins.policyExpiry), loanUnderPolicy: ins.loanUnderPolicy ?? null, insuredSum: d.insuredSum, insuranceRate: ins.insuranceRate ?? null, premium: d.premium } } } : {}),
-      ...(t ? { tranches: { create: [{ trancheNo: t.trancheNo ?? 1, applicationNo: t.applicationNo ?? null, applicationDate: parseDate(t.applicationDate), contractNo: t.contractNo ?? null, contractDate: parseDate(t.contractDate), principal: t.principal ?? null, termMonths: t.termMonths ?? null, maturity: parseDate(t.maturity), scheduleType: t.scheduleType ?? null, monthlyPayment: t.monthlyPayment ?? null, insurancePayment: t.insurancePayment ?? null }] } } : {}),
+      ...(t ? { tranches: { create: [{ trancheNo: t.trancheNo ?? 1, applicationNo: t.applicationNo ?? null, applicationDate: parseDate(t.applicationDate), contractNo: t.contractNo ?? null, contractDate: parseDate(t.contractDate), principal: t.principal ?? null, termMonths: t.termMonths ?? null, maturity: parseDate(t.maturity), scheduleType: t.scheduleType ?? null, monthlyPayment: t.monthlyPayment ?? null, paymentDay: paymentDayFor(t.applicationDate), insurancePayment: t.insurancePayment ?? null }] } } : {}),
     };
   }
   private borrowerData(b: BorrowerInput) {

@@ -7,6 +7,19 @@ export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as cons
 /** Relationship options for a borrower's close contacts (yaqin kishilar). */
 export const RELATIVE_RELATIONS = ['Ota', 'Ona', 'Aka', 'Uka', 'Opa', 'Singil', 'Turmush o‘rtog‘i', 'Farzand', 'Qarindosh', 'Boshqa'] as const;
 
+/**
+ * Monthly payment day-of-month, derived from the formalization (tranche application) date: the day
+ * the client is formalized, capped at the 15th. Formalized on the 7th → pays on the 7th each month;
+ * on the 20th → capped to the 15th. (Was an Excel rule; now system-computed.)
+ */
+export const PAYMENT_DAY_CAP = 15;
+export function paymentDayFor(dateIso: string | null | undefined): number | null {
+  if (!dateIso) return null;
+  const d = new Date(dateIso);
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.min(d.getUTCDate(), PAYMENT_DAY_CAP);
+}
+
 /** ≤ threshold → микроқарз, > → микрокредит. */
 export const MICRO_THRESHOLD = 100_000_000;
 export function loanTypeFor(amount: number | null | undefined): LoanType {

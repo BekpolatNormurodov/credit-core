@@ -4,7 +4,7 @@ import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS,
-  monthlyPaymentFor, termCapFor, isTermValid, type RepaymentMethod,
+  monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../../components/primitives';
@@ -240,6 +240,12 @@ export function Step4({ f }: { f: OriginationForm }) {
     if ((t.monthlyPayment ?? null) !== (monthly ?? null)) setTr({ monthlyPayment: monthly });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthly]);
+  // To'lov kuni is derived from the application date: the day-of-month, capped at 15.
+  const paymentDay = paymentDayFor(t.applicationDate);
+  useEffect(() => {
+    if ((t.paymentDay ?? null) !== (paymentDay ?? null)) setTr({ paymentDay });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentDay]);
   // A term over the method's cap is a hard rule — surface it live, not only after a submit attempt.
   const capExceeded = !!method && !!t.termMonths && !isTermValid(method, t.termMonths);
   const cap = method ? termCapFor(method) : null;
@@ -256,6 +262,7 @@ export function Step4({ f }: { f: OriginationForm }) {
           <Input type="number" min={1} max={cap ?? undefined} value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} />
         </Field>
         <Field label="Oylik to‘lov" hint="auto — jadval turi bo‘yicha"><Input readOnly value={monthly != null ? formatMoney(monthly) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+        <Field label="To‘lov kuni" hint="auto — ariza sanasidan, max 15"><Input readOnly value={paymentDay != null ? `Har oyning ${paymentDay}-kuni` : '—'} className="bg-gray-50 dark:bg-white/5" /></Field>
         <Field label="Sug‘urta to‘lovi"><MoneyInput value={t.insurancePayment ?? null} onChange={(v) => setTr({ insurancePayment: v })} /></Field>
       </div>
     </Card>

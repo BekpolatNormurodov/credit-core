@@ -436,6 +436,7 @@ model Tranche {
   maturity         DateTime?
   scheduleType     RepaymentMethod?
   monthlyPayment   Decimal?         @db.Decimal(18, 2)
+  paymentDay       Int?             // har oy to'lov kuni — min(ariza kuni, 15)
   insurancePayment Decimal?         @db.Decimal(18, 2)
   schedule         PaymentSchedule?
   createdAt        DateTime         @default(now())

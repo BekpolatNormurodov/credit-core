@@ -24,6 +24,7 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
         kv('Muddati', tr?.termMonths != null ? `${tr.termMonths} oy` : '—'),
         kv('Ariza raqami', tr?.applicationNo ?? '—'),
         kv('Ariza sanasi', tr?.applicationDate ? dateToUzbekWords(tr.applicationDate) : '—'),
+        kv("To'lov kuni", tr?.paymentDay != null ? `Har oyning ${tr.paymentDay}-kuni` : '—'),
       ] } },
       { text: "Men yuqoridagi ma'lumotlarning to'g'riligini tasdiqlayman.", margin: [0, 16, 0, 0] },
       { text: '\nImzo: _______________', margin: [0, 12, 0, 0] },
