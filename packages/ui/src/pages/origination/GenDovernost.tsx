@@ -52,8 +52,8 @@ export function GenDovernostUpload({ f }: { f: OriginationForm }) {
     <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-800">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-gray-800 dark:text-white">Gen doverennost</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">PDF yoki rasm(lar) — bir nechta yuklasa bo‘ladi</p>
+          <h3 className="font-semibold text-gray-800 dark:text-white">Gen doverennost (ishonchnoma) <span className="font-normal text-gray-400">— ixtiyoriy</span></h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">PDF yoki rasm(lar) — bir nechta yuklasa bo‘ladi. Majburiy emas.</p>
         </div>
         <Button variant="secondary" loading={busy} onClick={() => inputRef.current?.click()}>Yuklash</Button>
         <input ref={inputRef} type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => onPick(e.target.files)} />
