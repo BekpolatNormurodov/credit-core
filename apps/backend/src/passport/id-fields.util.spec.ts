@@ -89,6 +89,19 @@ describe('extractIdFront', () => {
     expect(extractIdFront(noisy).fullName).toBe('MIRZAKARIMOV NIZOMIDIN MIRZABDULLAYEVICH');
   });
 
+  it('keeps a surname on a value line carrying a stray OCR pipe ("| ¥3 TASKAROV 25")', () => {
+    const noisy = [
+      'SHAXS GUVOHNOMASI',
+      '| <sFafiliyasi f Suename',
+      '| ¥3 TASKAROV 25', // stray '|' must not drop the value line
+      'er f jemi / Given name',
+      'i me A STOR Shes',
+      'Tugilgan sanasi / Date of birth',
+      '19.11.1997 ERKAK',
+    ].join('\n');
+    expect(extractIdFront(noisy).fullName).toContain('TASKAROV');
+  });
+
   it('extracts names from real noisy OCR (dropped/garbled labels, junk tokens)', () => {
     // Verbatim from a real eng-OCR of the fixture: no "Surname" label, "EER" junk before the
     // patronymic, label words on "/"-separated lines. The layout heuristic must still win.

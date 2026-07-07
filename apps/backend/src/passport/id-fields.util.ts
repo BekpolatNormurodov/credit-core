@@ -83,7 +83,10 @@ function extractNames(ls: string[]): string[] {
   if (end < 0) end = ls.length;
   const names: string[] = [];
   for (let i = from; i < end && names.length < 3; i++) {
-    if (ls[i].includes('/') || ls[i].includes('|')) continue; // a label line, not a value
+    // Skip a bilingual label line ("Familiyasi / Surname") by its '/' separator. NOT '|': OCR often
+    // sprinkles a stray '|' at the start of a VALUE line ("| ¥3 TASKAROV 25"), and dropping those
+    // lost the surname entirely. Label WORDS are filtered by NAME_STOP below regardless.
+    if (ls[i].includes('/')) continue;
     const toks = ls[i]
       .split(' ')
       .filter((t) => NAME.test(t) && !NAME_STOP.has(t.replace(/['`‘’]/g, '')))
