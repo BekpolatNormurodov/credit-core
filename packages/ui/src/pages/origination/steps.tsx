@@ -3,16 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
-  NATIONALITY_OPTIONS,
+  NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS,
+  monthlyPaymentFor, termCapFor, isTermValid, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../../components/primitives';
 import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/forms';
 import { Toggle } from '../../components/Switches';
-import { House, Car } from '../../lib/icons';
+import { House, Car, Plus, Trash } from '../../lib/icons';
 import { formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
 import { PassportScan } from './PassportScan';
+import { GenDovernostUpload } from './GenDovernost';
 import type { OriginationForm } from './useOriginationForm';
 
 const numv = (s: string): number | null => (s === '' ? null : Number(s));
@@ -39,10 +41,10 @@ export function Step1({ f }: { f: OriginationForm }) {
       }} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="F.I.O" required error={f.attempted ? f.errors.fullName : undefined}><Input value={b.fullName} onChange={(e) => set({ fullName: e.target.value })} /></Field>
-        <Field label="PINFL"><Input inputMode="numeric" maxLength={14} value={b.pinfl ?? ''} onChange={(e) => set({ pinfl: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></Field>
+        <Field label="PINFL" required error={f.attempted ? f.errors.pinfl : undefined}><Input inputMode="numeric" maxLength={14} value={b.pinfl ?? ''} onChange={(e) => set({ pinfl: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></Field>
         <Field label="INN (STIR)"><Input value={b.inn ?? ''} onChange={(e) => set({ inn: e.target.value })} /></Field>
-        <Field label="Pasport seriya"><Input maxLength={2} value={b.passportSeries ?? ''} onChange={(e) => set({ passportSeries: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2) })} placeholder="AA" /></Field>
-        <Field label="Pasport raqami"><Input inputMode="numeric" maxLength={7} value={b.passportNumber ?? ''} onChange={(e) => set({ passportNumber: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></Field>
+        <Field label="Pasport seriya" required error={f.attempted ? f.errors.passportSeries : undefined}><Input maxLength={2} value={b.passportSeries ?? ''} onChange={(e) => set({ passportSeries: e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2) })} placeholder="AA" /></Field>
+        <Field label="Pasport raqami" required error={f.attempted ? f.errors.passportNumber : undefined}><Input inputMode="numeric" maxLength={7} value={b.passportNumber ?? ''} onChange={(e) => set({ passportNumber: e.target.value.replace(/\D/g, '').slice(0, 7) })} /></Field>
         <Field label="Jinsi"><Select value={(b.gender ?? '') as 'MALE' | 'FEMALE' | ''} onChange={(v) => set({ gender: v })} options={[{ value: 'MALE', label: 'Erkak' }, { value: 'FEMALE', label: 'Ayol' }]} /></Field>
         <Field label="Fuqarolik"><Select searchable value={(b.citizenship ?? '') as string} onChange={(v) => set({ citizenship: v })} options={opt(NATIONALITY_OPTIONS)} /></Field>
         <Field label="Tug‘ilgan joy"><Input value={b.placeOfBirth ?? ''} onChange={(e) => set({ placeOfBirth: e.target.value })} /></Field>
@@ -51,7 +53,7 @@ export function Step1({ f }: { f: OriginationForm }) {
         <Field label="Pasport kim bergan"><Input value={b.passportIssuer ?? ''} onChange={(e) => set({ passportIssuer: e.target.value })} /></Field>
         <Field label="Berilgan sana"><DatePicker value={b.passportIssueDate ?? null} onChange={(iso) => set({ passportIssueDate: iso })} /></Field>
         <Field label="Amal qilish muddati"><DatePicker value={b.passportExpiry ?? null} onChange={(iso) => set({ passportExpiry: iso })} /></Field>
-        <Field label="Telefon"><PhoneInput value={b.phone ?? null} onChange={(v) => set({ phone: v })} /></Field>
+        <Field label="Telefon" required error={f.attempted ? f.errors.phone : undefined}><PhoneInput value={b.phone ?? null} onChange={(v) => set({ phone: v })} /></Field>
         <Field label="Oilaviy holat"><Select value={(b.maritalStatus ?? '') as string} onChange={(v) => set({ maritalStatus: v })} options={opt(['турмуш курган', 'ажрашган', 'бўйдоқ', 'бева'])} /></Field>
         <Field label="Oila a'zolari soni"><Input type="number" value={b.familySize ?? ''} onChange={(e) => set({ familySize: numv(e.target.value) })} /></Field>
         <Field label="Bolalar soni"><Input type="number" value={b.childrenCount ?? ''} onChange={(e) => set({ childrenCount: numv(e.target.value) })} /></Field>
@@ -66,6 +68,27 @@ export function Step1({ f }: { f: OriginationForm }) {
         <Field label="Faktik manzil"><Input value={b.actualAddress ?? ''} onChange={(e) => set({ actualAddress: e.target.value })} /></Field>
         <Field label="Faktik orientir"><Input value={b.actualLandmark ?? ''} onChange={(e) => set({ actualLandmark: e.target.value })} /></Field>
       </div>
+
+      <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-800">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-semibold text-gray-800 dark:text-white">Yaqin kishilar</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Kamida 2 ta (5 tagacha) — munosabat, F.I.O va telefon</p>
+          </div>
+          <Button variant="secondary" disabled={(b.closeContacts?.length ?? 0) >= 5} onClick={f.addContact}><Plus className="h-4 w-4" /> Qo‘shish</Button>
+        </div>
+        {(b.closeContacts ?? []).map((c, i) => (
+          <div key={i} className="grid items-end gap-3 sm:grid-cols-[1fr_1.4fr_1.2fr_auto]">
+            <Field label={i === 0 ? 'Munosabat' : undefined}><Select value={(c.relation ?? '') as string} onChange={(v) => f.setContact(i, { relation: v })} options={opt([...RELATIVE_RELATIONS])} /></Field>
+            <Field label={i === 0 ? 'F.I.O' : undefined}><Input value={c.fullName ?? ''} onChange={(e) => f.setContact(i, { fullName: e.target.value })} /></Field>
+            <Field label={i === 0 ? 'Telefon' : undefined}><PhoneInput value={c.phone ?? null} onChange={(v) => f.setContact(i, { phone: v })} /></Field>
+            <Button variant="ghost" disabled={(b.closeContacts?.length ?? 0) <= 2} onClick={() => f.removeContact(i)} aria-label="O‘chirish"><Trash className="h-4 w-4" /></Button>
+          </div>
+        ))}
+        {f.attempted && f.errors.contacts && <p className="text-xs font-medium text-error-600 dark:text-error-500">{f.errors.contacts}</p>}
+      </div>
+
+      <GenDovernostUpload f={f} />
     </Card>
   );
 }
@@ -76,8 +99,15 @@ export function Step2({ f }: { f: OriginationForm }) {
   const a = f.form.affordability ?? ({} as Aff);
   const setEmp = (p: Partial<Emp>) => f.patch({ employment: { ...e, ...p } as Emp });
   const setAff = (p: Partial<Aff>) => f.patch({ affordability: { ...a, ...p } as Aff });
+  const amountTotal = f.form.creditLine?.amountTotal ?? f.form.amount ?? 0;
+  const bigLoan = amountTotal > MICRO_THRESHOLD;
   return (
     <div className="space-y-6">
+      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+        {bigLoan
+          ? 'Mikrokredit (100 mln+) — ish staji va daromad ma’lumotlarini to‘ldirish tavsiya etiladi (ixtiyoriy).'
+          : 'Mikroqarz (100 mln gacha) — bu bo‘lim shart emas (ixtiyoriy). Xohlasangiz to‘ldiring.'}
+      </div>
       <Card className="space-y-4">
         <h2 className="font-semibold text-gray-800 dark:text-white">Ish joyi</h2>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -143,8 +173,8 @@ export function Step3({ f }: { f: OriginationForm }) {
           <Field label="Liniya №"><Input value={l.lineNumber ?? ''} onChange={(e) => setLine({ lineNumber: e.target.value })} /></Field>
           <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
           <Field label="Summa — polis"><MoneyInput value={l.amountPolis ?? null} onChange={(v) => setLine({ amountPolis: v })} /></Field>
-          <Field label="Jami summa" hint="auto = avto + polis"><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-          <Field label="Liniya muddati (oy)"><Input type="number" value={l.termMonths ?? ''} onChange={(e) => setLine({ termMonths: numv(e.target.value) })} /></Field>
+          <Field label="Jami summa" required hint="auto = avto + polis" error={f.attempted ? f.errors.amountTotal : undefined}><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+          <Field label="Liniya muddati (oy)" required error={f.attempted ? f.errors.lineTerm : undefined}><Input type="number" value={l.termMonths ?? ''} onChange={(e) => setLine({ termMonths: numv(e.target.value) })} /></Field>
           <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
           <Field label="Yillik foiz" hint="admin belgilaydi"><Input readOnly value={`${Math.round((l.interestRate ?? minRate) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Jarima foizi"><Input readOnly value={`${Math.round((l.penaltyRate ?? 1.05) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
@@ -166,6 +196,9 @@ export function Step3({ f }: { f: OriginationForm }) {
               docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
           ))}
         </div>
+        {f.attempted && f.errors.collateral && (
+          <p className="mt-2 text-xs font-medium text-error-600 dark:text-error-500">{f.errors.collateral}</p>
+        )}
       </div>
 
       <Card className="space-y-4">
@@ -175,7 +208,7 @@ export function Step3({ f }: { f: OriginationForm }) {
         </div>
         {ins.insured && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Field label="Kompaniya"><Input value={ins.company ?? ''} onChange={(e) => setIns({ company: e.target.value })} /></Field>
+            <Field label="Kompaniya"><Select value={(ins.company ?? '') as string} onChange={(v) => setIns({ company: v })} options={opt([...INSURANCE_COMPANIES])} /></Field>
             <Field label="Polis №"><Input value={ins.policyNo ?? ''} onChange={(e) => setIns({ policyNo: e.target.value })} /></Field>
             <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
             <Field label="Polis muddati (oy)"><Input type="number" value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
@@ -195,9 +228,21 @@ export function Step3({ f }: { f: OriginationForm }) {
 
 /** Step 4 — Transh. */
 export function Step4({ f }: { f: OriginationForm }) {
+  const { data: cfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
   const l = f.form.creditLine ?? ({} as Line);
   const t = l.tranche ?? ({} as Tr);
   const setTr = (p: Partial<Tr>) => f.patch({ creditLine: { ...l, tranche: { ...t, ...p } as Tr } });
+  const method = (t.scheduleType || undefined) as RepaymentMethod | undefined;
+  const rate = l.interestRate ?? cfg?.minRate ?? 0.55;
+  // Oylik to'lov is derived (annuitet PMT / differensial 1-oy) and locked — never typed by hand.
+  const monthly = monthlyPaymentFor(method, t.principal, t.termMonths, rate);
+  useEffect(() => {
+    if ((t.monthlyPayment ?? null) !== (monthly ?? null)) setTr({ monthlyPayment: monthly });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthly]);
+  // A term over the method's cap is a hard rule — surface it live, not only after a submit attempt.
+  const capExceeded = !!method && !!t.termMonths && !isTermValid(method, t.termMonths);
+  const cap = method ? termCapFor(method) : null;
   return (
     <Card className="space-y-4">
       <h2 className="font-semibold text-gray-800 dark:text-white">Transh (drawdown)</h2>
@@ -205,10 +250,12 @@ export function Step4({ f }: { f: OriginationForm }) {
         <Field label="Transh №"><Input type="number" value={t.trancheNo ?? ''} onChange={(e) => setTr({ trancheNo: numv(e.target.value) })} placeholder="1" /></Field>
         <Field label="Ariza №"><Input value={t.applicationNo ?? ''} onChange={(e) => setTr({ applicationNo: e.target.value })} /></Field>
         <Field label="Ariza sanasi"><DatePicker value={t.applicationDate ?? null} onChange={(iso) => setTr({ applicationDate: iso })} /></Field>
-        <Field label="Asosiy summa"><MoneyInput value={t.principal ?? null} onChange={(v) => setTr({ principal: v })} /></Field>
-        <Field label="Jadval turi"><Select value={(t.scheduleType ?? '') as 'ANNUITY' | 'DIFFERENTIATED' | ''} onChange={(v) => setTr({ scheduleType: v })} options={[{ value: 'ANNUITY', label: 'Annuitet (max 30 oy)' }, { value: 'DIFFERENTIATED', label: 'Differensial (max 48 oy)' }]} /></Field>
-        <Field label="Muddat (oy)" error={f.attempted ? f.errors.termCap : undefined}><Input type="number" value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} /></Field>
-        <Field label="Oylik to‘lov"><MoneyInput value={t.monthlyPayment ?? null} onChange={(v) => setTr({ monthlyPayment: v })} /></Field>
+        <Field label="Asosiy summa" required error={f.attempted ? f.errors.principal : undefined}><MoneyInput value={t.principal ?? null} onChange={(v) => setTr({ principal: v })} /></Field>
+        <Field label="Jadval turi" required error={f.attempted ? f.errors.scheduleType : undefined}><Select value={(t.scheduleType ?? '') as 'ANNUITY' | 'DIFFERENTIATED' | ''} onChange={(v) => setTr({ scheduleType: v })} options={[{ value: 'ANNUITY', label: 'Annuitet (max 30 oy)' }, { value: 'DIFFERENTIATED', label: 'Differensial (max 48 oy)' }]} /></Field>
+        <Field label="Muddat (oy)" required hint={cap ? `max ${cap} oy` : 'avval jadval turini tanlang'} error={capExceeded ? `Muddat 1–${cap} oy oralig‘ida` : f.attempted ? f.errors.trancheTerm : undefined}>
+          <Input type="number" min={1} max={cap ?? undefined} value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} />
+        </Field>
+        <Field label="Oylik to‘lov" hint="auto — jadval turi bo‘yicha"><Input readOnly value={monthly != null ? formatMoney(monthly) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
         <Field label="Sug‘urta to‘lovi"><MoneyInput value={t.insurancePayment ?? null} onChange={(v) => setTr({ insurancePayment: v })} /></Field>
       </div>
     </Card>

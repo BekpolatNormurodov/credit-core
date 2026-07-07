@@ -53,6 +53,7 @@ export const DocumentType = {
   PASSPORT: 'PASSPORT', // qarz oluvchi pasporti
   COLLATERAL_PHOTO: 'COLLATERAL_PHOTO', // zalog rasm
   TECH_PASSPORT: 'TECH_PASSPORT', // tex passport
+  GEN_DOVERNOST: 'GEN_DOVERNOST', // gen doverennost (umumiy ishonchnoma) — PDF yoki rasm(lar)
   DIRECTOR_FINAL: 'DIRECTOR_FINAL', // 1–2 final docs the director uploads
   GENERATED_PDF: 'GENERATED_PDF', // PDF produced by the system
   CHAT: 'CHAT', // file shared inside case chat

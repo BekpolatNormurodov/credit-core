@@ -44,6 +44,7 @@ enum DocumentType {
   PASSPORT
   COLLATERAL_PHOTO
   TECH_PASSPORT
+  GEN_DOVERNOST
   DIRECTOR_FINAL
   GENERATED_PDF
   CHAT
@@ -211,6 +212,7 @@ model Borrower {
   actualLandmark    String?
   actualTenure      String?
   phones            Json?
+  closeContacts     Json?     // [{ relation, fullName, phone }] — yaqin kishilar (2 majburiy, 5 gacha)
   maritalStatus     String?
   familySize        Int?
   childrenCount     Int?

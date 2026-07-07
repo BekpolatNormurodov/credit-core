@@ -47,6 +47,13 @@ export class BorrowerInput {
   @IsOptional() @IsString() residenceDuration?: string | null;
   @IsOptional() @IsString() ownsHome?: string | null;
   @IsOptional() @IsString() depositsBand?: string | null;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => CloseContactInput) closeContacts?: CloseContactInput[] | null;
+}
+
+export class CloseContactInput {
+  @IsOptional() @IsString() relation?: string | null;
+  @IsOptional() @IsString() fullName?: string | null;
+  @IsOptional() @IsString() phone?: string | null;
 }
 
 export class GuarantorInput {

@@ -376,7 +376,7 @@ export function userAvatarUrl(id: string): string {
   return `${apiBaseUrl}/api/users/${id}/avatar?token=${encodeURIComponent(token ?? '')}`;
 }
 
-/** Tokenized inline document URL usable directly as an <img src>. */
+/** Tokenized inline document URL usable directly as an <img src> (images) or href (PDF). */
 export function documentInlineUrl(id: string): string {
   const token = getToken();
   return `${apiBaseUrl}/api/documents/${id}/download?inline=1&token=${encodeURIComponent(token ?? '')}`;

@@ -24,12 +24,20 @@ export function OriginationWizard() {
   const { Comp } = STEPS[f.step];
 
   const next = async () => {
+    if (f.stepHasErrors(f.step)) { f.setAttempted(true); toast.error('Tekshiring', 'Majburiy maydonlarni to‘ldiring'); return; }
     try {
       await f.saveSection(STEPS[f.step].section);
       if (f.step < STEPS.length - 1) f.setStep(f.step + 1);
     } catch {
-      toast.error('Saqlanmadi', 'Majburiy maydonlarni tekshiring');
+      toast.error('Saqlanmadi', 'Qayta urinib ko‘ring');
     }
+  };
+  // Jumping between steps autosaves the current one (best-effort) so progress persists per step —
+  // only once the case exists, to avoid creating empty drafts from stray clicks.
+  const goTo = async (i: number) => {
+    if (i === f.step) return;
+    if (f.caseId) { try { await f.saveSection(STEPS[f.step].section); } catch { /* keep draft in memory */ } }
+    f.setStep(i);
   };
   const finish = async () => {
     const s = await f.save();
@@ -56,25 +64,28 @@ export function OriginationWizard() {
             {STEPS.map((s, i) => {
               const done = i < f.step;
               const current = i === f.step;
+              const invalid = f.attempted && f.stepHasErrors(i);
               return (
                 <li key={i}>
                   <button
-                    onClick={() => f.setStep(i)}
+                    onClick={() => goTo(i)}
                     aria-current={current ? 'step' : undefined}
                     className={cn(
                       'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
-                      current
-                        ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400'
-                        : done
-                          ? 'border-brand-200 bg-white text-gray-700 hover:bg-brand-50/50 dark:border-brand-500/20 dark:bg-white/5 dark:text-gray-200'
-                          : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/5',
+                      invalid
+                        ? 'border-error-300 bg-error-50 text-error-700 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400'
+                        : current
+                          ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400'
+                          : done
+                            ? 'border-brand-200 bg-white text-gray-700 hover:bg-brand-50/50 dark:border-brand-500/20 dark:bg-white/5 dark:text-gray-200'
+                            : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/5',
                     )}
                   >
                     <span className={cn(
                       'flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold',
-                      done || current ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+                      invalid ? 'bg-error-600 text-white' : done || current ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
                     )}>
-                      {done ? <Check className="h-3 w-3" /> : i + 1}
+                      {invalid ? '!' : done ? <Check className="h-3 w-3" /> : i + 1}
                     </span>
                     {s.title}
                   </button>

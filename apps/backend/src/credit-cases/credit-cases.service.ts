@@ -115,7 +115,9 @@ export class CreditCasesService {
       regAddress: b.regAddress ?? null, regLandmark: b.regLandmark ?? null, regTenure: b.regTenure ?? null,
       regMatchesActual: b.regMatchesActual ?? null, actualAddress: b.actualAddress ?? null,
       actualLandmark: b.actualLandmark ?? null, actualTenure: b.actualTenure ?? null,
-      phones: b.phones ?? undefined, maritalStatus: b.maritalStatus ?? null, familySize: b.familySize ?? null,
+      phones: b.phones ?? undefined,
+      closeContacts: (b.closeContacts ?? undefined) as object | undefined,
+      maritalStatus: b.maritalStatus ?? null, familySize: b.familySize ?? null,
       childrenCount: b.childrenCount ?? null, education: b.education ?? null, residenceDuration: b.residenceDuration ?? null,
       ownsHome: b.ownsHome ?? null, depositsBand: b.depositsBand ?? null,
     };

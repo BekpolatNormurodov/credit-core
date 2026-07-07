@@ -1,9 +1,34 @@
 import { LoanType, RepaymentMethod } from './enums';
+import { pmt } from './loan';
+
+/** Insurance partners currently on-boarded (the "Kompaniya" dropdown). */
+export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as const;
+
+/** Relationship options for a borrower's close contacts (yaqin kishilar). */
+export const RELATIVE_RELATIONS = ['Ota', 'Ona', 'Aka', 'Uka', 'Opa', 'Singil', 'Turmush o‘rtog‘i', 'Farzand', 'Qarindosh', 'Boshqa'] as const;
 
 /** ≤ threshold → микроқарз, > → микрокредит. */
 export const MICRO_THRESHOLD = 100_000_000;
 export function loanTypeFor(amount: number | null | undefined): LoanType {
   return (amount ?? 0) > MICRO_THRESHOLD ? LoanType.MICROCREDIT : LoanType.MICROLOAN;
+}
+
+/**
+ * Representative monthly payment for a tranche, from the repayment method + principal + term + annual
+ * rate (fraction, e.g. 0.55 = 55%/yil). ANNUITY → the level annuity via Excel-PMT. DIFFERENTIATED →
+ * the FIRST (largest) month: principal/term + interest on the full principal (later months decline).
+ * Returns null when inputs are insufficient. Rounded to whole so'm.
+ */
+export function monthlyPaymentFor(
+  method: RepaymentMethod | null | undefined,
+  principal: number | null | undefined,
+  termMonths: number | null | undefined,
+  annualRate: number | null | undefined,
+): number | null {
+  if (!method || !principal || principal <= 0 || !termMonths || termMonths <= 0) return null;
+  const r = (annualRate ?? 0) / 12;
+  if (method === RepaymentMethod.DIFFERENTIATED) return Math.round(principal / termMonths + principal * r);
+  return Math.round(pmt(r, termMonths, principal));
 }
 
 /** Max term (months) per repayment method. */

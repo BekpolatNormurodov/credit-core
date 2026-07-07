@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
-  ProductType, RepaymentMethod, loanTypeFor, isTermValid,
+  ProductType, RepaymentMethod, loanTypeFor, isTermValid, termCapFor,
   type UpsertCasePayload, type CaseSectionKey, type CollateralDto,
 } from '@credit-core/shared';
 
-const emptyBorrower = { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, birthDate: null, address: null, phone: null };
+const emptyContact = () => ({ relation: null, fullName: null, phone: null });
+// Two close-contact rows are shown by default — both are required (min 2, max 5).
+const emptyBorrower = { fullName: '', passportSeries: null, passportNumber: null, pinfl: null, birthDate: null, address: null, phone: null, closeContacts: [emptyContact(), emptyContact()] };
 const newCollateral = (type: ProductType): CollateralDto => ({
   type,
   agreedValue: null,
@@ -34,9 +36,12 @@ export function useOriginationForm(id?: string) {
     queryKey: ['case', id], enabled: !!id,
     queryFn: async () => {
       const c = await api.case(id!);
+      // Backfill close-contact rows to the required minimum of 2 for the form.
+      const loadedContacts = c.borrower?.closeContacts ?? [];
+      const closeContacts = loadedContacts.length >= 2 ? loadedContacts : [...loadedContacts, emptyContact(), emptyContact()].slice(0, Math.max(2, loadedContacts.length));
       setForm({
         amount: c.amount, termMonths: c.termMonths,
-        borrower: c.borrower ?? { ...emptyBorrower }, guarantors: c.guarantors,
+        borrower: c.borrower ? { ...c.borrower, closeContacts } : { ...emptyBorrower }, guarantors: c.guarantors,
         collaterals: c.collaterals.length ? c.collaterals : [newCollateral(ProductType.REAL_ESTATE)],
         employment: c.employment, affordability: c.affordability, creditLine: c.creditLine, creditHistory: c.creditHistory,
       });
@@ -51,16 +56,60 @@ export function useOriginationForm(id?: string) {
   const addCol = (type: ProductType) => setForm((f) => ({ ...f, collaterals: [...f.collaterals, newCollateral(type)] }));
   const removeCol = (i: number) => setForm((f) => ({ ...f, collaterals: f.collaterals.filter((_, idx) => idx !== i) }));
 
-  const termCapOk = () => {
-    const m = form.creditLine?.tranche?.scheduleType as RepaymentMethod | undefined;
-    const t = form.creditLine?.tranche?.termMonths;
-    return !m || !t || isTermValid(m, t);
+  // Close contacts (yaqin kishilar) — min 2, max 5.
+  const contacts = () => form.borrower.closeContacts ?? [];
+  const setContact = (i: number, p: Partial<{ relation: string | null; fullName: string | null; phone: string | null }>) =>
+    setBorrower({ closeContacts: contacts().map((c, idx) => (idx === i ? { ...c, ...p } : c)) });
+  const addContact = () => { if (contacts().length < 5) setBorrower({ closeContacts: [...contacts(), emptyContact()] }); };
+  const removeContact = (i: number) => { if (contacts().length > 2) setBorrower({ closeContacts: contacts().filter((_, idx) => idx !== i) }); };
+
+  /** Ensure the case exists (create it if not), returning its id — used before uploading documents. */
+  const ensureCase = async (): Promise<string | undefined> => {
+    if (caseId) return caseId;
+    const created = await api.createCase(form);
+    setCaseId(created.id);
+    qc.invalidateQueries({ queryKey: ['cases'] });
+    return created.id;
   };
+
+  // Core required set (confirmed with the operator): identity essentials + line amount/term +
+  // tranche schedule/term/principal + at least one valued collateral. Everything else is optional.
+  const b = form.borrower;
+  const line = form.creditLine;
+  const tr = line?.tranche;
+  const method = tr?.scheduleType as RepaymentMethod | undefined;
+  const amountTotal = line?.amountTotal ?? form.amount ?? null;
+  const hasValuedCollateral = form.collaterals.some((c) => (c.agreedValue ?? 0) > 0);
+  const validContacts = (b.closeContacts ?? []).filter((c) => c.fullName?.trim() && c.phone?.trim());
   const errors = {
-    fullName: form.borrower.fullName.trim() ? undefined : 'F.I.O majburiy',
-    termCap: termCapOk() ? undefined : 'Bu jadval turi uchun muddat oshib ketgan',
+    fullName: b.fullName.trim() ? undefined : 'F.I.O majburiy',
+    contacts: validContacts.length >= 2 ? undefined : 'Kamida 2 ta yaqin kishi (ism + telefon) majburiy',
+    pinfl: (b.pinfl ?? '').length === 14 ? undefined : 'PINFL 14 raqam bo‘lishi kerak',
+    passportSeries: (b.passportSeries ?? '').length === 2 ? undefined : 'Seriya majburiy (AA)',
+    passportNumber: (b.passportNumber ?? '').length === 7 ? undefined : 'Raqam majburiy (7 raqam)',
+    phone: b.phone ? undefined : 'Telefon majburiy',
+    amountTotal: amountTotal && amountTotal > 0 ? undefined : 'Jami summa majburiy',
+    lineTerm: line?.termMonths && line.termMonths > 0 ? undefined : 'Liniya muddati majburiy',
+    collateral: hasValuedCollateral ? undefined : 'Kamida 1 garov (kelishilgan qiymat) majburiy',
+    scheduleType: method ? undefined : 'Jadval turini tanlang',
+    trancheTerm: !method
+      ? 'Avval jadval turini tanlang'
+      : isTermValid(method, tr?.termMonths)
+        ? undefined
+        : `Muddat 1–${termCapFor(method)} oy oralig‘ida`,
+    principal: tr?.principal && tr.principal > 0 ? undefined : 'Asosiy summa majburiy',
+  } as const;
+  type ErrKey = keyof typeof errors;
+  // Which errors belong to which wizard step (index in OriginationWizard.STEPS).
+  const STEP_ERRORS: Record<number, ErrKey[]> = {
+    0: ['fullName', 'pinfl', 'passportSeries', 'passportNumber', 'phone', 'contacts'],
+    1: [],
+    2: ['amountTotal', 'lineTerm', 'collateral'],
+    3: ['scheduleType', 'trancheTerm', 'principal'],
+    4: [],
   };
-  const valid = !errors.fullName && !!form.collaterals.length && !errors.termCap;
+  const stepHasErrors = (s: number) => (STEP_ERRORS[s] ?? []).some((k) => errors[k]);
+  const valid = (Object.keys(errors) as ErrKey[]).every((k) => !errors[k]);
 
   /** Persist one section (autosave). Creates the case first if it doesn't exist yet. */
   const saveSection = async (section: CaseSectionKey) => {
@@ -94,8 +143,10 @@ export function useOriginationForm(id?: string) {
 
   return {
     form, setForm, patch, setBorrower, setCol, addCol, removeCol,
-    step, setStep, saving, attempted, errors, valid, saveSection, save,
-    loanType: loanTypeFor(form.creditLine?.amountTotal ?? form.amount),
+    setContact, addContact, removeContact,
+    step, setStep, saving, attempted, setAttempted, errors, valid, stepHasErrors, saveSection, save,
+    caseId, ensureCase,
+    loanType: loanTypeFor(amountTotal),
   };
 }
 

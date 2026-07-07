@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { CollateralDto, CreditCaseDto, CreditCaseListItem } from '@credit-core/shared';
+import { CloseContactDto, CollateralDto, CreditCaseDto, CreditCaseListItem } from '@credit-core/shared';
 
 export const caseInclude = {
   branch: true,
@@ -125,6 +125,7 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
           actualLandmark: c.borrower.actualLandmark,
           actualTenure: c.borrower.actualTenure,
           phones: (c.borrower.phones as string[] | null) ?? null,
+          closeContacts: (c.borrower.closeContacts as CloseContactDto[] | null) ?? null,
           maritalStatus: c.borrower.maritalStatus,
           familySize: c.borrower.familySize,
           childrenCount: c.borrower.childrenCount,

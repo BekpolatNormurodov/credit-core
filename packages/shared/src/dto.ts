@@ -75,6 +75,13 @@ export interface CollateralDto {
   owners: CollateralOwnerDto[];
 }
 
+/** A borrower's close contact (yaqin kishi) — relationship + name + phone. 2 required, up to 5. */
+export interface CloseContactDto {
+  relation: string | null;
+  fullName: string | null;
+  phone: string | null;
+}
+
 export interface BorrowerDto {
   id?: string;
   fullName: string;
@@ -107,6 +114,7 @@ export interface BorrowerDto {
   residenceDuration?: string | null;
   ownsHome?: string | null;
   depositsBand?: string | null;
+  closeContacts?: CloseContactDto[] | null;
 }
 
 export interface EmploymentDto {

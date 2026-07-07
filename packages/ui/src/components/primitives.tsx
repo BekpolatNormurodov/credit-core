@@ -86,7 +86,7 @@ export function Field({
   children,
   className,
 }: {
-  label: string;
+  label?: string;
   required?: boolean;
   hint?: string;
   /** When set, the field renders in an error state and announces the message. */
@@ -110,11 +110,13 @@ export function Field({
 
   return (
     <label className={cn('block space-y-1.5', className)}>
-      <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        {Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}
-        {label}
-        {required && <span className="ml-0.5 text-error-600" aria-hidden>*</span>}
-      </span>
+      {(label || Icon) && (
+        <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          {Icon && <Icon className="h-3.5 w-3.5 text-gray-400" />}
+          {label}
+          {required && <span className="ml-0.5 text-error-600" aria-hidden>*</span>}
+        </span>
+      )}
       {control}
       {error ? (
         <span id={msgId} role="alert" className="block text-xs font-medium text-error-600 dark:text-error-500">

@@ -28,6 +28,9 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
     <Card className="sticky top-4 space-y-0.5">
       <h3 className="mb-2 font-semibold text-gray-800 dark:text-white">Xulosa</h3>
       {row('Kredit turi', loanType === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz')}
+      {row('Jami summa', amountTotal ? formatMoney(amountTotal) : '—')}
+      {row('Transh muddati', form.creditLine?.tranche?.termMonths ? `${form.creditLine.tranche.termMonths} oy` : '—')}
+      {row('Oylik to‘lov', form.creditLine?.tranche?.monthlyPayment ? formatMoney(form.creditLine.tranche.monthlyPayment) : '—')}
       {row('Jami daromad', formatMoney(calc.totalIncome))}
       {row('Jami xarajat', formatMoney(calc.totalExpenses))}
       {row('DTI (qarz yuki)', `${(calc.dtiRatio * 100).toFixed(1)}%`)}
