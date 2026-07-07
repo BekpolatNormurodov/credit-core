@@ -150,6 +150,22 @@ export function extractIdBackViz(text: string): IdBackViz {
 }
 
 /**
+ * Reconcile a leading OCR-noise glyph on the surname. The card's left border is frequently misread as
+ * an extra leading letter before the surname on BOTH the MRZ and the front — e.g. the real surname
+ * "ASKAROV" reads as MRZ "VASKAROV" and front "TASKAROV". When the two independent sources disagree
+ * on the leading char but share a ≥5-char suffix, that shared suffix is the true surname. Returns the
+ * corrected surname, or null when there is nothing to reconcile.
+ */
+function reconcileSurname(a: string, b: string): string | null {
+  if (!a || !b || a === b) return null;
+  const ta = a.slice(1), tb = b.slice(1);
+  if (ta === b && b.length >= 5) return b; // a carries an extra leading char
+  if (tb === a && a.length >= 5) return a; // b carries an extra leading char
+  if (ta === tb && ta.length >= 5) return ta; // both carry an extra leading char
+  return null;
+}
+
+/**
  * Merge the check-digit-verified back MRZ with OCR'd front/back text. MRZ wins for the verified
  * numbers; name + issue date + place of birth/issue come from OCR and are named in
  * `unverifiedFields`. A front/back date disagreement adds a `front_back_mismatch` warning.
@@ -158,16 +174,26 @@ export function mergeIdResult(back: PassportScanResult, front: IdFrontFields, vi
   const unverified: string[] = [];
   const fields = { ...back.fields }; // starts with the MRZ name (surname + given)
   // Two name sources: the MRZ (surname+given) and the front VIZ (adds the patronymic). Either can be
-  // garbled on a small/blurry card. Use the front when its surname AGREES with the MRZ (contains the
-  // other, tolerating OCR noise) — the reliable, richer case — OR when the MRZ read is weak
-  // (conf < 90), where the MRZ name is not trustworthy either. Otherwise keep the clean MRZ name.
+  // garbled on a small/blurry card, and on a glare/wrinkled laminate the front OCR can be pure noise
+  // (e.g. "ASKAROV MUXTOR" reading as "TASKAROV STOR"). Use the front only when its surname AGREES
+  // with the MRZ (contains the other, tolerating OCR noise) — the reliable, richer case that adds the
+  // patronymic — OR when the MRZ gave no usable surname (nothing better to fall back to). A front name
+  // that DISAGREES with a present MRZ surname is treated as OCR garbage and dropped in favour of the
+  // structured, partially check-digit-verified MRZ name — never surfaced just because confidence < 90.
   const mrzSurname = (back.fields.fullName || '').split(' ')[0] || '';
   const frontSurname = (front.fullName || '').split(' ')[0] || '';
   const agree =
     frontSurname.length >= 4 &&
     mrzSurname.length >= 4 &&
     (mrzSurname === frontSurname || mrzSurname.includes(frontSurname) || frontSurname.includes(mrzSurname));
-  const chosenName = front.fullName && (agree || back.confidence < 90) ? front.fullName : back.fields.fullName;
+  let chosenName = front.fullName && (agree || !mrzSurname) ? front.fullName : back.fields.fullName;
+  // Strip a leading OCR-noise glyph from the surname when front and MRZ corroborate the true core
+  // (e.g. MRZ "VASKAROV" + front "TASKAROV" → "ASKAROV").
+  const fixedSurname = reconcileSurname(mrzSurname, frontSurname);
+  if (fixedSurname && chosenName) {
+    const toks = chosenName.split(' ');
+    if (toks[0] === mrzSurname || toks[0] === frontSurname) { toks[0] = fixedSurname; chosenName = toks.join(' '); }
+  }
   if (chosenName) { fields.fullName = chosenName; unverified.push('fullName'); }
   if (front.issueDate) { fields.passportIssueDate = front.issueDate; unverified.push('passportIssueDate'); }
   if (viz.placeOfBirth) { fields.placeOfBirth = viz.placeOfBirth; unverified.push('placeOfBirth'); }

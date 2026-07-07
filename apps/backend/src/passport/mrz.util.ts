@@ -25,9 +25,16 @@ export interface MrzFields {
   nationality?: string | null; // ISO alpha-3 (e.g. 'UZB')
 }
 
-/** Check-digit weights — the whole-MRZ composite is weighted highest. */
+/**
+ * Check-digit weights. The per-field checks (document number, birth, expiry) carry the most weight:
+ * each independently verifies real data. The whole-MRZ composite is weighted LOW on purpose — it
+ * re-covers the same fields plus the fragile '<' fillers, so it is the most OCR-brittle digit (a
+ * single misread filler fails it) while adding little beyond the field checks. A composite-only
+ * failure on an otherwise field-verified read is almost always harmless OCR filler noise, so it
+ * must not dominate the score.
+ */
 export const CHECK_WEIGHT: Record<string, number> = {
-  compositeCheckDigit: 4,
+  compositeCheckDigit: 1,
   documentNumberCheckDigit: 3,
   birthDateCheckDigit: 2,
   expirationDateCheckDigit: 2,
@@ -61,10 +68,28 @@ export function yymmddToIso(yymmdd: string | null | undefined, future: boolean):
   return new Date(Date.UTC(year, mm - 1, dd)).toISOString();
 }
 
+/**
+ * Names straight from a raw `SURNAME<<GIVEN` MRZ line (the TD1 3rd line) — a resilient fallback for
+ * when the strict `mrz` parser nulls the given name because OCR left junk in the name field's filler
+ * (e.g. "VASKAROV<<MUXTOR<<<<<<<20L46" makes the parser return firstName=null, losing "MUXTOR").
+ * Split on the '<<' surname/given separator, turn the remaining '<' fillers into spaces, and keep only
+ * clean alphabetic tokens — dropping digit-bearing filler noise like "20L46". TD1 only: the TD3/TD2
+ * name line is prefixed with the document type + country code, which this would wrongly fold in.
+ */
+export function namesFromMrzLine(line: string): string {
+  const seg = (s: string) => s.replace(/</g, ' ').split(/\s+/).filter((t) => /^[A-Z][A-Z'`-]*$/.test(t));
+  const [surname, ...rest] = line.split('<<');
+  return [...seg(surname ?? ''), ...seg(rest.join(' '))].join(' ');
+}
+
 /** Map MRZ field values to the borrower form shape. */
 export function mapMrzToBorrower(fields: MrzFields) {
   const clean = (s: string | null | undefined) => (s ?? '').replace(/</g, ' ').replace(/\s+/g, ' ').trim();
-  const fullName = clean([fields.lastName, fields.firstName].filter(Boolean).join(' '));
+  // Name tokens never contain digits. OCR filler noise on the name line (e.g. a garbled '<' run read
+  // as "20L46") gets folded into the secondary identifier by the parser — drop any token carrying a
+  // digit so it doesn't leak into the surfaced name.
+  const nameTokens = (s: string | null | undefined) => clean(s).split(' ').filter((t) => t && !/\d/.test(t));
+  const fullName = [...nameTokens(fields.lastName), ...nameTokens(fields.firstName)].join(' ');
   const dn = (fields.documentNumber ?? '').toUpperCase().replace(/</g, '');
   const passportSeries = dn.match(/^[A-Z]{2}/)?.[0] ?? '';
   const passportNumber = dn.replace(/^[A-Z]{2}/, '').replace(/\D/g, '').slice(0, 7);

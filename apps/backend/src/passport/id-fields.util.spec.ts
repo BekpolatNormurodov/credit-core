@@ -162,6 +162,16 @@ describe('mergeIdResult', () => {
     const r = mergeIdResult(backMrz({ fullName: 'CQODIROVA XOLISX0O8' }), front, viz);
     expect(r.fields.fullName).toBe('QODIROVA XOLISXON MUXTOROVNA');
   });
+  it('keeps the MRZ name over garbage front OCR even at low confidence (no <90 escape)', () => {
+    // Real ASKAROV card: composite check fails → conf 88, front laminate OCRs to noise ("STOR").
+    const r = mergeIdResult(backMrz({ fullName: 'ASKAROV MUXTOR' }), { ...front, fullName: 'STOR' }, viz);
+    expect(r.fields.fullName).toBe('ASKAROV MUXTOR');
+  });
+  it('reconciles a leading OCR-noise glyph on the surname using both sources', () => {
+    // MRZ "VASKAROV" + front "TASKAROV" both prepend a junk letter to the true "ASKAROV".
+    const r = mergeIdResult(backMrz({ fullName: 'VASKAROV MUXTOR' }), { ...front, fullName: 'TASKAROV STOR' }, viz);
+    expect(r.fields.fullName).toBe('ASKAROV MUXTOR');
+  });
   it('flags a front/back date mismatch and keeps the MRZ value', () => {
     const r = mergeIdResult(backMrz(), { ...front, birthDate: '1990-01-01T00:00:00.000Z' }, viz);
     expect(r.warnings).toContain('front_back_mismatch');

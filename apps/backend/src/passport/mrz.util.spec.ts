@@ -1,4 +1,4 @@
-import { scoreConfidence, mapMrzToBorrower, yymmddToIso, extractMrzLines, normalizeMrzLines, expiryWarnings, MrzDetail } from './mrz.util';
+import { scoreConfidence, mapMrzToBorrower, namesFromMrzLine, yymmddToIso, extractMrzLines, normalizeMrzLines, expiryWarnings, MrzDetail } from './mrz.util';
 
 const detail = (field: string, valid: boolean): MrzDetail => ({ field, value: '', valid });
 
@@ -13,9 +13,13 @@ describe('scoreConfidence', () => {
   it('all check digits valid → 100', () => {
     expect(scoreConfidence(allChecks(true))).toBe(100);
   });
-  it('composite invalid → below 90 (weighted)', () => {
+  it('composite invalid but every field check valid → high but below 100', () => {
+    // The composite is weighted LOW (1): it re-covers the same fields + fragile '<' fillers, so an
+    // OCR-corrupted filler must not crater a field-verified read. Loses weight 1 of 9 → 89.
     const d = allChecks(true).map((x) => (x.field === 'compositeCheckDigit' ? { ...x, valid: false } : x));
-    expect(scoreConfidence(d)).toBeLessThan(90); // loses weight 4 of 12 → 67
+    const score = scoreConfidence(d);
+    expect(score).toBeGreaterThan(80);
+    expect(score).toBeLessThan(100);
   });
   it('no check digits → 0', () => {
     expect(scoreConfidence([detail('firstName', true)])).toBe(0);
@@ -49,11 +53,23 @@ describe('mapMrzToBorrower', () => {
   it('drops a non-14-digit PINFL', () => {
     expect(mapMrzToBorrower({ personalNumber: '123' }).pinfl).toBe('');
   });
+  it('drops digit-bearing filler noise folded into the name', () => {
+    expect(mapMrzToBorrower({ lastName: 'ASKAROV', firstName: 'MUXTOR 20L46' }).fullName).toBe('ASKAROV MUXTOR');
+  });
   it('takes PINFL from TD1 optional1 when personalNumber is absent', () => {
     const out = mapMrzToBorrower({ documentNumber: 'AE1295616', optional1: '40807841080026' });
     expect(out.pinfl).toBe('40807841080026');
     expect(out.passportSeries).toBe('AE');
     expect(out.passportNumber).toBe('1295616');
+  });
+});
+
+describe('namesFromMrzLine', () => {
+  it('recovers the given name the strict parser nulls on junk-polluted filler', () => {
+    expect(namesFromMrzLine('VASKAROV<<MUXTOR<<<<<<<20L46<<')).toBe('VASKAROV MUXTOR');
+  });
+  it('reads a clean surname<<given line', () => {
+    expect(namesFromMrzLine('QODIROVA<<XOLISXON<<<<<<<<<<<<')).toBe('QODIROVA XOLISXON');
   });
 });
 

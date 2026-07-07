@@ -9,7 +9,7 @@ sharp.cache(false);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { parse } = require('mrz');
 import type { PassportScanResult } from '@credit-core/shared';
-import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
+import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, namesFromMrzLine, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
 import { extractIdFront, extractIdBackViz, mergeIdResult, extractPassportViz } from './id-fields.util';
 
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
@@ -173,6 +173,15 @@ export class PassportService {
     // that normalizeMrzLines padded into a parseable shape. Surface a clean "not found".
     if (!best || best.conf === 0) return emptyResult();
     const fields = mapMrzToBorrower(best.parsed.fields ?? {});
+    // The strict parser nulls the given name when OCR leaves junk in the name field's filler (TD1:
+    // "VASKAROV<<MUXTOR<<<<<<<20L46" → firstName null → "MUXTOR" lost). Re-derive from the raw TD1
+    // name line (its last line) and take it when it recovers more name tokens.
+    if (best.parsed.format === 'TD1') {
+      const raw = namesFromMrzLine(best.lines[best.lines.length - 1] || '');
+      if (raw.split(' ').filter(Boolean).length > fields.fullName.split(' ').filter(Boolean).length) {
+        fields.fullName = raw;
+      }
+    }
     const perField = ((best.parsed.details ?? []) as MrzDetail[])
       .filter((d) => d.field.endsWith('CheckDigit'))
       .map((d) => ({ key: d.field, value: String(d.value ?? ''), valid: !!d.valid }));
