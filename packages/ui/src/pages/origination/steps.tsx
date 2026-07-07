@@ -218,12 +218,12 @@ export function Step3({ f }: { f: OriginationForm }) {
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi <span className="text-gray-500 dark:text-gray-400">(polis qismi ×130%, 2%/yil, max 2 yil)</span></h2>
-          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, insuranceRate: ins.insuranceRate ?? INSURANCE_ANNUAL_RATE, genAgreementNo: ins.genAgreementNo ?? INSURANCE_GEN_PREFIX, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
+          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, insuranceRate: ins.insuranceRate ?? INSURANCE_ANNUAL_RATE, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
         </div>
         {ins.insured && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Kompaniya"><Select value={(ins.company ?? '') as string} onChange={(v) => setIns({ company: v })} options={opt([...INSURANCE_COMPANIES])} /></Field>
-            <Field label="Sug‘urta raqami (gen)" hint="polisdan oldin"><Input value={ins.genAgreementNo ?? ''} onChange={(e) => setIns({ genAgreementNo: e.target.value })} placeholder="01/14/260004-" /></Field>
+            <Field label="Sug‘urta raqami (gen)" hint="polisdan oldin"><Input value={ins.genAgreementNo ?? ''} onChange={(e) => setIns({ genAgreementNo: e.target.value })} placeholder={INSURANCE_GEN_PREFIX} /></Field>
             <Field label="Polis №"><Input value={ins.policyNo ?? ''} onChange={(e) => setIns({ policyNo: e.target.value })} /></Field>
             <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
             <Field label="Polis muddati (oy)" hint="max 24 oy (2 yil)" error={termTooLong ? 'Sug‘urta muddati 24 oydan oshmaydi' : undefined}><Input type="number" min={1} max={INSURANCE_MAX_MONTHS} value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
