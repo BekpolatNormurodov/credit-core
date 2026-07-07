@@ -4,7 +4,7 @@ import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS,
-  INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, COLLATERAL_COVERAGE_TARGET,
+  INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET,
   monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
@@ -209,7 +209,7 @@ export function Step3({ f }: { f: OriginationForm }) {
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi <span className="text-gray-500 dark:text-gray-400">(polis qismi ×130%, 2%/yil, max 2 yil)</span></h2>
-          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, insuranceRate: INSURANCE_ANNUAL_RATE, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
+          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, insuranceRate: ins.insuranceRate ?? INSURANCE_ANNUAL_RATE, genAgreementNo: ins.genAgreementNo ?? INSURANCE_GEN_PREFIX, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
         </div>
         {ins.insured && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
