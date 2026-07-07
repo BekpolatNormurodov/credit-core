@@ -157,8 +157,9 @@ export function Step3({ f }: { f: OriginationForm }) {
   };
   const setIns = (p: Partial<Ins>) => setLine({ insurance: { ...ins, ...p } as Ins });
   const collateralTotal = f.form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
-  // Insurance is a fixed 2%/yil, capped at 24 months (2 years) — clamp the effective term for premium.
-  const insuranceRate = ins.insured ? INSURANCE_ANNUAL_RATE : (ins.insuranceRate ?? null);
+  // Insurance rate is entered (defaulting to 2%/yil); premium auto-recomputes on change. Term is
+  // capped at 24 months (2 years) — clamp the effective term for the premium.
+  const insuranceRate = ins.insuranceRate ?? (ins.insured ? INSURANCE_ANNUAL_RATE : null);
   const policyMonths = Math.min(ins.policyTermMonths ?? 0, INSURANCE_MAX_MONTHS) || null;
   const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, insuranceRate, policyTermMonths: policyMonths });
   const termTooLong = (ins.policyTermMonths ?? 0) > INSURANCE_MAX_MONTHS;
@@ -174,7 +175,7 @@ export function Step3({ f }: { f: OriginationForm }) {
           </span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Liniya №"><Input value={l.lineNumber ?? ''} onChange={(e) => setLine({ lineNumber: e.target.value })} /></Field>
+          <Field label="Liniya № (РКЛ)" hint="masalan 42"><Input value={l.lineNumber ?? ''} onChange={(e) => setLine({ lineNumber: e.target.value })} placeholder="42" /></Field>
           <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
           <Field label="Summa — polis"><MoneyInput value={l.amountPolis ?? null} onChange={(v) => setLine({ amountPolis: v })} /></Field>
           <Field label="Jami summa" required hint="auto = avto + polis" error={f.attempted ? f.errors.amountTotal : undefined}><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
@@ -182,7 +183,7 @@ export function Step3({ f }: { f: OriginationForm }) {
           <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
           <Field label="Yillik foiz" hint="admin belgilaydi"><Input readOnly value={`${Math.round((l.interestRate ?? minRate) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Jarima foizi"><Input readOnly value={`${Math.round((l.penaltyRate ?? 1.05) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-          <Field label="Prikaz №"><Input value={l.orderNumber ?? ''} onChange={(e) => setLine({ orderNumber: e.target.value })} /></Field>
+          <Field label="Prikaz № / bosh kelishuv" hint="12 MFL 42 PS — hujjatlarda ko‘rinadi"><Input value={l.orderNumber ?? ''} onChange={(e) => setLine({ orderNumber: e.target.value })} placeholder="12 MFL 42 PS" /></Field>
         </div>
       </Card>
 
@@ -213,11 +214,12 @@ export function Step3({ f }: { f: OriginationForm }) {
         {ins.insured && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Kompaniya"><Select value={(ins.company ?? '') as string} onChange={(v) => setIns({ company: v })} options={opt([...INSURANCE_COMPANIES])} /></Field>
+            <Field label="Sug‘urta raqami (gen)" hint="polisdan oldin"><Input value={ins.genAgreementNo ?? ''} onChange={(e) => setIns({ genAgreementNo: e.target.value })} placeholder="01/14/260004-" /></Field>
             <Field label="Polis №"><Input value={ins.policyNo ?? ''} onChange={(e) => setIns({ policyNo: e.target.value })} /></Field>
             <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
             <Field label="Polis muddati (oy)" hint="max 24 oy (2 yil)" error={termTooLong ? 'Sug‘urta muddati 24 oydan oshmaydi' : undefined}><Input type="number" min={1} max={INSURANCE_MAX_MONTHS} value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
             <Field label="Polis ostidagi kredit" hint="= polis summasi"><Input readOnly value={ins.loanUnderPolicy != null ? formatMoney(ins.loanUnderPolicy) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-            <Field label="Sug‘urta stavkasi" hint="qat’iy"><Input readOnly value="2% / yil" className="bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Sug‘urta stavkasi (%/yil)" hint="odatda 2%"><Input type="number" step="0.1" value={ins.insuranceRate != null ? +(ins.insuranceRate * 100).toFixed(2) : ''} onChange={(e) => setIns({ insuranceRate: e.target.value === '' ? null : Number(e.target.value) / 100 })} /></Field>
             <Field label="Sug‘urta summasi" hint="polis ×130%"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
             <Field label="Sug‘urta puli" hint="summa ×2%/yil"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           </div>
