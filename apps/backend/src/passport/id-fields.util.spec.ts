@@ -8,6 +8,9 @@ describe('ddmmyyyyToIso', () => {
   it('parses a space-separated date (passport)', () => {
     expect(ddmmyyyyToIso('15 06 2017')).toBe('2017-06-15T00:00:00.000Z');
   });
+  it('parses a date where OCR read a dot as a comma ("07,03.2024")', () => {
+    expect(ddmmyyyyToIso('_07,03.2024 a')).toBe('2024-03-07T00:00:00.000Z');
+  });
   it('rejects junk', () => {
     expect(ddmmyyyyToIso('x')).toBeNull();
     expect(ddmmyyyyToIso('40.13.2025')).toBeNull();
@@ -135,6 +138,10 @@ describe('extractIdBackViz', () => {
     const v = extractIdBackViz(t);
     expect(v.placeOfBirth).toBe("QORAKO'L TUMANI");
     expect(v.issuer).toBe('IIV 6230'); // OCR read IIV→HV; normalized back by the trailing V
+  });
+  it('recovers a place word whose suffix OCR mangled ("TUMAN!" with digits around it)', () => {
+    const t = ["m i: 264508 QORAKO'L TUMAN! 7", 'Place of issue', 'IIV 6230'].join('\n');
+    expect(extractIdBackViz(t).placeOfBirth).toBe("QORAKO'L TUMAN");
   });
   it('drops a short all-caps OCR prefix like "QF" from the place of birth', () => {
     const t = ['Place of birth', 'QF ZAFAROBOD TUMANI', 'Place of issue', 'IIV 1234'].join('\n');

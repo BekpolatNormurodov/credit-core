@@ -15,9 +15,10 @@ export interface IdBackViz {
   issuer: string;
 }
 
-/** "21.01.2025" or "15 06 2017" → ISO at UTC midnight, or null. (ID uses dots; passport uses spaces.) */
+/** "21.01.2025" / "15 06 2017" / "07,03.2024" → ISO at UTC midnight, or null. Separators are OCR-noisy
+ *  (a printed dot reads as '.', ',', ' ', '-', '/' or a stray combination), so accept any run of them. */
 export function ddmmyyyyToIso(s: string | null | undefined): string | null {
-  const m = (s ?? '').match(/(\d{2})[.\s\-/](\d{2})[.\s\-/](\d{4})/);
+  const m = (s ?? '').match(/(\d{2})[.,\s\-/]+(\d{2})[.,\s\-/]+(\d{4})/);
   if (!m) return null;
   const dd = +m[1], mm = +m[2], yyyy = +m[3];
   if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
@@ -117,6 +118,9 @@ export function extractIdFront(text: string): IdFrontFields {
 function capsPhrase(s: string): string {
   return s
     .split(/\s+/)
+    // Strip digits/punctuation clinging to a token so OCR noise doesn't kill a real word:
+    // "TUMAN!" → "TUMAN", "264508" → "" (dropped). Apostrophes (QORAKO'L) are kept.
+    .map((t) => t.replace(/[^A-Za-z'`‘’]/g, ''))
     .filter((t) => /^[A-Z][A-Z'`‘’]{2,}$/.test(t) && !NAME_STOP.has(t.replace(/['`‘’]/g, '')))
     .join(' ');
 }
