@@ -54,11 +54,14 @@ export function monthlyPaymentFor(
   return Math.round(pmt(r, termMonths, principal));
 }
 
-/** Max term (months) per repayment method. */
+/** Max term (months) per repayment method — the TRANCHE (credit contract) repayment schedule. */
 export const TERM_CAP: Record<RepaymentMethod, number> = {
   [RepaymentMethod.ANNUITY]: 30,
   [RepaymentMethod.DIFFERENTIATED]: 48,
 };
+/** Max РКЛ (bosh kelishuv liniyasi) duration. The line opens for up to 60 months; individual credit
+ *  contracts (tranches) drawn under it run up to 48 (differential) / 30 (annuity). */
+export const LINE_TERM_CAP = 60;
 export function termCapFor(method: RepaymentMethod): number {
   return TERM_CAP[method] ?? TERM_CAP[RepaymentMethod.ANNUITY];
 }
@@ -69,18 +72,23 @@ export function isTermValid(method: RepaymentMethod, term: number | null | undef
 export interface LoanRuleInput {
   scheduleType?: RepaymentMethod | null;
   trancheTermMonths?: number | null;
+  lineTermMonths?: number | null;
 }
 
 /**
- * Server-authoritative term-cap check. The schedule cap (annuity 30 / differential 48) applies to the
- * TRANCHE repayment only — NOT the РКЛ line duration, which is the overall facility term and can run
- * longer (e.g. 60 months with annuity tranches). Empty array = valid.
+ * Server-authoritative term-cap checks. Two independent caps:
+ *  - the TRANCHE (credit contract) repayment schedule: annuity ≤30 / differential ≤48;
+ *  - the РКЛ (bosh kelishuv liniyasi) duration: ≤60 months, regardless of schedule.
+ * Empty array = valid.
  */
 export function loanRuleViolations(i: LoanRuleInput): string[] {
   const errs: string[] = [];
   const m = i.scheduleType ?? undefined;
   if (m && i.trancheTermMonths != null && !isTermValid(m, i.trancheTermMonths)) {
     errs.push(`Transh muddati ${termCapFor(m)} oydan oshmasligi kerak`);
+  }
+  if (i.lineTermMonths != null && (i.lineTermMonths <= 0 || i.lineTermMonths > LINE_TERM_CAP)) {
+    errs.push(`Liniya (bosh kelishuv) muddati ${LINE_TERM_CAP} oydan oshmasligi kerak`);
   }
   return errs;
 }

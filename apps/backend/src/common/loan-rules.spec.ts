@@ -9,9 +9,11 @@ describe('loanRuleViolations', () => {
     expect(loanRuleViolations({ scheduleType: 'ANNUITY', trancheTermMonths: 31 })).toHaveLength(1);
     expect(loanRuleViolations({ scheduleType: 'DIFFERENTIATED', trancheTermMonths: 49 })).toHaveLength(1);
   });
-  it('does NOT cap the РКЛ line duration by the tranche schedule (line can run 60mo)', () => {
-    // Only the tranche term is passed; a longer line term is not this rule's concern.
-    expect(loanRuleViolations({ scheduleType: 'ANNUITY', trancheTermMonths: 30 })).toEqual([]);
+  it('caps the РКЛ line at 60 months, independent of the tranche schedule', () => {
+    // Line 60 with an annuity (30-cap) tranche is fine — the line cap is its own rule.
+    expect(loanRuleViolations({ scheduleType: 'ANNUITY', trancheTermMonths: 30, lineTermMonths: 60 })).toEqual([]);
+    expect(loanRuleViolations({ lineTermMonths: 61 })).toHaveLength(1);
+    expect(loanRuleViolations({ lineTermMonths: 0 })).toHaveLength(1);
   });
   it('is silent when scheduleType or term is missing', () => {
     expect(loanRuleViolations({ trancheTermMonths: 99 })).toEqual([]);

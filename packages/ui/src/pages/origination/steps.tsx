@@ -4,7 +4,7 @@ import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
-  INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET,
+  INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP,
   monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
@@ -188,7 +188,7 @@ export function Step3({ f }: { f: OriginationForm }) {
           <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
           <Field label="Summa — polis"><MoneyInput value={l.amountPolis ?? null} onChange={(v) => setLine({ amountPolis: v })} /></Field>
           <Field label="Jami summa" required hint="auto = avto + polis" error={f.attempted ? f.errors.amountTotal : undefined}><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-          <Field label="Liniya muddati (oy)" required error={f.attempted ? f.errors.lineTerm : undefined}><Input type="number" value={l.termMonths ?? ''} onChange={(e) => setLine({ termMonths: numv(e.target.value) })} /></Field>
+          <Field label="Liniya muddati (oy)" required hint={`max ${LINE_TERM_CAP} oy (bosh kelishuv)`} error={(l.termMonths ?? 0) > LINE_TERM_CAP ? `Liniya muddati ${LINE_TERM_CAP} oydan oshmasligi kerak` : f.attempted ? f.errors.lineTerm : undefined}><Input type="number" min={1} max={LINE_TERM_CAP} value={l.termMonths ?? ''} onChange={(e) => setLine({ termMonths: numv(e.target.value) })} /></Field>
           <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
           <Field label="Yillik foiz" hint="admin belgilaydi"><Input readOnly value={`${Math.round((l.interestRate ?? minRate) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Jarima foizi"><Input readOnly value={`${Math.round((l.penaltyRate ?? 1.05) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>

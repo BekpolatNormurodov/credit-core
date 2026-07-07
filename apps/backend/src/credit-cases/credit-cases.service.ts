@@ -41,6 +41,7 @@ export class CreditCasesService {
     const errs = loanRuleViolations({
       scheduleType: l?.tranche?.scheduleType ?? null,
       trancheTermMonths: l?.tranche?.termMonths ?? null,
+      lineTermMonths: l?.termMonths ?? null,
     });
     if (errs.length) throw new ForbiddenException(errs.join('; '));
   }
@@ -416,6 +417,7 @@ export class CreditCasesService {
       const errs = loanRuleViolations({
         scheduleType: tr.scheduleType as 'ANNUITY' | 'DIFFERENTIATED',
         trancheTermMonths: tr.termMonths,
+        lineTermMonths: line.termMonths,
       });
       if (errs.length) throw new ForbiddenException(errs.join('; '));
     }

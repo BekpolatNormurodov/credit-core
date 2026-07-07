@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
-  ProductType, RepaymentMethod, loanTypeFor, isTermValid, termCapFor,
+  ProductType, RepaymentMethod, loanTypeFor, isTermValid, termCapFor, LINE_TERM_CAP,
   type UpsertCasePayload, type CaseSectionKey, type CollateralDto,
 } from '@credit-core/shared';
 
@@ -89,7 +89,11 @@ export function useOriginationForm(id?: string) {
     passportNumber: (b.passportNumber ?? '').length === 7 ? undefined : 'Raqam majburiy (7 raqam)',
     phone: b.phone ? undefined : 'Telefon majburiy',
     amountTotal: amountTotal && amountTotal > 0 ? undefined : 'Jami summa majburiy',
-    lineTerm: line?.termMonths && line.termMonths > 0 ? undefined : 'Liniya muddati majburiy',
+    lineTerm: !line?.termMonths || line.termMonths <= 0
+      ? 'Liniya muddati majburiy'
+      : line.termMonths > LINE_TERM_CAP
+        ? `Liniya muddati ${LINE_TERM_CAP} oydan oshmasligi kerak`
+        : undefined,
     collateral: hasValuedCollateral ? undefined : 'Kamida 1 garov (kelishilgan qiymat) majburiy',
     scheduleType: method ? undefined : 'Jadval turini tanlang',
     trancheTerm: !method
