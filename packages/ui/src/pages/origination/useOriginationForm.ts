@@ -113,6 +113,9 @@ export function useOriginationForm(id?: string) {
     4: [],
   };
   const stepHasErrors = (s: number) => (STEP_ERRORS[s] ?? []).some((k) => errors[k]);
+  // A step is "complete" (green ✓) only when it actually HAS required fields and all are satisfied.
+  // Steps with no required fields (employment, KATM) are never "complete" — they aren't green.
+  const stepComplete = (s: number) => (STEP_ERRORS[s] ?? []).length > 0 && !stepHasErrors(s);
   const valid = (Object.keys(errors) as ErrKey[]).every((k) => !errors[k]);
 
   /** Persist one section (autosave). Creates the case first if it doesn't exist yet. */
@@ -148,7 +151,7 @@ export function useOriginationForm(id?: string) {
   return {
     form, setForm, patch, setBorrower, setCol, addCol, removeCol,
     setContact, addContact, removeContact,
-    step, setStep, saving, attempted, setAttempted, errors, valid, stepHasErrors, saveSection, save,
+    step, setStep, saving, attempted, setAttempted, errors, valid, stepHasErrors, stepComplete, saveSection, save,
     caseId, ensureCase,
     loanType: loanTypeFor(amountTotal),
   };

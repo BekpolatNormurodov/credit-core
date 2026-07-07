@@ -62,9 +62,9 @@ export function OriginationWizard() {
         <div className="space-y-6">
           <ol className="flex flex-wrap gap-2">
             {STEPS.map((s, i) => {
-              const current = i === f.step;
-              const complete = !f.stepHasErrors(i); // all required fields on this step are satisfied
-              const invalid = f.attempted && !complete && !current;
+              const current = i === f.step; // selected
+              const complete = f.stepComplete(i); // has required fields AND all filled correctly
+              const invalid = f.attempted && f.stepHasErrors(i); // touched, still missing a required field
               return (
                 <li key={i}>
                   <button
@@ -72,18 +72,19 @@ export function OriginationWizard() {
                     aria-current={current ? 'step' : undefined}
                     className={cn(
                       'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
-                      current
-                        ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400'
+                      current && 'ring-2 ring-brand-500/40', // selected — always visibly distinct
+                      complete
+                        ? 'border-success-300 bg-success-50 text-success-700 dark:border-success-500/40 dark:bg-success-500/10 dark:text-success-400'
                         : invalid
                           ? 'border-error-300 bg-error-50 text-error-700 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400'
-                          : complete
-                            ? 'border-success-300 bg-success-50 text-success-700 dark:border-success-500/40 dark:bg-success-500/10 dark:text-success-400'
+                          : current
+                            ? 'border-brand-500 bg-brand-50 text-brand-700 dark:border-brand-500/40 dark:bg-brand-500/10 dark:text-brand-400'
                             : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/5',
                     )}
                   >
                     <span className={cn(
                       'flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold',
-                      current ? 'bg-brand-600 text-white' : invalid ? 'bg-error-600 text-white' : complete ? 'bg-success-600 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
+                      complete ? 'bg-success-600 text-white' : invalid ? 'bg-error-600 text-white' : current ? 'bg-brand-600 text-white' : 'bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300',
                     )}>
                       {complete ? <Check className="h-3 w-3" /> : invalid ? '!' : i + 1}
                     </span>
