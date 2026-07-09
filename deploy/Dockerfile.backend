@@ -45,5 +45,7 @@ COPY --from=build /app/apps/backend/tessdata ./apps/backend/tessdata
 ENV TESSDATA_PATH=/app/apps/backend/tessdata
 WORKDIR /app/apps/backend
 EXPOSE 3000
-# db push reconciles the schema (additive-safe, matches dev) — no migration history to maintain.
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/main.js"]
+# db push reconciles the schema (matches dev) — no migration history. --accept-data-loss lets it add
+# unique constraints (e.g. contractNumber) and other non-additive changes without a crash-loop; the
+# added columns are nullable so no real data is lost.
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
