@@ -15,6 +15,7 @@ import type {
   MessageDto,
   NotificationItem,
   PassportScanResult,
+  ReMflContractDto,
   Role,
   StatsResponse,
   StepDeadlineSetting,
@@ -117,6 +118,16 @@ export const api = {
   },
   async searchCases(q: string): Promise<CreditCaseListItem[]> {
     const { data } = await http.get<CreditCaseListItem[]>('/cases/search', { params: { q } });
+    return data;
+  },
+  /** Qayta MFL: search existing clients by name / PINFL / phone / passport number. */
+  async searchReMfl(term: string): Promise<ReMflContractDto[]> {
+    const { data } = await http.get<ReMflContractDto[]>('/cases/re-mfl/search', { params: { term } });
+    return data;
+  },
+  /** Qayta MFL: create a new draft linked to the chosen source contract. */
+  async createReMfl(sourceCaseId: string): Promise<CreditCaseDto> {
+    const { data } = await http.post<CreditCaseDto>('/cases/re-mfl', { sourceCaseId });
     return data;
   },
   async createCase(payload: UpsertCasePayload): Promise<CreditCaseDto> {
