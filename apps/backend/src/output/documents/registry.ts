@@ -6,6 +6,7 @@ import { creditApplicationTemplate } from './templates/credit-application';
 import { prikazTemplate } from './templates/prikaz';
 import { protokolTemplate } from './templates/protokol';
 import { scoreReportTemplate } from './templates/score-report';
+import { rklGenTemplate } from './templates/rkl-gen';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
 
@@ -16,4 +17,5 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; bu
   prikaz: { title: 'Buyruq (Приказ на сделку)', lang: 'uz', build: prikazTemplate },
   protokol: { title: 'Protokol (Протокол)', lang: 'uz', build: protokolTemplate },
   scoreReport: { title: 'Score hisoboti (Score отчет)', lang: 'uz', build: scoreReportTemplate },
+  rklGen: { title: 'Bosh kelishuv (РКЛ Ген)', lang: 'uz', build: rklGenTemplate },
 };
