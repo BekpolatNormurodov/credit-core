@@ -392,23 +392,26 @@ export class CreditCasesService {
     return this.getOne(id);
   }
 
-  /** Qayta MFL: find existing clients by name / PINFL / phone / passport number. Returns their
-   *  numbered contracts (only ones already assigned a contract number) with status/date/amount so
-   *  the operator can pick which one's MFL identifier (yearly+branch) to reuse. */
+  /** Qayta MFL: find existing clients by name / PINFL / phone / passport number. Returns ALL of
+   *  their cases (not only numbered ones) with status/date/amount so the operator can pick one.
+   *  If the chosen case has a contract number, its MFL identifier (yearly+branch) is reused; if
+   *  not, the Qayta MFL draft gets a fresh number at submit. */
   async searchReMfl(term: string): Promise<ReMflContractDto[]> {
     const t = term.trim();
+    // An empty term lists the most recent cases (the frontend gates min length, but stay robust).
     const cases = await this.prisma.creditCase.findMany({
-      where: {
-        contractNumber: { not: null },
-        borrower: {
-          OR: [
-            { fullName: { contains: t } },
-            { pinfl: { contains: t } },
-            { phone: { contains: t } },
-            { passportNumber: { contains: t } },
-          ],
-        },
-      },
+      where: t
+        ? {
+            borrower: {
+              OR: [
+                { fullName: { contains: t } },
+                { pinfl: { contains: t } },
+                { phone: { contains: t } },
+                { passportNumber: { contains: t } },
+              ],
+            },
+          }
+        : {},
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: { borrower: { select: { fullName: true } } },
