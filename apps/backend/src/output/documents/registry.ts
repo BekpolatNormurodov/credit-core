@@ -7,6 +7,7 @@ import { prikazTemplate } from './templates/prikaz';
 import { protokolTemplate } from './templates/protokol';
 import { scoreReportTemplate } from './templates/score-report';
 import { rklGenTemplate } from './templates/rkl-gen';
+import { actTemplate } from './templates/act';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
 
@@ -18,4 +19,5 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; bu
   protokol: { title: 'Protokol (Протокол)', lang: 'uz', build: protokolTemplate },
   scoreReport: { title: 'Score hisoboti (Score отчет)', lang: 'uz', build: scoreReportTemplate },
   rklGen: { title: 'Bosh kelishuv (РКЛ Ген)', lang: 'uz', build: rklGenTemplate },
+  act: { title: 'Kelishuv akti (Акт согласования)', lang: 'uz', build: actTemplate },
 };
