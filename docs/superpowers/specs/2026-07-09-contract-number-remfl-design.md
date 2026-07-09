@@ -113,6 +113,14 @@ Workflow transition ичida, `WorkflowDecision.SUBMIT` + `DRAFT → MODERATION` 
 Avval Feature A tugatiladi (spec → reja → code), keyin quyidagilar navbat bilan:
 
 - **Feature B** — Sug'urta muddat bracketlari: ≤2 yil → 2%, 2–4 yil → 4% (hozirgi 2%/yil o'rniga); 80/20 summa taqsimi tafsilotlari; buxgalter ko'rinishi.
-- **Feature C — Ariza xati** — Director ko'rigida **fayl biriktirmaydi**, **"Imzolash"** tugmasini bosadi → **Ariza xati** avto shakllanadi (PDF, mavjud DOC_REGISTRY tizimida). Bu hozirgi "yakuniy fayl biriktirish shart" talabini **almashtiradi**. Mijoz tasdiqlangach ariza xatini ochib/print qilib, 2–3 joyda qo'lda imzolaydi. Shablon namunasi tuziladi.
+- **Feature C — Hujjatlar generatsiyasi (director "Imzolash")** — Director ko'rigida **fayl biriktirmaydi**, **"Imzolash"** tugmasini bosadi → quyidagi hujjatlar to'plami **PDF** qilib avto generatsiya bo'ladi. Bosilganda **"Generatsiya bo'lyapti…"** xabari ko'rsatiladi. Bu hozirgi "yakuniy fayl biriktirish shart" talabini **almashtiradi**. Mijoz tasdiqlangach hujjatlarni (ayniqsa Ходатайство/Ariza xati) ochib/print qilib, 2–3 joyda qo'lda imzolaydi.
+  Hujjatlar (mavjud DOC_REGISTRY + SP-6 tizimida):
+  1. **Ходатайство** (Ariza xati / murojaatnoma) — *mavjud (petition.ts)*
+  2. **Протокол** (qo'mita protokoli) — *yangi*
+  3. **РКЛ Ген** (bosh kelishuv liniyasi shartnomasi) — *yangi* (matn: "…ушбу Келишувнинг ажралмас қисми…")
+  4. **Score отчет** (skoring hisoboti) — *yangi*
+  5. **Акт согласования** (kelishuv/baholash akti) — *mavjud (pdf.service valuationAct)*
+  6. **Приказ** (buyruq) — *yangi*
+  Har hujjatning aniq mazmuni/bo'limlari Feature C spec'ida (eski namunalardan olinadi).
 - **KATM required** — Step 5 (KATM) maydonlari **majburiy** bo'ladi, bazaga yoziladi, "yashil galochka" mantiqiga qo'shiladi.
 - **To'lov sanasi — ish kuni moslashuvi** — Har oylik to'lov sanasi dam olish (Sha/Ya) yoki O'zbekistonning 8 ta doimiy bayramiga (1-yan, 14-yan, 8-mar, 21-mar, 9-may, 1-sen, 1-okt, 8-dek) tushsa → **keyingi ish kuniga** suriladi. Mavjud `business-days.ts` faqat dam olishni biladi; 8 bayram qo'shiladi (yalpi holiday ro'yxati + `isHoliday`). Faqat to'lov sanalariga qo'llanadi (SLA'ga emas).
