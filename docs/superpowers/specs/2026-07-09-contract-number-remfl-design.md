@@ -108,7 +108,10 @@ Workflow transition ичida, `WorkflowDecision.SUBMIT` + `DRAFT → MODERATION` 
 - Unique cheklov: `contractNumber` takrorlanmaydi.
 - Qidiruv: passport/PINFL/telefon/F.I.O bo'yicha topadi, status+sana+summa qaytaradi.
 
-## 9. Qamrovdan tashqari (keyingi spec — Feature B)
+## 9. Qamrovdan tashqari (keyingi spec/feature'lar)
 
-- Sug'urta muddat bracketlari: ≤2 yil → 2%, 2–4 yil → 4% (hozirgi 2%/yil o'rniga).
-- 80/20 summa taqsimi tafsilotlari, "Ariza xati" (eng ohirida), buxgalter ko'rinishi.
+Avval Feature A tugatiladi (spec → reja → code), keyin quyidagilar navbat bilan:
+
+- **Feature B** — Sug'urta muddat bracketlari: ≤2 yil → 2%, 2–4 yil → 4% (hozirgi 2%/yil o'rniga); 80/20 summa taqsimi tafsilotlari; buxgalter ko'rinishi.
+- **Feature C — Ariza xati** — Director ko'rigida **fayl biriktirmaydi**, **"Imzolash"** tugmasini bosadi → **Ariza xati** avto shakllanadi (PDF, mavjud DOC_REGISTRY tizimida). Bu hozirgi "yakuniy fayl biriktirish shart" talabini **almashtiradi**. Mijoz tasdiqlangach ariza xatini ochib/print qilib, 2–3 joyda qo'lda imzolaydi. Shablon namunasi tuziladi.
+- **KATM required** — Step 5 (KATM) maydonlari **majburiy** bo'ladi, bazaga yoziladi, "yashil galochka" mantiqiga qo'shiladi.
