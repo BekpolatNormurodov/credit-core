@@ -297,16 +297,19 @@ export function Step5({ f }: { f: OriginationForm }) {
   const set = (p: Partial<Hist>) => f.patch({ creditHistory: { ...h, ...p } as Hist });
   return (
     <Card className="space-y-4">
-      <h2 className="font-semibold text-gray-800 dark:text-white">KATM — kredit tarixi</h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-semibold text-gray-800 dark:text-white">KATM — kredit tarixi</h2>
+        {f.attempted && f.errors.katm && <span className="text-xs font-medium text-error-600 dark:text-error-500">{f.errors.katm}</span>}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="To‘langan kreditlar soni"><Input type="number" value={h.repaidLoansCount ?? ''} onChange={(e) => set({ repaidLoansCount: numv(e.target.value) })} /></Field>
-        <Field label="Aktiv kreditlar soni"><Input type="number" value={h.activeLoansCount ?? ''} onChange={(e) => set({ activeLoansCount: numv(e.target.value) })} /></Field>
-        <Field label="Muddati o‘tgan (0/1)"><Input type="number" value={h.overdueSubstandardFlag ?? ''} onChange={(e) => set({ overdueSubstandardFlag: numv(e.target.value) })} /></Field>
-        <Field label="Boshqa majburiyatlar"><Input type="number" value={h.otherObligations ?? ''} onChange={(e) => set({ otherObligations: numv(e.target.value) })} /></Field>
-        <Field label="5 mln+ kredit"><Select value={(h.loansOver5MFlag ?? '') as string} onChange={(v) => set({ loansOver5MFlag: v })} options={opt(['Мавжуд', 'Мавжуд эмас'])} /></Field>
-        <Field label="MKO/lombard tarixi"><Select value={(h.priorMfiPawnshopFlag ?? '') as string} onChange={(v) => set({ priorMfiPawnshopFlag: v })} options={opt(['Мавжуд', 'Мавжуд эмас'])} /></Field>
-        <Field label="Jami qarz"><MoneyInput value={h.totalOutstandingDebt ?? null} onChange={(v) => set({ totalOutstandingDebt: v })} /></Field>
-        <Field label="O‘rtacha oylik to‘lov"><MoneyInput value={h.avgMonthlyPaymentExisting ?? null} onChange={(v) => set({ avgMonthlyPaymentExisting: v })} /></Field>
+        <Field label="To‘langan kreditlar soni" required><Input type="number" value={h.repaidLoansCount ?? ''} onChange={(e) => set({ repaidLoansCount: numv(e.target.value) })} /></Field>
+        <Field label="Aktiv kreditlar soni" required><Input type="number" value={h.activeLoansCount ?? ''} onChange={(e) => set({ activeLoansCount: numv(e.target.value) })} /></Field>
+        <Field label="Muddati o‘tgan (0/1)" required><Input type="number" value={h.overdueSubstandardFlag ?? ''} onChange={(e) => set({ overdueSubstandardFlag: numv(e.target.value) })} /></Field>
+        <Field label="Boshqa majburiyatlar" required><Input type="number" value={h.otherObligations ?? ''} onChange={(e) => set({ otherObligations: numv(e.target.value) })} /></Field>
+        <Field label="5 mln+ kredit" required><Select value={(h.loansOver5MFlag ?? '') as string} onChange={(v) => set({ loansOver5MFlag: v })} options={opt(['Мавжуд', 'Мавжуд эмас'])} /></Field>
+        <Field label="MKO/lombard tarixi" required><Select value={(h.priorMfiPawnshopFlag ?? '') as string} onChange={(v) => set({ priorMfiPawnshopFlag: v })} options={opt(['Мавжуд', 'Мавжуд эмас'])} /></Field>
+        <Field label="Jami qarz" required><MoneyInput value={h.totalOutstandingDebt ?? null} onChange={(v) => set({ totalOutstandingDebt: v })} /></Field>
+        <Field label="O‘rtacha oylik to‘lov" required><MoneyInput value={h.avgMonthlyPaymentExisting ?? null} onChange={(v) => set({ avgMonthlyPaymentExisting: v })} /></Field>
         <Field label="Komitet protokoli"><Input value={h.committeeProtocolRef ?? ''} onChange={(e) => set({ committeeProtocolRef: e.target.value })} /></Field>
         <Field label="Komitet qarori sanasi"><DatePicker value={h.committeeDecisionDate ?? null} onChange={(iso) => set({ committeeDecisionDate: iso })} /></Field>
       </div>

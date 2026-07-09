@@ -86,6 +86,11 @@ export function useOriginationForm(id?: string) {
   const amountTotal = line?.amountTotal ?? form.amount ?? null;
   const hasValuedCollateral = form.collaterals.some((c) => (c.agreedValue ?? 0) > 0);
   const validContacts = (b.closeContacts ?? []).filter((c) => c.fullName?.trim() && c.phone?.trim());
+  const h = form.creditHistory;
+  const katmFilled = !!h
+    && h.repaidLoansCount != null && h.activeLoansCount != null && h.overdueSubstandardFlag != null
+    && h.otherObligations != null && !!h.loansOver5MFlag && !!h.priorMfiPawnshopFlag
+    && h.totalOutstandingDebt != null && h.avgMonthlyPaymentExisting != null;
   const errors = {
     fullName: b.fullName.trim() ? undefined : 'F.I.O majburiy',
     contacts: validContacts.length >= 2 ? undefined : 'Kamida 2 ta yaqin kishi (ism + telefon) majburiy',
@@ -107,6 +112,7 @@ export function useOriginationForm(id?: string) {
         ? undefined
         : `Muddat 1–${termCapFor(method)} oy oralig‘ida`,
     principal: tr?.principal && tr.principal > 0 ? undefined : 'Asosiy summa majburiy',
+    katm: katmFilled ? undefined : 'KATM bo‘limi to‘liq to‘ldirilishi shart',
   } as const;
   type ErrKey = keyof typeof errors;
   // Which errors belong to which wizard step (index in OriginationWizard.STEPS).
@@ -115,7 +121,7 @@ export function useOriginationForm(id?: string) {
     1: [],
     2: ['amountTotal', 'lineTerm', 'collateral'],
     3: ['scheduleType', 'trancheTerm', 'principal'],
-    4: [],
+    4: ['katm'],
   };
   const stepHasErrors = (s: number) => (STEP_ERRORS[s] ?? []).some((k) => errors[k]);
   // A step is "complete" (green ✓) only when it actually HAS required fields and all are satisfied.
