@@ -11,7 +11,7 @@ import {
 } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Field, Input, Skeleton, StatusBadge } from '../components/primitives';
-import { Modal, ConfirmDialog } from '../components/Modal';
+import { Modal } from '../components/Modal';
 import { DeadlineBadge } from '../components/DeadlineBadge';
 import { Select, MoneyInput } from '../components/forms';
 import { CaseTimeline } from '../components/CaseTimeline';
@@ -84,6 +84,7 @@ export function CaseView() {
   const [katm, setKatm] = useState('');
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseDays, setPauseDays] = useState(2);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -123,14 +124,14 @@ export function CaseView() {
   const resumeMut = useMutation({ mutationFn: () => api.resumeCase(id!), onSuccess: refresh });
   const openPause = () => { setPauseDays(Math.min(2, maxPauseDays)); setPauseOpen(true); };
   const deleteMut = useMutation({
-    mutationFn: () => api.deleteCase(id!),
+    mutationFn: () => api.deleteCase(id!, deleteReason.trim()),
     onSuccess: () => {
       setDeleteOpen(false);
       qc.invalidateQueries({ queryKey: ['cases'] });
       toast.success('O‘chirildi', 'Qoralama o‘chirildi');
       navigate('/');
     },
-    onError: () => { setDeleteOpen(false); toast.error('Xatolik', 'O‘chirib bo‘lmadi'); },
+    onError: () => toast.error('Xatolik', 'O‘chirib bo‘lmadi'),
   });
 
   if (isLoading || !c) return <CaseViewSkeleton />;
@@ -185,7 +186,7 @@ export function CaseView() {
               <Link to={`/cases/${c.id}/origination`}><Button variant="secondary"><Pencil className="h-5 w-5" /> Tahrirlash</Button></Link>
             )}
             {canDeleteDraft && (
-              <Button variant="danger" onClick={() => setDeleteOpen(true)}><Trash2 className="h-5 w-5" /> O‘chirish</Button>
+              <Button variant="danger" onClick={() => { setDeleteReason(''); setDeleteOpen(true); }}><Trash2 className="h-5 w-5" /> O‘chirish</Button>
             )}
           </div>
         )}
@@ -421,15 +422,32 @@ export function CaseView() {
         {activeSection === 'history' && <CaseTimeline events={c.events} />}
       </Modal>
 
-      <ConfirmDialog
+      <Modal
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        onConfirm={() => deleteMut.mutate()}
-        title="Qoralamani o‘chirasizmi?"
-        message={`«${c.number}» butunlay o‘chiriladi — bu amalni orqaga qaytarib bo‘lmaydi.`}
-        confirmLabel="O‘chirish"
-        loading={deleteMut.isPending}
-      />
+        size="sm"
+        title="Qoralamani o‘chirish"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteOpen(false)}>Bekor qilish</Button>
+            <Button variant="danger" loading={deleteMut.isPending} disabled={!deleteReason.trim()} onClick={() => deleteMut.mutate()}>O‘chirish</Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="flex gap-3.5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-error-50 text-error-600 dark:bg-error-500/10">
+              <Trash2 className="h-6 w-6" />
+            </span>
+            <p className="pt-0.5 text-sm text-gray-600 dark:text-gray-300">
+              <b className="text-gray-800 dark:text-white">«{c.number}»</b> butunlay o‘chiriladi — bu amalni orqaga qaytarib bo‘lmaydi.
+            </p>
+          </div>
+          <Field label="O‘chirish sababi (majburiy)">
+            <Input value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} placeholder="Masalan: mijoz voz kechdi / xato kiritilgan" autoFocus />
+          </Field>
+        </div>
+      </Modal>
 
       <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} size="sm" title="Arizani bekor qilish" description="Qanday davom etamiz?">
         <div className="space-y-2.5">

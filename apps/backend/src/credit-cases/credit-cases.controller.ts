@@ -7,7 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { CreditCasesService } from './credit-cases.service';
 import { exportCasesListToExcel } from '../output/excel-export.util';
-import { CaseSectionDto, ReMflCreateDto, ReMflSearchDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
+import { CaseSectionDto, DeleteCaseDto, ReMflCreateDto, ReMflSearchDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases')
@@ -76,11 +76,12 @@ export class CreditCasesController {
   }
 
   // Operator deletes their own draft; admin deletes any draft. Guarded again in the service.
+  // A reason is required and recorded in the audit log.
   @UseGuards(RolesGuard)
   @Roles(Role.OPERATOR, Role.ADMIN)
   @Delete(':id')
-  delete(@Param('id') id: string, @CurrentUser() user: RequestUser) {
-    return this.service.deleteCase(id, user);
+  delete(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: DeleteCaseDto) {
+    return this.service.deleteCase(id, user, dto.reason);
   }
 
   @Post(':id/transition')

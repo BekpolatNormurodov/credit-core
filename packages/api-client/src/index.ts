@@ -138,9 +138,9 @@ export const api = {
     const { data } = await http.put<CreditCaseDto>(`/cases/${id}`, payload);
     return data;
   },
-  /** Delete a DRAFT case (operator: own draft only; admin: any draft). */
-  async deleteCase(id: string): Promise<void> {
-    await http.delete(`/cases/${id}`);
+  /** Delete a DRAFT case (operator: own draft only; admin: any draft). Reason is required. */
+  async deleteCase(id: string, reason: string): Promise<void> {
+    await http.delete(`/cases/${id}`, { data: { reason } });
   },
   async saveCaseSection(id: string, payload: CaseSectionPayload): Promise<CreditCaseDto> {
     const { data } = await http.patch<CreditCaseDto>(`/cases/${id}/section`, payload);
