@@ -18,7 +18,7 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
   const amount = Number(line?.amountTotal ?? c.amount ?? 0);
   const term = line?.termMonths ?? 60;
   const ratePct = line?.interestRate != null ? Math.round(Number(line.interestRate) * 100) : 55;
-  const activity = [b?.entrepreneurType, b?.entrepreneurCertNo].filter(Boolean).join(' № ') || (c.employment?.sector ?? '—');
+  const activity = [b?.entrepreneurType, b?.entrepreneurCertNo].filter(Boolean).join(' № ') || '—';
   const OK = 'Талабларга мос келади';
 
   return {
