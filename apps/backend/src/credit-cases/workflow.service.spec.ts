@@ -36,23 +36,13 @@ describe('WorkflowService', () => {
     ).toThrow(ForbiddenException);
   });
 
-  it('requires final docs for director approval', () => {
-    expect(() =>
-      svc.resolve({
-        currentStatus: CaseStatus.DIRECTOR_REVIEW,
-        role: Role.DIRECTOR,
-        decision: WorkflowDecision.APPROVE,
-        documentTypes: [DocumentType.NOTARY],
-      }),
-    ).toThrow(BadRequestException);
-  });
-
-  it('lets director approve once a final doc is attached', () => {
+  it('lets director sign (Imzolash) without any attached final doc', () => {
+    // Feature C: no file attach required; the document set is generated on demand.
     const rule = svc.resolve({
       currentStatus: CaseStatus.DIRECTOR_REVIEW,
       role: Role.DIRECTOR,
       decision: WorkflowDecision.APPROVE,
-      documentTypes: [DocumentType.DIRECTOR_FINAL],
+      documentTypes: [],
     });
     expect(rule.to).toBe(CaseStatus.ADMIN_FINALIZE);
   });

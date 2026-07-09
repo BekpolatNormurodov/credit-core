@@ -96,9 +96,16 @@ export function CaseView() {
     qc.invalidateQueries({ queryKey: ['cases'] });
   };
 
+  const toast = useToast();
   const transition = useMutation({
     mutationFn: (decision: WorkflowDecision) => api.transition(id!, { decision, comment: comment || undefined }),
-    onSuccess: () => { setComment(''); refresh(); },
+    onSuccess: (_data, decision) => {
+      setComment(''); refresh();
+      // Director "Imzolash" (approve) → the document set is generated on demand from the registry.
+      if (decision === WorkflowDecision.APPROVE && user?.role === Role.DIRECTOR && c?.status === CaseStatus.DIRECTOR_REVIEW) {
+        toast.success('Imzolandi', 'Hujjatlar generatsiya bo‘lyapti — «Hujjatlar» bo‘limidan ko‘ring');
+      }
+    },
   });
 
   const upload = useMutation({
@@ -121,7 +128,6 @@ export function CaseView() {
   const myTransitions = TRANSITIONS.filter((t) => t.from === c.status && t.role === role);
   const isOperatorDraft = role === Role.OPERATOR && c.status === CaseStatus.DRAFT;
   const isDirectorReview = role === Role.DIRECTOR && c.status === CaseStatus.DIRECTOR_REVIEW;
-  const hasFinalDoc = c.documents.some((d) => d.type === DocumentType.DIRECTOR_FINAL);
   const isAdminFinalize = role === Role.ADMIN && c.status === CaseStatus.ADMIN_FINALIZE;
   const canUpload = isOperatorDraft || isDirectorReview;
   const canManageDocs = canUpload || role === Role.ADMIN;
@@ -280,25 +286,24 @@ export function CaseView() {
                     />
                   </div>
                   <div className="space-y-2">
-                    {isDirectorReview && !hasFinalDoc && (
-                      <p className="flex items-center gap-2 rounded-lg bg-warning-50 px-3 py-2 text-xs text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">
-                        <FileText className="h-4 w-4 shrink-0" /> Tasdiqlash uchun yakuniy hujjat biriktiring.
+                    {isDirectorReview && (
+                      <p className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
+                        <FileText className="h-4 w-4 shrink-0" /> «Imzolash» bosilsa hujjatlar avtomatik generatsiya bo‘ladi — fayl biriktirish shart emas.
                       </p>
                     )}
                     {inlineTransitions.map((t) => {
                       const Icon = decisionIcon[t.decision];
                       const busy = transition.isPending && transition.variables === t.decision;
-                      const blockApprove = isDirectorReview && t.decision === WorkflowDecision.APPROVE && !hasFinalDoc;
+                      const isSign = isDirectorReview && t.decision === WorkflowDecision.APPROVE;
                       return (
                         <Button
                           key={t.decision}
                           variant={t.decision === WorkflowDecision.RETURN ? 'secondary' : 'primary'}
                           className="w-full"
                           loading={busy}
-                          disabled={blockApprove}
                           onClick={() => transition.mutate(t.decision)}
                         >
-                          {!busy && <Icon className="h-5 w-5" />} {transitionLabel(t)}
+                          {!busy && <Icon className="h-5 w-5" />} {isSign ? 'Imzolash' : transitionLabel(t)}
                         </Button>
                       );
                     })}
@@ -382,7 +387,6 @@ export function CaseView() {
             <Button variant="secondary" onClick={() => fileRef.current?.click()}>
               <Upload className="h-5 w-5" /> Hujjat yuklash
             </Button>
-            {isDirectorReview && <span className="text-xs text-warning-600 dark:text-warning-500">Tasdiqlash uchun yakuniy hujjat shart</span>}
           </div>
         )}
         </>)}

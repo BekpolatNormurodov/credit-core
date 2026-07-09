@@ -25,8 +25,9 @@ export const TRANSITIONS: TransitionRule[] = [
   { from: CaseStatus.MODERATION, to: CaseStatus.DIRECTOR_REVIEW, role: Role.MODERATOR, decision: WorkflowDecision.APPROVE },
   { from: CaseStatus.MODERATION, to: CaseStatus.DRAFT, role: Role.MODERATOR, decision: WorkflowDecision.RETURN },
 
-  // Director approves (must attach 1–2 final docs) → admin, or returns → moderation.
-  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.ADMIN_FINALIZE, role: Role.DIRECTOR, decision: WorkflowDecision.APPROVE, requiresFinalDocs: true },
+  // Director signs (Imzolash) → admin. No file attach required; the document set is generated on
+  // demand from the registry. Or returns → moderation.
+  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.ADMIN_FINALIZE, role: Role.DIRECTOR, decision: WorkflowDecision.APPROVE },
   { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.MODERATION, role: Role.DIRECTOR, decision: WorkflowDecision.RETURN },
 
   // Admin finalizes (KATM price + PDF + Excel) → done, or returns → director.
