@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { addBusinessDays, CaseStatus, DocumentType, hasDeadline, INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, Role } from '@credit-core/shared';
+import { addBusinessDays, CaseStatus, DocumentType, formatContractNumber, hasDeadline, INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -11,6 +11,7 @@ import {
   EmploymentInput, TransitionDto, UpsertCaseDto,
 } from './dto';
 import { isRateInBounds } from './rate.util';
+import { nextCounter } from './contract-counter';
 
 const parseDate = (s?: string | null): Date | null => (s ? new Date(s) : null);
 
@@ -394,7 +395,13 @@ export class CreditCasesService {
   async transition(id: string, user: RequestUser, dto: TransitionDto) {
     const c = await this.prisma.creditCase.findUnique({
       where: { id },
-      include: { documents: true, collaterals: { select: { id: true } }, creditLine: { include: { tranches: true } } },
+      include: {
+        documents: true,
+        collaterals: { select: { id: true } },
+        creditLine: { include: { tranches: true } },
+        branch: { select: { symbol: true } },
+        reMflSource: { select: { contractYearlyNo: true, contractBranchSym: true } },
+      },
     });
     if (!c) throw new NotFoundException('Ariza topilmadi');
 
@@ -420,6 +427,32 @@ export class CreditCasesService {
         lineTermMonths: line.termMonths,
       });
       if (errs.length) throw new ForbiddenException(errs.join('; '));
+
+      // Assign the company-wide contract number exactly once, at submit. New client: consume a new
+      // global + yearly. Qayta MFL: consume a new global, reuse the source's yearly + branch.
+      if (!c.contractNumber) {
+        await this.prisma.$transaction(async (tx) => {
+          const global = await nextCounter(tx, 'global');
+          let yearly: number;
+          let branchSym: string;
+          if (c.isReMfl && c.reMflSource?.contractYearlyNo != null) {
+            yearly = c.reMflSource.contractYearlyNo;
+            branchSym = c.reMflSource.contractBranchSym ?? c.branch?.symbol ?? 'GEN';
+          } else {
+            yearly = await nextCounter(tx, String(new Date().getFullYear()));
+            branchSym = c.branch?.symbol ?? 'GEN';
+          }
+          await tx.creditCase.update({
+            where: { id },
+            data: {
+              contractGlobalNo: global,
+              contractYearlyNo: yearly,
+              contractBranchSym: branchSym,
+              contractNumber: formatContractNumber(global, yearly, branchSym),
+            },
+          });
+        });
+      }
     }
 
     const timer = await this.stepTimerData(rule.to);
