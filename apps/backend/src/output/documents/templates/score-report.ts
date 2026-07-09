@@ -1,50 +1,54 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, kv, money } from '../doc-layout';
+import { orgHeader, kv } from '../doc-layout';
+import { amountWords } from './_shared';
 
 const VERDICT_LABEL: Record<string, string> = {
-  APPROVED: 'Ma’qullandi',
-  REVIEW: 'Kredit qo‘mitasi qaroriga havola',
-  REJECTED: 'Rad etildi',
+  APPROVED: 'Маъқулланди',
+  REVIEW: 'Кредит қўмитаси қарорига хавола',
+  REJECTED: 'Рад этилди',
 };
 
-/** Score отчет — the underwriting scoring summary for the case. */
+/** Score отчет — the underwriting scoring summary (faithful Cyrillic transcription). */
 export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
   const line = c.creditLine;
   const b = c.borrower;
   const s = c.scoring;
   const amount = Number(line?.amountTotal ?? c.amount ?? 0);
+  const term = line?.termMonths ?? 60;
   const ratePct = line?.interestRate != null ? Math.round(Number(line.interestRate) * 100) : 55;
-  const OK = 'Talablarga mos keladi';
+  const activity = [b?.entrepreneurType, b?.entrepreneurCertNo].filter(Boolean).join(' № ') || (c.employment?.sector ?? '—');
+  const OK = 'Талабларга мос келади';
 
   return {
     defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [40, 50, 40, 50],
+    pageMargins: [45, 50, 45, 50],
     content: [
       orgHeader(c.organization),
-      { text: 'SKORING TAHLIL NATIJALARI', style: 'h1', alignment: 'center', margin: [0, 0, 0, 4] },
+      { text: 'СКОРИНГ ТАҲЛИЛ НАТИЖАЛАРИ', style: 'h1', alignment: 'center', margin: [0, 0, 0, 4] },
       { text: dateToUzbekWords(s?.computedAt ?? new Date()), alignment: 'center', margin: [0, 0, 0, 12] },
-      { table: { widths: [200, '*'], body: [
-        kv('Mijoz F.I.SH.', b?.fullName ?? '—'),
-        kv('Manzil', b?.regAddress ?? b?.address ?? '—'),
-        kv('Kredit turi', 'Mikromoliya liniya'),
-        kv('Liniya limiti', money(amount)),
-        kv('Muddati', line?.termMonths != null ? `${line.termMonths} oy` : '—'),
-        kv('Foiz stavkasi', `${ratePct}%`),
+      { table: { widths: [180, '*'], body: [
+        kv('МИЖОЗ Ф.И.Ш.', b?.fullName ?? '—'),
+        kv('Манзил', b?.regAddress ?? b?.address ?? '—'),
+        kv('Фаолият тури', activity),
+        kv('Кредит тури', 'Микромолия линия'),
+        kv('Микромолия линияси лимити', `${amountWords(amount)} сўм`),
+        kv('Микромолия линияси муддати', `${term} ой`),
+        kv('Фоиз ставкаси', `${ratePct}% фоиз`),
       ] } },
-      { text: 'Skoring natijasi:', bold: true, margin: [0, 12, 0, 6] },
-      { table: { widths: [220, '*'], body: [
-        kv('Umumiy shartlar (summa, muddat, foiz)', OK),
-        kv('Garovga qo‘yilgan talablar', OK),
-        kv('Daromadlarning yetarliligi', OK),
-        kv('Muammoli kreditlar', OK),
-        kv('Joriy majburiyatlari', OK),
-        kv('Yoshga muvofiqligi', s?.age != null ? `${s.age} yosh — ${OK}` : OK),
-        kv('Skoring ball', s ? `${s.totalScore} / ${s.maxScore}` : '—'),
+      { text: 'Скоринг натижаси:', bold: true, margin: [0, 12, 0, 6] },
+      { table: { widths: [240, '*'], body: [
+        kv('Умумий шартларга (сумма, муддати, фоиз ставка)', OK),
+        kv('Гаровга қўйилган талаблар', OK),
+        kv('Даромадларнинг етарлилиги', OK),
+        kv('Муаммоли кредитлар', OK),
+        kv('Жорий мажбуриятлари', OK),
+        kv('Ёшга мувофиқлиги', s?.age != null ? `${s.age} — ${OK}` : OK),
+        kv('Скоринг балл', s ? `${s.totalScore} / ${s.maxScore}` : '—'),
       ] } },
-      { text: `XULOSA: ${s ? (VERDICT_LABEL[String(s.verdict)] ?? String(s.verdict)) : '—'}`, bold: true, margin: [0, 12, 0, 0] },
-      { text: '\nKredit menejeri imzosi ______________', margin: [0, 16, 0, 0] },
+      { text: `ХУЛОСА: ${s ? (VERDICT_LABEL[String(s.verdict)] ?? String(s.verdict)) : '—'}`, bold: true, margin: [0, 12, 0, 0] },
+      { text: '\nКредит менежери имзоси ______________', margin: [0, 16, 0, 0] },
     ],
     styles: { h1: { fontSize: 13, bold: true } },
   };
