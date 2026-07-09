@@ -15,7 +15,7 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
     content: [
       orgHeader(c.organization),
       { text: 'MIKROQARZ SHARTNOMASI', style: 'h1', alignment: 'center' },
-      { text: `${line?.lineNumber ?? c.number}`, alignment: 'center', margin: [0, 0, 0, 4] },
+      { text: `${c.contractNumber ?? line?.lineNumber ?? c.number}`, alignment: 'center', margin: [0, 0, 0, 4] },
       { text: line?.lineDate ? `Toshkent sh., ${dateToUzbekWords(line.lineDate)}` : '', alignment: 'center', margin: [0, 0, 0, 14] },
       { text: [c.organization?.nameMixed, ' (bundan keyin — "MMT") va ', b?.fullName, ' (bundan keyin — "Qarz oluvchi") quyidagilar haqida ushbu shartnomani tuzdilar:'].join(''), margin: [0, 0, 0, 10] },
       { text: '1. SHARTNOMA PREDMETI', style: 'h2' },

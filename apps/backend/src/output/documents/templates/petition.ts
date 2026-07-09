@@ -15,7 +15,7 @@ export function petitionTemplate(c: CaseDocData): TDocumentDefinitions {
       { text: "MIKROMOLIYA LINIYASINI OCHISH TO'G'RISIDA MUROJAATNOMA", style: 'h1', alignment: 'center', margin: [0, 0, 0, 14] },
       { text: `Qarz oluvchi ${c.borrower?.fullName ?? '—'} uchun quyidagi shartlarda mikromoliya liniyasini ochishni so'rayman:`, margin: [0, 0, 0, 8] },
       { table: { widths: [180, '*'], body: [
-        kv('Liniya raqami', line?.lineNumber ?? '—'),
+        kv('Liniya raqami', c.contractNumber ?? line?.lineNumber ?? '—'),
         kv('Summa', money(amount)),
         kv("Summa (so'z bilan)", amount ? sumToWordsUz(amount) : '—'),
         kv('Muddati', line?.termMonths != null ? `${line.termMonths} oy` : '—'),

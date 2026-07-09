@@ -31,11 +31,16 @@ export function useOriginationForm(id?: string) {
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [attempted, setAttempted] = useState(false);
+  // Auto contract number — assigned on submit, read-only in the wizard (null in DRAFT).
+  const [contractNumber, setContractNumber] = useState<string | null>(null);
+  const [contractYearlyNo, setContractYearlyNo] = useState<number | null>(null);
 
   useQuery({
     queryKey: ['case', id], enabled: !!id,
     queryFn: async () => {
       const c = await api.case(id!);
+      setContractNumber(c.contractNumber);
+      setContractYearlyNo(c.contractYearlyNo);
       // Backfill close-contact rows to the required minimum of 2 for the form.
       const loadedContacts = c.borrower?.closeContacts ?? [];
       const closeContacts = loadedContacts.length >= 2 ? loadedContacts : [...loadedContacts, emptyContact(), emptyContact()].slice(0, Math.max(2, loadedContacts.length));
@@ -152,7 +157,7 @@ export function useOriginationForm(id?: string) {
     form, setForm, patch, setBorrower, setCol, addCol, removeCol,
     setContact, addContact, removeContact,
     step, setStep, saving, attempted, setAttempted, errors, valid, stepHasErrors, stepComplete, saveSection, save,
-    caseId, ensureCase,
+    caseId, ensureCase, contractNumber, contractYearlyNo,
     loanType: loanTypeFor(amountTotal),
   };
 }

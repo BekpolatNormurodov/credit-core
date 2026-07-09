@@ -184,7 +184,7 @@ export function Step3({ f }: { f: OriginationForm }) {
           </span>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Liniya № (РКЛ)" hint="masalan 42"><Input value={l.lineNumber ?? ''} onChange={(e) => setLine({ lineNumber: e.target.value })} placeholder="42" /></Field>
+          <Field label="Liniya № (РКЛ)" hint="avto — submit'da"><Input readOnly value={f.contractYearlyNo != null ? String(f.contractYearlyNo) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
           <Field label="Summa — polis"><MoneyInput value={l.amountPolis ?? null} onChange={(v) => setLine({ amountPolis: v })} /></Field>
           <Field label="Jami summa" required hint="auto = avto + polis" error={f.attempted ? f.errors.amountTotal : undefined}><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
@@ -192,7 +192,7 @@ export function Step3({ f }: { f: OriginationForm }) {
           <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
           <Field label="Yillik foiz" hint="admin belgilaydi"><Input readOnly value={`${Math.round((l.interestRate ?? minRate) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Jarima foizi"><Input readOnly value={`${Math.round((l.penaltyRate ?? 1.05) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-          <Field label="Prikaz № / bosh kelishuv" hint="12 MFL 42 PS — hujjatlarda ko‘rinadi"><Input value={l.orderNumber ?? ''} onChange={(e) => setLine({ orderNumber: e.target.value })} placeholder="12 MFL 42 PS" /></Field>
+          <Field label="Shartnoma raqami" hint="avto — moderatorga yuborilganda"><Input readOnly value={f.contractNumber ?? '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
         </div>
       </Card>
 
