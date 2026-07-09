@@ -7,7 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { CreditCasesService } from './credit-cases.service';
 import { exportCasesListToExcel } from '../output/excel-export.util';
-import { CaseSectionDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
+import { CaseSectionDto, ReMflCreateDto, ReMflSearchDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases')
@@ -23,6 +23,14 @@ export class CreditCasesController {
   @Get('search')
   search(@CurrentUser() user: RequestUser, @Query('q') q?: string) {
     return this.service.search(user, q ?? '');
+  }
+
+  // Qayta MFL: search existing clients (must precede ':id').
+  @UseGuards(RolesGuard)
+  @Roles(Role.OPERATOR, Role.ADMIN)
+  @Get('re-mfl/search')
+  searchReMfl(@Query() dto: ReMflSearchDto) {
+    return this.service.searchReMfl(dto.term);
   }
 
   /** Export all visible cases (role-scoped) to a single .xlsx. */

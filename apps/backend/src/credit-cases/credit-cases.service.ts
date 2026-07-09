@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { addBusinessDays, CaseStatus, DocumentType, formatContractNumber, hasDeadline, INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, Role } from '@credit-core/shared';
+import { addBusinessDays, CaseStatus, DocumentType, formatContractNumber, hasDeadline, INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -390,6 +390,39 @@ export class CreditCasesService {
     });
     await this.audit.resume(user, id);
     return this.getOne(id);
+  }
+
+  /** Qayta MFL: find existing clients by name / PINFL / phone / passport number. Returns their
+   *  numbered contracts (only ones already assigned a contract number) with status/date/amount so
+   *  the operator can pick which one's MFL identifier (yearly+branch) to reuse. */
+  async searchReMfl(term: string): Promise<ReMflContractDto[]> {
+    const t = term.trim();
+    const cases = await this.prisma.creditCase.findMany({
+      where: {
+        contractNumber: { not: null },
+        borrower: {
+          OR: [
+            { fullName: { contains: t } },
+            { pinfl: { contains: t } },
+            { phone: { contains: t } },
+            { passportNumber: { contains: t } },
+          ],
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      include: { borrower: { select: { fullName: true } } },
+    });
+    return cases.map((c) => ({
+      caseId: c.id,
+      contractNumber: c.contractNumber ?? null,
+      contractYearlyNo: c.contractYearlyNo ?? null,
+      contractBranchSym: c.contractBranchSym ?? null,
+      status: c.status as CaseStatus,
+      date: c.createdAt.toISOString(),
+      amount: c.amount != null ? Number(c.amount) : null,
+      fullName: c.borrower?.fullName ?? '—',
+    }));
   }
 
   async transition(id: string, user: RequestUser, dto: TransitionDto) {

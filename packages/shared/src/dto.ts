@@ -376,6 +376,18 @@ export interface CreditCaseDto {
   updatedAt: string;
 }
 
+/** A repeat-client's prior contract, shown in the Qayta MFL search results (operator picks one). */
+export interface ReMflContractDto {
+  caseId: string;
+  contractNumber: string | null;
+  contractYearlyNo: number | null;
+  contractBranchSym: string | null;
+  status: CaseStatus;
+  date: string; // case createdAt ISO
+  amount: number | null;
+  fullName: string;
+}
+
 export interface CreditCaseListItem {
   id: string;
   number: string;

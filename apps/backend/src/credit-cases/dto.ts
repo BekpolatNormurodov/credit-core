@@ -238,6 +238,14 @@ export class SetRateDto {
   @IsString() @MinLength(1) reason!: string;
 }
 
+export class ReMflSearchDto {
+  @IsString() @MinLength(2) term!: string;
+}
+
+export class ReMflCreateDto {
+  @IsString() @MinLength(1) sourceCaseId!: string;
+}
+
 /** Director sets the loan split: property-backed (avto) vs insurance-backed (polis) portions. */
 export class SetSplitDto {
   @IsNumber() @Min(0) amountAuto!: number;
