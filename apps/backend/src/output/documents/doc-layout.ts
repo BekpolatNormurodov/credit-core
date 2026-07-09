@@ -1,13 +1,17 @@
 import type { Content, TableCell } from 'pdfmake/interfaces';
 import type { CaseDocData } from './case-document.loader';
 
-const WATERMARK = new Set(['MODERATION', 'DIRECTOR_REVIEW']);
-
-/** Diagonal watermark text for a status, or null when the clean (approved) version applies. */
-export function watermarkForStatus(status: string): string | null {
-  if (status === 'REJECTED') return 'RAD ETILGAN';
-  if (status === 'CANCELLED') return 'BEKOR QILINGAN';
-  return WATERMARK.has(status) ? 'TASDIQLANMAGAN' : null;
+/**
+ * Diagonal watermark for a case status: the text + colour. Pending review → grey "TASDIQLANMAGAN";
+ * once the director signs (ADMIN_FINALIZE) and after finalize → green "TASDIQLANGAN"; rejected/
+ * cancelled → red. null when no watermark applies (e.g. DRAFT — no documents yet).
+ */
+export function watermarkForStatus(status: string): { text: string; color: string } | null {
+  if (status === 'REJECTED') return { text: 'RAD ETILGAN', color: '#dc2626' };
+  if (status === 'CANCELLED') return { text: 'BEKOR QILINGAN', color: '#dc2626' };
+  if (status === 'MODERATION' || status === 'DIRECTOR_REVIEW') return { text: 'TASDIQLANMAGAN', color: '#9ca3af' };
+  if (status === 'ADMIN_FINALIZE' || status === 'FINALIZED') return { text: 'TASDIQLANGAN', color: '#16a34a' };
+  return null;
 }
 
 export const money = (n: unknown): string =>

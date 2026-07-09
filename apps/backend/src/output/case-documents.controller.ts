@@ -44,7 +44,7 @@ export class CaseDocumentsController {
     const wm = watermarkForStatus(c.status);
     if (wm) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (def as any).watermark = { text: wm, opacity: 0.12, angle: -40, bold: true };
+      (def as any).watermark = { text: wm.text, color: wm.color, opacity: 0.12, angle: -40, bold: true };
     }
 
     const buffer = await this.pdf.render(def);
