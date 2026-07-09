@@ -4,5 +4,6 @@ export * from './workflow';
 export * from './business-days';
 export * from './loan';
 export * from './origination';
+export * from './contract-number';
 export * from './dto';
 export * from './nationality';
