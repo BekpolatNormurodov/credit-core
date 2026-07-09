@@ -1,7 +1,7 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, kv } from '../doc-layout';
+import { orgHeader, kv, kvTable, docTitle } from '../doc-layout';
 import { amountWords } from './_shared';
 
 const VERDICT_LABEL: Record<string, string> = {
@@ -26,9 +26,8 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
     pageMargins: [45, 50, 45, 50],
     content: [
       orgHeader(c.organization),
-      { text: 'СКОРИНГ ТАҲЛИЛ НАТИЖАЛАРИ', style: 'h1', alignment: 'center', margin: [0, 0, 0, 4] },
-      { text: dateToUzbekWords(s?.computedAt ?? new Date()), alignment: 'center', margin: [0, 0, 0, 12] },
-      { table: { widths: [180, '*'], body: [
+      docTitle('СКОРИНГ ТАҲЛИЛ НАТИЖАЛАРИ', dateToUzbekWords(s?.computedAt ?? new Date())),
+      kvTable([
         kv('МИЖОЗ Ф.И.Ш.', b?.fullName ?? '—'),
         kv('Манзил', b?.regAddress ?? b?.address ?? '—'),
         kv('Фаолият тури', activity),
@@ -36,9 +35,9 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
         kv('Микромолия линияси лимити', `${amountWords(amount)} сўм`),
         kv('Микромолия линияси муддати', `${term} ой`),
         kv('Фоиз ставкаси', `${ratePct}% фоиз`),
-      ] } },
+      ]),
       { text: 'Скоринг натижаси:', bold: true, margin: [0, 12, 0, 6] },
-      { table: { widths: [240, '*'], body: [
+      kvTable([
         kv('Умумий шартларга (сумма, муддати, фоиз ставка)', OK),
         kv('Гаровга қўйилган талаблар', OK),
         kv('Даромадларнинг етарлилиги', OK),
@@ -46,10 +45,9 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
         kv('Жорий мажбуриятлари', OK),
         kv('Ёшга мувофиқлиги', s?.age != null ? `${s.age} — ${OK}` : OK),
         kv('Скоринг балл', s ? `${s.totalScore} / ${s.maxScore}` : '—'),
-      ] } },
-      { text: `ХУЛОСА: ${s ? (VERDICT_LABEL[String(s.verdict)] ?? String(s.verdict)) : '—'}`, bold: true, margin: [0, 12, 0, 0] },
+      ], 250),
+      { text: `ХУЛОСА: ${s ? (VERDICT_LABEL[String(s.verdict)] ?? String(s.verdict)) : '—'}`, bold: true, fontSize: 11, margin: [0, 12, 0, 0] },
       { text: '\nКредит менежери имзоси ______________', margin: [0, 16, 0, 0] },
     ],
-    styles: { h1: { fontSize: 13, bold: true } },
   };
 }
