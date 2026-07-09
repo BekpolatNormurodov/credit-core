@@ -425,6 +425,52 @@ export class CreditCasesService {
     }));
   }
 
+  /** Qayta MFL: create a new DRAFT for a repeat client, copying only their identity from the chosen
+   *  source contract. Financials are entered fresh; yearly+branch are reused from the source at submit. */
+  async createReMfl(user: RequestUser, sourceCaseId: string) {
+    const src = await this.prisma.creditCase.findUnique({
+      where: { id: sourceCaseId },
+      include: { borrower: true },
+    });
+    if (!src || !src.borrower) throw new NotFoundException('Manba shartnoma topilmadi');
+    const b = src.borrower;
+    const branchSym = user.branchId
+      ? (await this.prisma.branch.findUnique({ where: { id: user.branchId }, select: { symbol: true } }))?.symbol ?? null
+      : null;
+    const number = await this.nextNumber(branchSym);
+    const created = await this.prisma.creditCase.create({
+      data: {
+        number,
+        productType: src.productType,
+        status: CaseStatus.DRAFT,
+        branchId: user.branchId,
+        createdById: user.id,
+        isReMfl: true,
+        reMflSourceId: src.id,
+        borrower: {
+          create: {
+            fullName: b.fullName, passportSeries: b.passportSeries, passportNumber: b.passportNumber,
+            pinfl: b.pinfl, birthDate: b.birthDate, address: b.address, phone: b.phone,
+            gender: b.gender, citizenship: b.citizenship, placeOfBirth: b.placeOfBirth,
+            previousName: b.previousName, inn: b.inn, passportIssuer: b.passportIssuer,
+            passportIssueDate: b.passportIssueDate, passportExpiry: b.passportExpiry,
+            regAddress: b.regAddress, regLandmark: b.regLandmark, regTenure: b.regTenure,
+            regMatchesActual: b.regMatchesActual, actualAddress: b.actualAddress,
+            actualLandmark: b.actualLandmark, actualTenure: b.actualTenure,
+            phones: (b.phones ?? undefined) as object | undefined,
+            closeContacts: (b.closeContacts ?? undefined) as object | undefined,
+            maritalStatus: b.maritalStatus, familySize: b.familySize, childrenCount: b.childrenCount,
+            education: b.education, residenceDuration: b.residenceDuration, ownsHome: b.ownsHome,
+            depositsBand: b.depositsBand, entrepreneurType: b.entrepreneurType, entrepreneurCertNo: b.entrepreneurCertNo,
+          },
+        },
+      },
+      include: caseInclude,
+    });
+    await this.audit.caseCreate(user, created.id);
+    return toCaseDto(created);
+  }
+
   async transition(id: string, user: RequestUser, dto: TransitionDto) {
     const c = await this.prisma.creditCase.findUnique({
       where: { id },

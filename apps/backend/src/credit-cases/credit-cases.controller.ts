@@ -33,6 +33,14 @@ export class CreditCasesController {
     return this.service.searchReMfl(dto.term);
   }
 
+  // Qayta MFL: create a new draft linked to the chosen source contract.
+  @UseGuards(RolesGuard)
+  @Roles(Role.OPERATOR, Role.ADMIN)
+  @Post('re-mfl')
+  createReMfl(@CurrentUser() user: RequestUser, @Body() dto: ReMflCreateDto) {
+    return this.service.createReMfl(user, dto.sourceCaseId);
+  }
+
   /** Export all visible cases (role-scoped) to a single .xlsx. */
   @Get('export/excel')
   async exportExcel(@CurrentUser() user: RequestUser, @Res() res: Response) {
