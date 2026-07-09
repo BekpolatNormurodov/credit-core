@@ -372,6 +372,9 @@ export interface CreditCaseDto {
   pausedAt: string | null;
   /** Auto-resume moment for the active pause (set when pausing; null otherwise). */
   pauseUntil: string | null;
+  /** Soft-delete: when set, the (draft) case is archived — visible only in the Arxiv view. */
+  deletedAt: string | null;
+  deletedReason: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -400,6 +403,9 @@ export interface CreditCaseListItem {
   /** SLA deadline for the current step (null when the step has no timer). */
   stepDeadlineAt: string | null;
   updatedAt: string;
+  /** Soft-delete marker for the Arxiv view (null for active cases). */
+  deletedAt?: string | null;
+  deletedReason?: string | null;
 }
 
 /** Admin-configured SLA: business days allowed per workflow step. */

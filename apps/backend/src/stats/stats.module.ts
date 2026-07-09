@@ -28,6 +28,7 @@ class StatsController {
     @Query('region') region?: string,
   ): Promise<StatsResponse> {
     const where = await scopeFor(this.prisma, user);
+    where.deletedAt = null; // archived (soft-deleted) cases are excluded from all metrics
     if (from || to) {
       where.createdAt = {
         ...(from ? { gte: new Date(from) } : {}),

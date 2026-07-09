@@ -183,6 +183,8 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
     stepDeadlineAt: iso(c.stepDeadlineAt),
     pausedAt: iso(c.pausedAt),
     pauseUntil: iso(c.pauseUntil),
+    deletedAt: iso(c.deletedAt),
+    deletedReason: c.deletedReason,
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
   };
@@ -202,5 +204,7 @@ export function toListItem(
     createdByName: c.createdBy?.fullName ?? null,
     stepDeadlineAt: iso(c.stepDeadlineAt),
     updatedAt: c.updatedAt.toISOString(),
+    deletedAt: iso(c.deletedAt),
+    deletedReason: c.deletedReason,
   };
 }

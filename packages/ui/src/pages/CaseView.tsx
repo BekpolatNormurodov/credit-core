@@ -133,14 +133,21 @@ export function CaseView() {
     },
     onError: () => toast.error('Xatolik', 'O‘chirib bo‘lmadi'),
   });
+  const restoreMut = useMutation({
+    mutationFn: () => api.restoreCase(id!),
+    onSuccess: () => { refresh(); toast.success('Aktivlashtirildi', 'Ariza faol ro‘yxatga qaytdi'); },
+    onError: () => toast.error('Xatolik', 'Qaytarib bo‘lmadi'),
+  });
 
   if (isLoading || !c) return <CaseViewSkeleton />;
 
   const role = user!.role;
-  const myTransitions = TRANSITIONS.filter((t) => t.from === c.status && t.role === role);
-  const isOperatorDraft = role === Role.OPERATOR && c.status === CaseStatus.DRAFT;
+  const isArchived = !!c.deletedAt; // soft-deleted draft — no workflow / edit actions, only restore
+  const myTransitions = isArchived ? [] : TRANSITIONS.filter((t) => t.from === c.status && t.role === role);
+  const isOperatorDraft = role === Role.OPERATOR && c.status === CaseStatus.DRAFT && !isArchived;
   // Operator deletes their own draft (list is already scoped to own cases); admin deletes any draft.
-  const canDeleteDraft = c.status === CaseStatus.DRAFT && (role === Role.OPERATOR || role === Role.ADMIN);
+  const canDeleteDraft = c.status === CaseStatus.DRAFT && !isArchived && (role === Role.OPERATOR || role === Role.ADMIN);
+  const canRestore = isArchived && (role === Role.OPERATOR || role === Role.ADMIN);
   const isDirectorReview = role === Role.DIRECTOR && c.status === CaseStatus.DIRECTOR_REVIEW;
   const isAdminFinalize = role === Role.ADMIN && c.status === CaseStatus.ADMIN_FINALIZE;
   const canUpload = isOperatorDraft || isDirectorReview;
@@ -180,7 +187,7 @@ export function CaseView() {
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">{PRODUCT_LABEL[c.productType]} • {c.branch?.name ?? '—'}</p>
         </div>
-        {(isOperatorDraft || canDeleteDraft) && (
+        {(isOperatorDraft || canDeleteDraft || canRestore) && (
           <div className="flex flex-wrap items-center gap-2">
             {isOperatorDraft && (
               <Link to={`/cases/${c.id}/origination`}><Button variant="secondary"><Pencil className="h-5 w-5" /> Tahrirlash</Button></Link>
@@ -188,9 +195,23 @@ export function CaseView() {
             {canDeleteDraft && (
               <Button variant="danger" onClick={() => { setDeleteReason(''); setDeleteOpen(true); }}><Trash2 className="h-5 w-5" /> O‘chirish</Button>
             )}
+            {canRestore && (
+              <Button loading={restoreMut.isPending} onClick={() => restoreMut.mutate()}><RotateCcw className="h-5 w-5" /> Aktivlashtirish</Button>
+            )}
           </div>
         )}
       </div>
+
+      {isArchived && (
+        <div className="flex items-start gap-3 rounded-xl border border-error-200 bg-error-50 p-3.5 text-sm dark:border-error-500/20 dark:bg-error-500/10">
+          <Trash2 className="mt-0.5 h-5 w-5 shrink-0 text-error-600 dark:text-error-400" />
+          <div>
+            <p className="font-semibold text-error-700 dark:text-error-300">Bu qoralama o‘chirilgan (arxivda)</p>
+            {c.deletedReason && <p className="mt-0.5 text-error-600/90 dark:text-error-400/90">Sabab: {c.deletedReason}</p>}
+            {c.deletedAt && <p className="mt-0.5 text-xs text-error-600/70 dark:text-error-400/70">{new Date(c.deletedAt).toLocaleString('ru-RU')}</p>}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">

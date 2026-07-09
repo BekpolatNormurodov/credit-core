@@ -140,6 +140,12 @@ model CreditCase {
   pausedAt        DateTime? // set while the case is on hold — SLA timer is suspended
   pauseUntil      DateTime? // chosen auto-resume moment for the current pause (business-day window)
 
+  // Soft-delete (archive): a draft is never hard-deleted — these are set so it moves to the Arxiv
+  // view. deletedById is the actor; deletedReason is mandatory. Restoring clears all three.
+  deletedAt     DateTime?
+  deletedReason String?   @db.Text
+  deletedById   String?
+
   branch      Branch? @relation(fields: [branchId], references: [id])
   branchId    String?
   createdBy   User    @relation("CaseCreatedBy", fields: [createdById], references: [id])
@@ -634,6 +640,7 @@ enum AuditAction {
   CASE_CREATE
   CASE_UPDATE
   CASE_DELETE
+  CASE_RESTORE
   SECTION_SAVE
   TRANSITION
 }

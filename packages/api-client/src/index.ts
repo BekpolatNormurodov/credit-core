@@ -142,6 +142,15 @@ export const api = {
   async deleteCase(id: string, reason: string): Promise<void> {
     await http.delete(`/cases/${id}`, { data: { reason } });
   },
+  /** Archived (soft-deleted) drafts, role-scoped and searchable. */
+  async archivedCases(q = ''): Promise<CreditCaseListItem[]> {
+    const { data } = await http.get<CreditCaseListItem[]>('/cases/archived', { params: q ? { q } : {} });
+    return data;
+  },
+  /** Restore an archived draft back to the active list. */
+  async restoreCase(id: string): Promise<void> {
+    await http.post(`/cases/${id}/restore`);
+  },
   async saveCaseSection(id: string, payload: CaseSectionPayload): Promise<CreditCaseDto> {
     const { data } = await http.patch<CreditCaseDto>(`/cases/${id}/section`, payload);
     return data;

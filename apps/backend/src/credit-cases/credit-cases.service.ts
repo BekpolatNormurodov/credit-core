@@ -181,25 +181,77 @@ export class CreditCasesService {
     return res;
   }
 
-  /** Delete a DRAFT case. An operator may delete only their own draft; admin may delete any draft.
-   *  Non-draft cases (already in the workflow) are never deletable. All child rows cascade.
-   *  A reason is required and recorded in the audit log. */
+  /** Archive (soft-delete) a DRAFT case. An operator may archive only their own draft; admin any
+   *  draft. Non-draft cases (already in the workflow) are never deletable. The case is not removed —
+   *  it moves to the Arxiv view and can be restored. A reason is required and audited. */
   async deleteCase(id: string, user: RequestUser, reason: string): Promise<{ id: string }> {
     const existing = await this.prisma.creditCase.findUnique({
       where: { id },
-      select: { status: true, createdById: true, number: true },
+      select: { status: true, createdById: true, number: true, deletedAt: true },
     });
     if (!existing) throw new NotFoundException('Ariza topilmadi');
+    if (existing.deletedAt) throw new ForbiddenException('Ariza allaqachon o‘chirilgan');
     if (existing.status !== CaseStatus.DRAFT) {
       throw new ForbiddenException('Faqat qoralama holatidagi arizani o‘chirish mumkin');
     }
     if (user.role === Role.OPERATOR && existing.createdById !== user.id) {
       throw new ForbiddenException('Bu ariza sizga tegishli emas');
     }
-    // Audit first (case still exists → FK valid); the delete then nulls the log's caseId (SetNull).
+    await this.prisma.creditCase.update({
+      where: { id },
+      data: { deletedAt: new Date(), deletedReason: reason, deletedById: user.id },
+    });
     await this.audit.caseDelete(user, id, existing.number, reason);
-    await this.prisma.creditCase.delete({ where: { id } });
     return { id };
+  }
+
+  /** Restore an archived draft back to the active list. Operator restores their own; admin any.
+   *  Clears the soft-delete fields; updatedAt refreshes to now so it re-enters dated today. */
+  async restoreCase(id: string, user: RequestUser): Promise<{ id: string }> {
+    const existing = await this.prisma.creditCase.findUnique({
+      where: { id },
+      select: { createdById: true, number: true, deletedAt: true },
+    });
+    if (!existing) throw new NotFoundException('Ariza topilmadi');
+    if (!existing.deletedAt) throw new ForbiddenException('Ariza o‘chirilmagan');
+    if (user.role === Role.OPERATOR && existing.createdById !== user.id) {
+      throw new ForbiddenException('Bu ariza sizga tegishli emas');
+    }
+    await this.prisma.creditCase.update({
+      where: { id },
+      data: { deletedAt: null, deletedReason: null, deletedById: null },
+    });
+    await this.audit.caseRestore(user, id, existing.number);
+    return { id };
+  }
+
+  /** Archived (soft-deleted) cases, role-scoped, optionally filtered by a search term. */
+  async listArchived(user: RequestUser, q = ''): Promise<ReturnType<typeof toListItem>[]> {
+    const term = q.trim();
+    const scope: Prisma.CreditCaseWhereInput =
+      user.role === Role.OPERATOR ? { createdById: user.id } : {}; // admin sees all archived
+    const cases = await this.prisma.creditCase.findMany({
+      where: {
+        AND: [
+          scope,
+          { deletedAt: { not: null } },
+          term.length >= 2
+            ? {
+                OR: [
+                  { number: { contains: term } },
+                  { borrower: { fullName: { contains: term } } },
+                  { borrower: { passportNumber: { contains: term } } },
+                  { borrower: { pinfl: { contains: term } } },
+                  { createdBy: { fullName: { contains: term } } },
+                ],
+              }
+            : {},
+        ],
+      },
+      include: { branch: true, borrower: true, createdBy: true },
+      orderBy: { deletedAt: 'desc' },
+    });
+    return cases.map(toListItem);
   }
 
   private async applyUpdate(id: string, user: RequestUser, dto: UpsertCaseDto) {
@@ -268,7 +320,7 @@ export class CreditCasesService {
   }
 
   async list(user: RequestUser, mineOnly = false): Promise<ReturnType<typeof toListItem>[]> {
-    const where: Prisma.CreditCaseWhereInput = {};
+    const where: Prisma.CreditCaseWhereInput = { deletedAt: null }; // archived cases live in the Arxiv view
     if (user.role === Role.OPERATOR) {
       where.createdById = user.id;
     } else if (user.role === Role.MODERATOR) {
@@ -326,6 +378,7 @@ export class CreditCasesService {
       where: {
         AND: [
           scope,
+          { deletedAt: null },
           {
             OR: [
               { number: { contains: term } },
@@ -421,18 +474,21 @@ export class CreditCasesService {
     const t = term.trim();
     // An empty term lists the most recent cases (the frontend gates min length, but stay robust).
     const cases = await this.prisma.creditCase.findMany({
-      where: t
-        ? {
-            borrower: {
-              OR: [
-                { fullName: { contains: t } },
-                { pinfl: { contains: t } },
-                { phone: { contains: t } },
-                { passportNumber: { contains: t } },
-              ],
-            },
-          }
-        : {},
+      where: {
+        deletedAt: null, // archived clients are not offered for a repeat MFL
+        ...(t
+          ? {
+              borrower: {
+                OR: [
+                  { fullName: { contains: t } },
+                  { pinfl: { contains: t } },
+                  { phone: { contains: t } },
+                  { passportNumber: { contains: t } },
+                ],
+              },
+            }
+          : {}),
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: { borrower: { select: { fullName: true } } },

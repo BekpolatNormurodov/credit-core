@@ -33,6 +33,14 @@ export class CreditCasesController {
     return this.service.searchReMfl(dto.term);
   }
 
+  // Arxiv: archived (soft-deleted) drafts, searchable (must precede ':id').
+  @UseGuards(RolesGuard)
+  @Roles(Role.OPERATOR, Role.ADMIN)
+  @Get('archived')
+  archived(@CurrentUser() user: RequestUser, @Query('q') q?: string) {
+    return this.service.listArchived(user, q ?? '');
+  }
+
   // Qayta MFL: create a new draft linked to the chosen source contract.
   @UseGuards(RolesGuard)
   @Roles(Role.OPERATOR, Role.ADMIN)
@@ -75,13 +83,21 @@ export class CreditCasesController {
     return this.service.updateCase(id, user, dto);
   }
 
-  // Operator deletes their own draft; admin deletes any draft. Guarded again in the service.
+  // Operator archives their own draft; admin any draft. Guarded again in the service.
   // A reason is required and recorded in the audit log.
   @UseGuards(RolesGuard)
   @Roles(Role.OPERATOR, Role.ADMIN)
   @Delete(':id')
   delete(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: DeleteCaseDto) {
     return this.service.deleteCase(id, user, dto.reason);
+  }
+
+  // Restore (re-activate) an archived draft. Operator restores their own; admin any.
+  @UseGuards(RolesGuard)
+  @Roles(Role.OPERATOR, Role.ADMIN)
+  @Post(':id/restore')
+  restore(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.service.restoreCase(id, user);
   }
 
   @Post(':id/transition')
