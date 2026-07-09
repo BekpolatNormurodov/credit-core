@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AnimatePresence } from 'framer-motion';
-import { BarChart3, FilePlus2, LayoutGrid, Calculator, Messages, Building, UserAdd, Bell as BellIcon, Settings } from './lib/icons';
+import { BarChart3, FilePlus2, LayoutGrid, Calculator, Messages, Building, UserAdd, Bell as BellIcon, Settings, RotateCcw } from './lib/icons';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { AuthProvider, useAuth } from './lib/auth';
 import { ThemeProvider } from './lib/theme';
@@ -24,6 +24,7 @@ import { Button } from './components/primitives';
 import { Dashboard } from './pages/Dashboard';
 import { CaseView } from './pages/CaseView';
 import { OriginationWizard } from './pages/origination/OriginationWizard';
+import { ReMflPage } from './pages/ReMflPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { CreditCalculator } from './pages/CreditCalculator';
@@ -39,6 +40,7 @@ function navFor(role: Role, t: (k: string) => string): NavItem[] {
   const main = 'Asosiy';
   const base: NavItem[] = [{ to: '/', label: t('nav.applications'), icon: LayoutGrid, section: main }];
   if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/cases/new', label: t('nav.new'), icon: FilePlus2, section: main });
+  if (role === Role.OPERATOR || role === Role.ADMIN) base.push({ to: '/cases/re-mfl', label: 'Qayta MFL', icon: RotateCcw, section: main });
   base.push({ to: '/calculator', label: t('nav.calculator'), icon: Calculator, section: main });
   base.push({ to: '/chats', label: t('nav.chats'), icon: Messages, badgeKey: 'unread', section: main });
   base.push({ to: '/analytics', label: t('nav.monitoring'), icon: BarChart3, section: main });
@@ -72,6 +74,7 @@ function Shell({ role, title }: { role: Role; title: string }) {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/new" element={<OriginationWizard />} />}
+        {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/re-mfl" element={<ReMflPage />} />}
         {(role === Role.OPERATOR || role === Role.ADMIN) && <Route path="/cases/:id/origination" element={<OriginationWizard />} />}
         <Route path="/cases/:id" element={<CaseView />} />
         <Route path="/calculator" element={<CreditCalculator />} />
