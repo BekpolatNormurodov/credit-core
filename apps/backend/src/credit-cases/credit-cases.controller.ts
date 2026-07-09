@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { Role } from '@credit-core/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -73,6 +73,14 @@ export class CreditCasesController {
   @Put(':id')
   update(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: UpsertCaseDto) {
     return this.service.updateCase(id, user, dto);
+  }
+
+  // Operator deletes their own draft; admin deletes any draft. Guarded again in the service.
+  @UseGuards(RolesGuard)
+  @Roles(Role.OPERATOR, Role.ADMIN)
+  @Delete(':id')
+  delete(@Param('id') id: string, @CurrentUser() user: RequestUser) {
+    return this.service.deleteCase(id, user);
   }
 
   @Post(':id/transition')

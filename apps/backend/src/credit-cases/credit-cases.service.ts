@@ -181,6 +181,26 @@ export class CreditCasesService {
     return res;
   }
 
+  /** Delete a DRAFT case. An operator may delete only their own draft; admin may delete any draft.
+   *  Non-draft cases (already in the workflow) are never deletable. All child rows cascade. */
+  async deleteCase(id: string, user: RequestUser): Promise<{ id: string }> {
+    const existing = await this.prisma.creditCase.findUnique({
+      where: { id },
+      select: { status: true, createdById: true, number: true },
+    });
+    if (!existing) throw new NotFoundException('Ariza topilmadi');
+    if (existing.status !== CaseStatus.DRAFT) {
+      throw new ForbiddenException('Faqat qoralama holatidagi arizani o‘chirish mumkin');
+    }
+    if (user.role === Role.OPERATOR && existing.createdById !== user.id) {
+      throw new ForbiddenException('Bu ariza sizga tegishli emas');
+    }
+    // Audit first (case still exists → FK valid); the delete then nulls the log's caseId (SetNull).
+    await this.audit.caseDelete(user, id, existing.number);
+    await this.prisma.creditCase.delete({ where: { id } });
+    return { id };
+  }
+
   private async applyUpdate(id: string, user: RequestUser, dto: UpsertCaseDto) {
     const existing = await this.prisma.creditCase.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Ariza topilmadi');

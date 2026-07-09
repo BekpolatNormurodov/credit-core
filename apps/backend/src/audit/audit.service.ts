@@ -43,6 +43,9 @@ export class AuditService {
   resume(u: RequestUser, caseId: string) { return this.write('RESUME', u, { caseId }); }
   caseCreate(u: RequestUser, caseId: string) { return this.write('CASE_CREATE', u, { caseId }); }
   caseUpdate(u: RequestUser, caseId: string) { return this.write('CASE_UPDATE', u, { caseId }); }
+  // Log with caseId set while the case still exists; the delete then nulls it via onDelete: SetNull.
+  // The case number is kept in newValue so the record stays meaningful after the case is gone.
+  caseDelete(u: RequestUser, caseId: string, number?: string) { return this.write('CASE_DELETE', u, { caseId, field: 'status', newValue: number ?? 'deleted' }); }
   sectionSave(u: RequestUser, caseId: string, section: string) { return this.write('SECTION_SAVE', u, { caseId, field: section }); }
   transition(u: RequestUser, caseId: string, from: unknown, to: unknown) { return this.write('TRANSITION', u, { caseId, field: 'status', oldValue: from, newValue: to }); }
 
