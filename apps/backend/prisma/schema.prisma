@@ -122,6 +122,17 @@ model CreditCase {
   termMonths  Int?
   katmPrice   Decimal?    @db.Decimal(18, 2)
 
+  // Auto contract number (assigned on submit to moderator) — separate from `number` (ariza id).
+  // Format: "{contractGlobalNo} MFL {contractYearlyNo} {contractBranchSym}" e.g. "2012 MFL 1320 PS".
+  contractGlobalNo  Int?
+  contractYearlyNo  Int?
+  contractBranchSym String?
+  contractNumber    String?      @unique
+  isReMfl           Boolean      @default(false)
+  reMflSource       CreditCase?  @relation("ReMfl", fields: [reMflSourceId], references: [id], onDelete: SetNull)
+  reMflSourceId     String?
+  reMflChildren     CreditCase[] @relation("ReMfl")
+
   // SLA timer for the current step (set on each transition into a deadline step).
   stepStartedAt   DateTime?
   stepDeadlineAt  DateTime?
@@ -157,6 +168,12 @@ model CreditCase {
   @@index([status])
   @@index([branchId])
   @@index([stepDeadlineAt])
+}
+
+/// Company-wide contract-number counters. id = "global" (never resets) or a year like "2026".
+model ContractCounter {
+  id    String @id
+  value Int    @default(0)
 }
 
 /**
