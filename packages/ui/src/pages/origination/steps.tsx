@@ -4,7 +4,7 @@ import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
-  INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP,
+  INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP, insurancePremiumRate,
   monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
@@ -158,19 +158,19 @@ export function Step3({ f }: { f: OriginationForm }) {
     const recompute = 'amountAuto' in p || 'amountPolis' in p;
     const amountTotal = recompute ? ((merged.amountAuto ?? 0) + (merged.amountPolis ?? 0) || null) : (merged.amountTotal ?? null);
     // The insurance-backed portion (amountPolis) IS the loan-under-policy; keep them in lockstep so
-    // the insured sum (×1.3) and premium (2%/yil) always track the split.
+    // the insured sum (×1.3) and the flat-bracket premium always track the split.
     const insurance = 'amountPolis' in p
-      ? ({ ...(merged.insurance ?? {}), loanUnderPolicy: merged.amountPolis ?? null, insuranceRate: (merged.insurance?.insuranceRate ?? INSURANCE_ANNUAL_RATE) } as Ins)
+      ? ({ ...(merged.insurance ?? {}), loanUnderPolicy: merged.amountPolis ?? null } as Ins)
       : merged.insurance;
     f.patch({ creditLine: { ...merged, amountTotal, insurance, loanType: loanTypeFor(amountTotal), penaltyRate: merged.penaltyRate ?? 1.05 } });
   };
   const setIns = (p: Partial<Ins>) => setLine({ insurance: { ...ins, ...p } as Ins });
   const collateralTotal = f.form.collaterals.reduce((s, c) => s + (c.agreedValue ?? 0), 0);
-  // Insurance rate is entered (defaulting to 2%/yil); premium auto-recomputes on change. Term is
-  // capped at 24 months (2 years) — clamp the effective term for the premium.
-  const insuranceRate = ins.insuranceRate ?? (ins.insured ? INSURANCE_ANNUAL_RATE : null);
+  // Premium is a FLAT rate by term bracket (≤2 yil → 2%, 2–4 yil → 4%) of the insured sum — derived,
+  // not entered. Term capped at 48 months (4 years) for the effective bracket.
   const policyMonths = Math.min(ins.policyTermMonths ?? 0, INSURANCE_MAX_MONTHS) || null;
-  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, insuranceRate, policyTermMonths: policyMonths });
+  const bracketRate = insurancePremiumRate(policyMonths);
+  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, policyTermMonths: policyMonths });
   const termTooLong = (ins.policyTermMonths ?? 0) > INSURANCE_MAX_MONTHS;
   const amountTotal = l.amountTotal ?? null;
   const amountAuto = l.amountAuto ?? null;
@@ -217,8 +217,8 @@ export function Step3({ f }: { f: OriginationForm }) {
 
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi <span className="text-gray-500 dark:text-gray-400">(polis qismi ×130%, 2%/yil, max 2 yil)</span></h2>
-          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, insuranceRate: ins.insuranceRate ?? INSURANCE_ANNUAL_RATE, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
+          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi <span className="text-gray-500 dark:text-gray-400">(polis qismi ×130%; ≤2 yil 2% / 2–4 yil 4%; max 4 yil)</span></h2>
+          <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
         </div>
         {ins.insured && (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -226,11 +226,11 @@ export function Step3({ f }: { f: OriginationForm }) {
             <Field label="Sug‘urta raqami (gen)" hint="polisdan oldin"><Input value={ins.genAgreementNo ?? ''} onChange={(e) => setIns({ genAgreementNo: e.target.value })} placeholder={INSURANCE_GEN_PREFIX} /></Field>
             <Field label="Polis №"><Input value={ins.policyNo ?? ''} onChange={(e) => setIns({ policyNo: e.target.value })} /></Field>
             <Field label="Polis sanasi"><DatePicker value={ins.policyIssueDate ?? null} onChange={(iso) => setIns({ policyIssueDate: iso })} /></Field>
-            <Field label="Polis muddati (oy)" hint="max 24 oy (2 yil)" error={termTooLong ? 'Sug‘urta muddati 24 oydan oshmaydi' : undefined}><Input type="number" min={1} max={INSURANCE_MAX_MONTHS} value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
+            <Field label="Polis muddati (oy)" hint="max 48 oy (4 yil)" error={termTooLong ? 'Sug‘urta muddati 48 oydan oshmaydi' : undefined}><Input type="number" min={1} max={INSURANCE_MAX_MONTHS} value={ins.policyTermMonths ?? ''} onChange={(e) => setIns({ policyTermMonths: numv(e.target.value) })} /></Field>
             <Field label="Polis ostidagi kredit" hint="= polis summasi"><Input readOnly value={ins.loanUnderPolicy != null ? formatMoney(ins.loanUnderPolicy) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-            <Field label="Sug‘urta stavkasi (%/yil)" hint="odatda 2%"><Input type="number" step="0.1" value={ins.insuranceRate != null ? +(ins.insuranceRate * 100).toFixed(2) : ''} onChange={(e) => setIns({ insuranceRate: e.target.value === '' ? null : Number(e.target.value) / 100 })} /></Field>
+            <Field label="Sug‘urta stavkasi" hint="muddatga qarab"><Input readOnly value={bracketRate ? `${(bracketRate * 100).toFixed(0)}%` : '—'} className="bg-gray-50 dark:bg-white/5" /></Field>
             <Field label="Sug‘urta summasi" hint="polis ×130%"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-            <Field label="Sug‘urta puli" hint="summa ×2%/yil"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+            <Field label="Sug‘urta puli" hint="summa × bracket"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           </div>
         )}
       </Card>

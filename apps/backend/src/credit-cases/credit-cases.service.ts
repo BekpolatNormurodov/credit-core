@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { addBusinessDays, CaseStatus, DocumentType, formatContractNumber, hasDeadline, INSURANCE_ANNUAL_RATE, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
+import { addBusinessDays, CaseStatus, DocumentType, formatContractNumber, hasDeadline, insurancePremiumRate, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -94,9 +94,9 @@ export class CreditCasesService {
     // under policy, the rate is a fixed 2%/yil, and the term is capped at 2 years (24 months).
     const insured = ins?.insured ?? false;
     const insLoan = insured ? (l.amountPolis ?? ins?.loanUnderPolicy ?? null) : (ins?.loanUnderPolicy ?? null);
-    // Rate is entered (default 2%/yil when insured and unset); term capped at 24 months.
-    const insRate = ins?.insuranceRate != null ? ins.insuranceRate : (insured ? INSURANCE_ANNUAL_RATE : null);
+    // Term capped at 48 months (4 years); premium rate is derived from the term bracket (2%/4%).
     const insMonths = ins?.policyTermMonths != null ? Math.min(ins.policyTermMonths, INSURANCE_MAX_MONTHS) : null;
+    const insRate = insured ? insurancePremiumRate(insMonths) : null;
     const d = originationPersistedValues({
       amountTotal: l.amountTotal ?? null,
       loanUnderPolicy: insLoan,
@@ -624,7 +624,7 @@ export class CreditCasesService {
     const amountTotal = (amountAuto || 0) + (amountPolis || 0) || null;
     const insMonths = ins?.policyTermMonths != null ? Math.min(Number(ins.policyTermMonths), INSURANCE_MAX_MONTHS) : null;
     const insLoan = insured ? amountPolis : (ins?.loanUnderPolicy != null ? Number(ins.loanUnderPolicy) : null);
-    const insRate = ins?.insuranceRate != null ? Number(ins.insuranceRate) : (insured ? INSURANCE_ANNUAL_RATE : null);
+    const insRate = insured ? insurancePremiumRate(insMonths) : null;
     const d = originationPersistedValues({ amountTotal, loanUnderPolicy: insLoan, insuranceRate: insRate, policyTermMonths: insMonths });
     const old = { amountAuto: Number(c.creditLine.amountAuto ?? 0), amountPolis: Number(c.creditLine.amountPolis ?? 0) };
     await this.prisma.creditLine.update({

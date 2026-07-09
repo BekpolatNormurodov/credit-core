@@ -3,9 +3,17 @@ import { pmt } from './loan';
 
 /** Insurance partners currently on-boarded (the "Kompaniya" dropdown). */
 export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as const;
-/** Insurance is 2%/yil (default, editable) on the insured sum (×1.3 of the policy-backed loan), max 2 years. */
-export const INSURANCE_ANNUAL_RATE = 0.02;
-export const INSURANCE_MAX_MONTHS = 24;
+/** Insured sum = ×1.3 of the policy-backed loan. The premium is a FLAT rate by TERM BRACKET
+ *  (≤2 yil → 2%, 2–4 yil → 4%) — NOT per-year. Max term 4 years (48 months). */
+export const INSURANCE_ANNUAL_RATE = 0.02; // legacy default (kept for the toggle prefill)
+export const INSURANCE_MAX_MONTHS = 48;
+/** Flat insurance premium rate by policy-term bracket: ≤24 oy → 2%, 24–48 oy → 4%; 0 outside a term. */
+export function insurancePremiumRate(months: number | null | undefined): number {
+  const m = months ?? 0;
+  if (m <= 0) return 0;
+  if (m <= 24) return 0.02;
+  return 0.04; // 24 < m ≤ 48 (UI/validation caps at 48)
+}
 /** Common gen-agreement number prefix that opens every policy number; the tail changes per policy. */
 export const INSURANCE_GEN_PREFIX = '01/14/260004-';
 /** Collateral must cover 140% of the property-backed loan portion (amountAuto). */
@@ -147,7 +155,7 @@ export interface OriginationCalc {
   surplus: number;             // totalIncome − totalExpenses
   minRequiredIncome: number;   // ROUNDUP((existing + new) × 2.2, −3)
   insuredSum: number;          // loanUnderPolicy × 1.3
-  premium: number;             // insuredSum × rate ÷ 12 × policyTermMonths
+  premium: number;             // insuredSum × flat bracket rate (≤2yil 2% / 2–4yil 4%)
   coverageRatio: number;       // collateralTotal / amountTotal (0 when no amount)
   affordabilityOk: boolean;    // surplus ≥ 0 && totalIncome ≥ minRequiredIncome
 }
@@ -163,7 +171,8 @@ export function originationCalc(i: OriginationCalcInput): OriginationCalc {
   const surplus = totalIncome - totalExpenses;
   const minRequiredIncome = roundUpTo((n(i.existingCreditBurden) + n(i.newLoanPayment)) * 2.2, 1000);
   const insuredSum = roundUpTo(n(i.loanUnderPolicy) * 1.3, 1); // exact ×1.3
-  const premium = i.policyTermMonths ? (insuredSum * n(i.insuranceRate)) / 12 * n(i.policyTermMonths) : 0;
+  // Flat premium by term bracket (≤2 yil → 2%, 2–4 yil → 4%) of the insured sum — not per-year.
+  const premium = roundUpTo(insuredSum * insurancePremiumRate(i.policyTermMonths), 1);
   const coverageRatio = i.amountTotal ? n(i.collateralTotal) / n(i.amountTotal) : 0;
   const affordabilityOk = totalIncome > 0 && surplus >= 0 && totalIncome >= minRequiredIncome;
   return { totalIncome, totalCreditPayments, totalExpenses, dtiRatio, surplus, minRequiredIncome, insuredSum, premium, coverageRatio, affordabilityOk };

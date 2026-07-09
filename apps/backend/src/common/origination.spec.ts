@@ -48,9 +48,9 @@ describe('originationCalc (TADJIYEV fixture)', () => {
     expect(calc.minRequiredIncome).toBe(18_838_000);
   });
 
-  it('insurance: insuredSum 1.3×, premium', () => {
+  it('insurance: insuredSum 1.3×, flat-bracket premium (≤2yil → 2%)', () => {
     expect(calc.insuredSum).toBe(78_000_000);
-    expect(calc.premium).toBe(3_120_000);
+    expect(calc.premium).toBe(1_560_000); // 78M × 2% (term ≤ 24 months)
   });
 
   it('affordability ok when surplus≥0 and income≥required', () => {
