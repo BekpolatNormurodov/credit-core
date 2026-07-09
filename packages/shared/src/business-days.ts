@@ -11,6 +11,30 @@ const isWeekend = (d: Date): boolean => {
 };
 
 /**
+ * Uzbekistan fixed-date public holidays as "MM-DD" — non-working days. The two religious holidays
+ * (Ramazon/Qurbon hayit) shift each year and are intentionally excluded here.
+ */
+export const UZ_HOLIDAYS = ['01-01', '01-14', '03-08', '03-21', '05-09', '09-01', '10-01', '12-08'];
+
+/** Is `d` (UTC) one of the fixed Uzbek public holidays? */
+export function isUzHoliday(d: Date): boolean {
+  const mmdd = `${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  return UZ_HOLIDAYS.includes(mmdd);
+}
+
+/**
+ * Nudge a payment date forward to the next working day — skips Sat/Sun and the fixed Uzbek holidays.
+ * UTC-based (payment dates are ISO UTC midnight). Idempotent when already a working day. Used only for
+ * payment dates, NOT SLA deadlines (which stay weekends-only via addBusinessDays).
+ */
+export function nextPaymentBusinessDay(d: Date): Date {
+  const r = new Date(d.getTime());
+  const weekendUtc = (x: Date) => x.getUTCDay() === 0 || x.getUTCDay() === 6;
+  while (weekendUtc(r) || isUzHoliday(r)) r.setUTCDate(r.getUTCDate() + 1);
+  return r;
+}
+
+/**
  * Add `days` business days to `from`, preserving the time-of-day.
  * e.g. Friday 10:00 + 1 ish kuni → Monday 10:00.
  */
