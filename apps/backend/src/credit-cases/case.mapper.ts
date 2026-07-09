@@ -95,6 +95,11 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
     amount: num(c.amount),
     termMonths: c.termMonths,
     katmPrice: num(c.katmPrice),
+    contractNumber: c.contractNumber ?? null,
+    contractGlobalNo: c.contractGlobalNo ?? null,
+    contractYearlyNo: c.contractYearlyNo ?? null,
+    contractBranchSym: c.contractBranchSym ?? null,
+    isReMfl: c.isReMfl,
     branch: c.branch
       ? { id: c.branch.id, name: c.branch.name, symbol: c.branch.symbol, region: c.branch.region }
       : null,

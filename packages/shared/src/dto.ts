@@ -347,6 +347,12 @@ export interface CreditCaseDto {
   amount: number | null;
   termMonths: number | null;
   katmPrice: number | null;
+  // Auto contract number (assigned on submit) — separate from `number` (ariza id).
+  contractNumber: string | null;
+  contractGlobalNo: number | null;
+  contractYearlyNo: number | null;
+  contractBranchSym: string | null;
+  isReMfl: boolean;
   branch: BranchDto | null;
   createdByName: string;
   borrower: BorrowerDto | null;
