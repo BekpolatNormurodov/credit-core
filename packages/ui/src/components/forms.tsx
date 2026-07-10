@@ -167,6 +167,32 @@ export function PlateInput({
   );
 }
 
+/**
+ * Kadastr raqami maskasi: NN:NN:NN:NN:NN:NNNN — beshta ikki-xonali guruh + oxirgi 3–4 xonali guruh,
+ * ikki nuqta avtomatik qo'yiladi. Faqat raqam kiritiladi (14 tagacha).
+ */
+export function formatKadastr(raw: string): string {
+  const d = (raw ?? '').replace(/\D/g, '').slice(0, 14);
+  return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 6), d.slice(6, 8), d.slice(8, 10), d.slice(10, 14)]
+    .filter(Boolean)
+    .join(':');
+}
+
+export function KadastrInput({
+  value, onChange, placeholder = '10:01:05:03:01:1234',
+}: { value: string | null; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <Input
+      value={value ?? ''}
+      placeholder={placeholder}
+      inputMode="numeric"
+      maxLength={19}
+      className="nums"
+      onChange={(e) => onChange(formatKadastr(e.target.value))}
+    />
+  );
+}
+
 export interface Option<T extends string> { value: T; label: string; icon?: React.ComponentType<{ className?: string }> }
 
 /** Custom styled dropdown (replaces the unstyled native <select>); portal-based menu. */

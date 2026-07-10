@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import { CaseStatus, ProductType, type CollateralDto, type UpsertCasePayload } from '@credit-core/shared';
 import { Button, Card, Field, Input, StatusBadge, Skeleton } from '../components/primitives';
-import { PassportInput, PlateInput, digitsOnly } from '../components/forms';
+import { PassportInput, PlateInput, KadastrInput, digitsOnly } from '../components/forms';
 import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import {
@@ -24,7 +24,7 @@ type RegKey = 'pop' | 'cad' | 'veh' | 'tax' | 'civ';
 type Vals = Record<string, string>;
 type Prefill = { borrower?: Partial<UpsertCasePayload['borrower']>; collateral?: { type: ProductType; patch: Partial<CollateralDto> } };
 
-type InputDef = { id: string; label: string; kind: 'pinfl' | 'passport' | 'plate' | 'stir' | 'text'; placeholder?: string; hint?: string };
+type InputDef = { id: string; label: string; kind: 'pinfl' | 'passport' | 'plate' | 'stir' | 'kadastr' | 'text'; placeholder?: string; hint?: string };
 type Reg = {
   key: RegKey;
   code: string;
@@ -76,7 +76,7 @@ const REGISTRIES: Reg[] = [
   },
   {
     key: 'cad', code: 'Reyestr · kadastr', name: 'Kadastr agentligi', sub: 'Ko’chmas mulk obyektlari', Icon: House,
-    inputs: [{ id: 'kadastr', label: 'Kadastr raqami', kind: 'text', placeholder: 'NN:NN:NN:NN:NN:NNNN' }],
+    inputs: [{ id: 'kadastr', label: 'Kadastr raqami', kind: 'kadastr' }],
     result: ['Obyekt turi', 'Manzil', 'Maydon (m²)', 'Holati', 'Kadastr raqami'],
     canCheck: (v) => (v.kadastr ?? '').replace(/\D/g, '').length >= 12,
     prefill: (v) => ({ collateral: { type: ProductType.REAL_ESTATE, patch: { cadastreNo: (v.kadastr ?? '').trim() } } }),
@@ -110,6 +110,7 @@ function QueryInput({ inp, value, onChange }: { inp: InputDef; value: string; on
     case 'stir': return <Input className="nums" inputMode="numeric" maxLength={9} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 9))} placeholder={inp.placeholder ?? '9 raqam'} />;
     case 'passport': return <PassportInput value={value} onChange={onChange} />;
     case 'plate': return <PlateInput value={value} onChange={onChange} />;
+    case 'kadastr': return <KadastrInput value={value} onChange={onChange} />;
     default: return <Input className="nums" value={value} onChange={(e) => onChange(e.target.value)} placeholder={inp.placeholder} />;
   }
 }

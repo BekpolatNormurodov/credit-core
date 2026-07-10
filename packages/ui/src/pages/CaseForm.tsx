@@ -5,7 +5,7 @@ import {
 } from '../lib/icons';
 import { ProductType, DocumentType, type CollateralDto } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';
-import { MoneyInput, DatePicker, PassportInput, PlateInput, Select, digitsOnly } from '../components/forms';
+import { MoneyInput, DatePicker, PassportInput, PlateInput, KadastrInput, Select, digitsOnly } from '../components/forms';
 import { CAR_MODELS } from '../lib/cars';
 import { TexScan } from './origination/TexScan';
 import { cn } from '../lib/cn';
@@ -120,7 +120,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Manzil" required className="sm:col-span-2" icon={Location} error={error}><Input value={c.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} /></Field>
             <Field label="Reestr №" icon={Hashtag}><Input value={c.registryNo ?? ''} onChange={(e) => onChange({ registryNo: e.target.value })} /></Field>
-            <Field label="Kadastr №" icon={Hashtag} hint="10:01:05:03:01:1234"><Input value={c.cadastreNo ?? ''} onChange={(e) => onChange({ cadastreNo: e.target.value })} placeholder="NN:NN:NN:NN:NN:NNNN" /></Field>
+            <Field label="Kadastr №" icon={Hashtag} hint="10:01:05:03:01:1234"><KadastrInput value={c.cadastreNo ?? null} onChange={(v) => onChange({ cadastreNo: v })} /></Field>
             <KadastrCard cadastreNo={c.cadastreNo ?? ''} />
             <Field label="Mulk turi" icon={House}><Input value={c.propertyType ?? ''} onChange={(e) => onChange({ propertyType: e.target.value })} placeholder={(c.realtyKind ?? 'APARTMENT') === 'HOUSE' ? "YAKKA TARTIBDAGI TURAR JOY" : "KO'P QAVATLI UYDAGI XONADON"} /></Field>
             <Field label="Ko'chirma sanasi" icon={Calendar}><DatePicker value={c.registrationDate ?? null} onChange={(iso) => onChange({ registrationDate: iso })} /></Field>
