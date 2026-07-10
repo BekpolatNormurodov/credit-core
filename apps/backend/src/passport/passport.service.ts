@@ -257,8 +257,8 @@ export class PassportService {
       const [ff, bf] = await Promise.all([this.bestTexFields(front, ocr), this.bestTexFields(back, ocr)]);
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     }
-    // 4-worker pool so all orientations OCR concurrently (≈ one call wall-clock), like the MRZ pool.
-    const eng = await this.makeScheduler('eng', 4);
+    // A 6-worker eng pool so both sides' passes run concurrently. Front + back are scanned in parallel.
+    const eng = await this.makeScheduler('eng', 6);
     try {
       const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr), this.bestTexFields(back, eng.ocr)]);
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
@@ -267,29 +267,30 @@ export class PassportService {
     }
   }
 
-  /** OCR every orientation × {plain, binarized} concurrently, MERGE the two passes per orientation
-   *  (different thresholds recover different fields), and keep the orientation whose merge has the
-   *  most fields. Returns the merged fields + the two texts (for the un-numbered certificate series). */
+  /**
+   * Two-phase, so it's fast: (1) a cheap orientation SCOUT — OCR all 4 orientations at low res (plain)
+   * and pick the one with the most numbered fields; (2) only at that orientation, OCR twice at high
+   * res (plain + binarized) and merge. Total 6 OCR calls/side (4 cheap + 2 costly) instead of 8 costly.
+   */
   private async bestTexFields(file: Buffer, ocr: OcrFn): Promise<{ fields: Map<number, string>; text: string }> {
-    const variants: Array<[number, boolean]> = [];
-    for (const angle of ORIENTATIONS) for (const bin of [false, true]) variants.push([angle, bin]);
-    const texts = await Promise.all(variants.map(async ([angle, bin]) => ocr(await this.preprocessTex(file, angle, bin))));
-    let best = { fields: new Map<number, string>(), text: '', n: -1 };
-    for (let i = 0; i < ORIENTATIONS.length; i++) {
-      const t0 = texts[i * 2] ?? '';
-      const t1 = texts[i * 2 + 1] ?? '';
-      const merged = mergeFields([numberedFields(t0), numberedFields(t1)]);
-      if (merged.size > best.n) best = { fields: merged, text: `${t0}\n${t1}`, n: merged.size };
-    }
-    return best;
+    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ocr(await this.preprocessTex(file, a, false, 1200))));
+    let bi = 0;
+    for (let i = 1; i < scouts.length; i++) if (numberedFields(scouts[i]).size > numberedFields(scouts[bi]).size) bi = i;
+    const angle = ORIENTATIONS[bi];
+    const [hi0, hi1] = await Promise.all([
+      this.preprocessTex(file, angle, false, 2600).then(ocr),
+      this.preprocessTex(file, angle, true, 2600).then(ocr),
+    ]);
+    const fields = mergeFields([numberedFields(scouts[bi]), numberedFields(hi0), numberedFields(hi1)]);
+    return { fields, text: `${hi0}\n${hi1}` };
   }
 
   /** Preprocess a tex-passport side: rotate + grayscale + normalize + sharpen (+ optional threshold),
-   *  upscaled to ~2600px so the small numbered print (over a security pattern) is legible to eng. */
-  private async preprocessTex(file: Buffer, angle: number, binarize: boolean): Promise<Buffer> {
+   *  upscaled so the small numbered print (over a security pattern) is legible to eng. */
+  private async preprocessTex(file: Buffer, angle: number, binarize: boolean, width = 2600): Promise<Buffer> {
     let img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen();
     if (binarize) img = img.threshold(150);
-    return img.resize({ width: 2600 }).toBuffer();
+    return img.resize({ width }).toBuffer();
   }
 
   /** Preprocess the printed (VIZ) side for the eng text OCR: the labels/values are large and upright,
