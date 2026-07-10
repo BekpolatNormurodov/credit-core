@@ -53,6 +53,12 @@ describe('numberedFields', () => {
     expect(m.get(10)).toContain('YENGIL');
     expect(m.get(4)).toContain('7QUB2208');
   });
+  it('appends continuation lines to a wrapping text field (address)', () => {
+    const m = numberedFields('5. TOSHKENT SHAHAR\nCHILONZOR TUMANI 12-UY\n6. 01.01.2020');
+    expect(m.get(5)).toContain('CHILONZOR');
+    expect(m.get(5)).toContain('12-UY');
+    expect(m.get(6)).toBe('01.01.2020');
+  });
 });
 
 describe('extractTexFields', () => {

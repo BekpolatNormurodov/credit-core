@@ -66,8 +66,9 @@ export function TexScan({ onExtract, onScanImages }: {
     const f = result.fields;
     const p: TexPatch = {};
     if (f.stateNumber) p.stateNumber = f.stateNumber;
-    // Model: apply only when it snaps to a known car model — otherwise leave blank (don't fill garbage).
-    if (f.model) { const m = matchCarModel(f.model); if (m) p.model = m; }
+    // Model: snap to a known model, else keep the (already gated, clean) OCR value — a new model that
+    // isn't in the list still fills the free-text dropdown.
+    if (f.model) p.model = matchCarModel(f.model) ?? f.model;
     if (f.color) p.color = f.color;
     if (f.year != null) p.year = f.year;
     if (f.bodyType) p.bodyType = f.bodyType;
@@ -138,19 +139,27 @@ export function TexScan({ onExtract, onScanImages }: {
             ))}
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">Ishonch: <b className={result.confidence >= 60 ? 'text-success-600' : 'text-warning-600'}>{result.confidence}%</b> — maydonlarni tekshiring</p>
+          {/* Applied collateral fields first, then the informational ones (owner / address / issuer). */}
           {(() => {
-            // Show only the fields that get applied to the collateral — owner/address/issuer are
-            // informational and low-confidence, so they'd only add noise to the result.
-            const shown = result.perField.filter((pf) => APPLIED_KEYS.has(pf.key));
+            const applied = result.perField.filter((pf) => APPLIED_KEYS.has(pf.key));
+            const info = result.perField.filter((pf) => !APPLIED_KEYS.has(pf.key));
+            const cell = (pf: { key: string; value: string }) => (
+              <div key={pf.key} className="min-w-0">
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">{FIELD_LABEL[pf.key] ?? pf.key}</p>
+                <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{pf.value}</p>
+              </div>
+            );
             return (
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-white p-2.5 dark:bg-white/5">
-                {shown.length === 0 && <p className="col-span-2 text-xs text-error-600">Hech narsa aniq o‘qilmadi — rasmlarni yorug‘/tekis oling</p>}
-                {shown.map((pf) => (
-                  <div key={pf.key} className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-400">{FIELD_LABEL[pf.key] ?? pf.key}</p>
-                    <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{pf.value}</p>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-white p-2.5 dark:bg-white/5">
+                  {applied.length === 0 && <p className="col-span-2 text-xs text-error-600">Hech narsa aniq o‘qilmadi — rasmlarni yorug‘/tekis oling</p>}
+                  {applied.map(cell)}
+                </div>
+                {info.length > 0 && (
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg border border-dashed border-gray-200 p-2.5 dark:border-gray-700">
+                    {info.map(cell)}
                   </div>
-                ))}
+                )}
               </div>
             );
           })()}

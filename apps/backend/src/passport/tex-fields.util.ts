@@ -87,14 +87,23 @@ function parseYear(raw: string): number | null {
 // or colon. Match the number ANYWHERE on the line, and accept . , ) : as the separator.
 const FIELD_LINE = /(?:^|[^\dA-Za-z])(\d{1,2})\s*[.,):]\s*(\S.+)$/;
 
-/** Read numbered fields "N. value" out of OCR text into a map of number → value (first wins). */
+/** Read numbered fields "N. value" out of OCR text into a map of number → value (first wins). A line
+ *  with no number is a continuation of the current TEXT field (1..7) — owner/address wrap across lines
+ *  — appended when it has letters (later cleanPhrase trims any background junk). */
 export function numberedFields(text: string): Map<number, string> {
   const out = new Map<number, string>();
+  let current: number | null = null;
   for (const raw of text.split(/\r?\n/)) {
-    const m = raw.match(FIELD_LINE);
-    if (!m) continue;
-    const n = Number(m[1]);
-    if (n >= 1 && n <= 19 && !out.has(n)) out.set(n, squish(m[2]));
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(FIELD_LINE);
+    if (m) {
+      const n = Number(m[1]);
+      if (n >= 1 && n <= 19) { current = n; if (!out.has(n)) out.set(n, squish(m[2])); }
+      else current = null;
+    } else if (current != null && current <= 7 && /[A-Za-z]/.test(line)) {
+      out.set(current, squish(`${out.get(current) ?? ''} ${line}`));
+    }
   }
   return out;
 }
@@ -147,7 +156,7 @@ export function extractTexFromFields(
   if (front.get(2)) f.model = letters(cleanPhrase(front.get(2)!, 3));
   if (front.get(3)) f.color = letters(cleanPhrase(front.get(3)!, 3));
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
-  if (front.get(5)) f.address = letters(cleanPhrase(front.get(5)!));
+  if (front.get(5)) f.address = letters(cleanPhrase(front.get(5)!, 14));
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
   if (front.get(7)) f.issuer = letters(cleanPhrase(front.get(7)!));
 
