@@ -394,6 +394,8 @@ export interface ReMflContractDto {
 export interface CreditCaseListItem {
   id: string;
   number: string;
+  /** Auto MFL contract number, e.g. "1023 MFL 913 PS" (null until submitted). */
+  contractNumber: string | null;
   productType: ProductType;
   status: CaseStatus;
   amount: number | null;

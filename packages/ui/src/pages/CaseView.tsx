@@ -181,11 +181,14 @@ export function CaseView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-800 dark:text-white">{c.number}</h1>
+            <h1 className="nums text-2xl font-bold text-gray-800 dark:text-white">{c.contractNumber ?? c.number}</h1>
             <StatusBadge status={c.status} />
             <DeadlineBadge deadlineAt={c.stepDeadlineAt} paused={!!c.pausedAt} pauseUntil={c.pauseUntil} />
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{PRODUCT_LABEL[c.productType]} • {c.branch?.name ?? '—'}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {PRODUCT_LABEL[c.productType]} • {c.branch?.name ?? '—'}
+            {c.contractNumber && <span className="text-gray-400 dark:text-gray-500"> • Ariza: {c.number}</span>}
+          </p>
         </div>
         {(isOperatorDraft || canDeleteDraft || canRestore) && (
           <div className="flex flex-wrap items-center gap-2">
@@ -729,13 +732,22 @@ function Detail({ c, canUpload, canManage }: { c: CreditCaseDto; canUpload: bool
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Egalar: {col.owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}</p>
               ) : null}
               {col.id && (
-                <CollateralDocs
-                  caseId={c.id}
-                  collateralId={col.id}
-                  docs={c.documents.filter((d) => d.collateralId === col.id)}
-                  canUpload={canUpload}
-                  canManage={canManage}
-                />
+                <>
+                  <CollateralMedia
+                    caseId={c.id}
+                    collateralId={col.id}
+                    docs={c.documents.filter((d) => d.collateralId === col.id)}
+                    canUpload={canUpload}
+                    canManage={canManage}
+                  />
+                  <CollateralDocs
+                    caseId={c.id}
+                    collateralId={col.id}
+                    docs={c.documents.filter((d) => d.collateralId === col.id)}
+                    canUpload={canUpload}
+                    canManage={canManage}
+                  />
+                </>
               )}
             </div>
           );
@@ -745,8 +757,77 @@ function Detail({ c, canUpload, canManage }: { c: CreditCaseDto; canUpload: bool
   );
 }
 
+const COLLATERAL_MEDIA_MAX = 10;
+
+/** Per-collateral photos & videos (min 1, max 10). Multi-select, uploads each as COLLATERAL_PHOTO. */
+function CollateralMedia({
+  caseId, collateralId, docs, canUpload, canManage,
+}: { caseId: string; collateralId: string; docs: CreditCaseDto['documents']; canUpload: boolean; canManage: boolean }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const media = docs.filter((d) => { const m = d.mimeType ?? ''; return m.startsWith('image/') || m.startsWith('video/') || d.type === DocumentType.COLLATERAL_PHOTO; });
+  const remaining = COLLATERAL_MEDIA_MAX - media.length;
+
+  const onPick = async (files: FileList | null) => {
+    const picked = files ? Array.from(files) : [];
+    if (!picked.length) return;
+    if (picked.length > remaining) { toast.error('Ko‘p', `Ko‘pi ${COLLATERAL_MEDIA_MAX} ta — yana ${Math.max(0, remaining)} ta mumkin`); return; }
+    setBusy(true);
+    try {
+      for (const file of picked) await api.uploadDocument(caseId, DocumentType.COLLATERAL_PHOTO, file, { collateralId });
+      qc.invalidateQueries({ queryKey: ['case', caseId] });
+      toast.success('Yuklandi', 'Garov rasm/videolari');
+    } catch { toast.error('Yuklanmadi', 'Qayta urinib ko‘ring'); }
+    finally { setBusy(false); if (inputRef.current) inputRef.current.value = ''; }
+  };
+  const remove = async (docId: string) => { await api.deleteDocument(docId); qc.invalidateQueries({ queryKey: ['case', caseId] }); };
+
+  return (
+    <div className="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800">
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Rasm / video ({media.length}/{COLLATERAL_MEDIA_MAX})</p>
+        {canUpload && remaining > 0 && (
+          <button onClick={() => inputRef.current?.click()} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/10">
+            <Upload className="h-3.5 w-3.5" /> Rasm / video
+          </button>
+        )}
+      </div>
+      <input ref={inputRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => onPick(e.target.files)} />
+      {media.length === 0 ? (
+        <p className="text-xs font-medium text-error-600 dark:text-error-500">Kamida 1 ta rasm yoki video majburiy</p>
+      ) : (
+        <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+          {media.map((d) => {
+            const isVideo = (d.mimeType ?? '').startsWith('video/');
+            return (
+              <div key={d.id} className="group relative">
+                <button type="button" onClick={() => viewDocument(d.id, d.fileName)} title={d.fileName} className="block aspect-square w-full overflow-hidden rounded-lg border border-gray-200 outline-none transition hover:border-brand-400 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:border-gray-700">
+                  {isVideo ? (
+                    <span className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-gray-900 text-white"><Play className="h-5 w-5" /><span className="text-[9px] font-medium">Video</span></span>
+                  ) : (
+                    <img src={documentInlineUrl(d.id)} alt={d.fileName} className="h-full w-full object-cover" />
+                  )}
+                </button>
+                {canManage && (
+                  <button type="button" onClick={() => remove(d.id)} aria-label="O‘chirish" className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-error-600 text-white opacity-0 shadow transition group-hover:opacity-100">
+                    <X className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {busy && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">Yuklanmoqda…</p>}
+    </div>
+  );
+}
+
+// Photos/videos are managed by CollateralMedia; this selector is for other documents only.
 const COLLATERAL_DOC_TYPES: DocumentType[] = [
-  DocumentType.COLLATERAL_PHOTO, DocumentType.TECH_PASSPORT, DocumentType.NOTARY, DocumentType.SCAN, DocumentType.OTHER,
+  DocumentType.TECH_PASSPORT, DocumentType.NOTARY, DocumentType.SCAN, DocumentType.OTHER,
 ];
 
 function CollateralDocs({
@@ -759,22 +840,24 @@ function CollateralDocs({
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [docType, setDocType] = useState<DocumentType>(DocumentType.COLLATERAL_PHOTO);
+  const [docType, setDocType] = useState<DocumentType>(DocumentType.TECH_PASSPORT);
 
-  const reset = () => { setFile(null); setTitle(''); setDescription(''); setDocType(DocumentType.COLLATERAL_PHOTO); setOpen(false); };
+  const reset = () => { setFile(null); setTitle(''); setDescription(''); setDocType(DocumentType.TECH_PASSPORT); setOpen(false); };
   const upload = useMutation({
     mutationFn: () => api.uploadDocument(caseId, docType, file!, { collateralId, title: title || undefined, description: description || undefined }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', caseId] }); toast.success('Hujjat biriktirildi', title || file?.name); reset(); },
     onError: () => toast.error('Xatolik', 'Hujjat yuklanmadi'),
   });
 
-  const images = docs.filter((d) => (d.mimeType ?? '').startsWith('image/'));
-  const files = docs.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
+  // Photos/videos live in CollateralMedia above — this block manages the other documents only.
+  const otherDocs = docs.filter((d) => { const m = d.mimeType ?? ''; return !(m.startsWith('image/') || m.startsWith('video/') || d.type === DocumentType.COLLATERAL_PHOTO); });
+  const images = otherDocs.filter((d) => (d.mimeType ?? '').startsWith('image/'));
+  const files = otherDocs.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
 
   return (
     <div className="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800">
       <div className="mb-2 flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Garov hujjatlari ({docs.length})</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">Garov hujjatlari ({otherDocs.length})</p>
         {canUpload && !open && (
           <button onClick={() => setOpen(true)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-700 outline-none transition hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-brand-400 dark:hover:bg-brand-500/10">
             <Upload className="h-3.5 w-3.5" /> Hujjat biriktirish
@@ -782,7 +865,7 @@ function CollateralDocs({
         )}
       </div>
 
-      {docs.length === 0 && !open && <p className="text-xs text-gray-400 dark:text-gray-500">Hali hujjat biriktirilmagan</p>}
+      {otherDocs.length === 0 && !open && <p className="text-xs text-gray-400 dark:text-gray-500">Hali hujjat biriktirilmagan</p>}
 
       {images.length > 0 && (
         <div className="mb-2 grid grid-cols-4 gap-2 sm:grid-cols-6">

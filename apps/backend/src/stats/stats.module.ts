@@ -139,6 +139,7 @@ class StatsController {
       recent: recentRaw.map((c) => ({
         id: c.id,
         number: c.number,
+        contractNumber: c.contractNumber ?? null,
         productType: c.productType,
         status: c.status,
         amount: c.amount ? Number(c.amount) : null,

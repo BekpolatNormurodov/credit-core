@@ -17,7 +17,10 @@ const productCell = (c: CreditCaseListItem) => (
     <span className={`flex h-8 w-8 items-center justify-center rounded-lg text-white ${c.productType === ProductType.AUTO ? 'bg-warning-600' : 'bg-brand-700'}`}>
       {c.productType === ProductType.AUTO ? <Car className="h-4 w-4" /> : <House className="h-4 w-4" />}
     </span>
-    <span className="font-semibold text-gray-800 dark:text-white">{c.number}</span>
+    <span className="min-w-0">
+      <span className="nums block font-semibold text-gray-800 dark:text-white">{c.contractNumber ?? c.number}</span>
+      {c.contractNumber && <span className="block text-[11px] text-gray-400 dark:text-gray-500">{c.number}</span>}
+    </span>
   </div>
 );
 

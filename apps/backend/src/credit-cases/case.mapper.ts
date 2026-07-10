@@ -196,6 +196,7 @@ export function toListItem(
   return {
     id: c.id,
     number: c.number,
+    contractNumber: c.contractNumber ?? null,
     productType: c.productType,
     status: c.status,
     amount: num(c.amount),

@@ -207,7 +207,7 @@ export function Step3({ f }: { f: OriginationForm }) {
         <div className="space-y-4">
           {f.form.collaterals.map((c, i) => (
             <CollateralCard key={i} index={i} c={c} onChange={(p) => f.setCol(i, p)} onRemove={() => f.removeCol(i)} canRemove={f.form.collaterals.length > 1}
-              docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
+              hideDocs docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
           ))}
         </div>
         {f.attempted && f.errors.collateral && (

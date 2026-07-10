@@ -14,10 +14,12 @@ const num = (v: string): number | null => (v === '' ? null : Number(v));
 // A per-collateral staged attachment (image/file + name + free text), bound by collateral index.
 export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
 
-export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField }: {
+export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false }: {
   index: number; c: CollateralDto; error?: string; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
   docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
   onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;
+  /** In the wizard, photos/videos are attached in the case view after saving (needs a collateral id). */
+  hideDocs?: boolean;
 }) {
   const isAuto = c.type === ProductType.AUTO;
   const setOwners = (owners: CollateralDto['owners']) => onChange({ owners });
@@ -111,10 +113,16 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
         ))}
       </div>
 
-      {/* Qo'shimcha: rasm/fayl biriktirish + izoh matn (har bir garovga) */}
+      {/* In the wizard the collateral has no id yet — photos/videos are attached after saving, in the
+          case view (min 1, max 10 per collateral). Show a hint there instead of a dead uploader. */}
+      {hideDocs ? (
+        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-white/5 dark:text-gray-400">
+          <span className="font-medium text-gray-700 dark:text-gray-200">Rasm / video:</span> arizani saqlagach, garov bo‘limida biriktiriladi — har bir garovga <b>kamida 1 ta</b>, ko‘pi <b>10 ta</b> (rasm yoki video).
+        </div>
+      ) : (
       <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-800">
         <h4 className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-white"><FileText className="h-4 w-4 text-gray-400" /> Qo'shimcha rasm va izohlar</h4>
-        <input ref={docRef} type="file" accept="image/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { onAddDocs(e.target.files); e.target.value = ''; }} />
+        <input ref={docRef} type="file" accept="image/*,video/*,.pdf,.doc,.docx" multiple className="hidden" onChange={(e) => { onAddDocs(e.target.files); e.target.value = ''; }} />
         <button
           type="button"
           onClick={() => docRef.current?.click()}
@@ -152,6 +160,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           </div>
         )}
       </div>
+      )}
       {lightbox && (
         <div onClick={() => setLightbox(null)} role="dialog" aria-modal className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
           <img src={lightbox} alt="" className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain shadow-2xl" />
