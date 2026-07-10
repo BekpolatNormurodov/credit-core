@@ -6,6 +6,12 @@ services:
   mysql:
     image: mysql:8.4
     restart: unless-stopped
+    # InnoDB caches data+indexes in the buffer pool; the 128M default is tiny and forces disk reads.
+    # 512M caches this DB's working set in RAM (safe on a 2GB+ box). Tune to the server: ~50-70% of
+    # RAM on a DB-dedicated host, less when the box is shared with the backend/OCR — set MYSQL_BUFFER_POOL.
+    command: >-
+      --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL:-512M}
+      --max-connections=${MYSQL_MAX_CONN:-150}
     environment:
       MYSQL_DATABASE: credit_core
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
