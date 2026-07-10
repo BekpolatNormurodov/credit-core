@@ -137,16 +137,19 @@ export function extractTexFromFields(
 ): TexScanResult {
   const f = emptyFields();
 
-  // Identity fields rejoin the code tokens (drops OCR background garbage); text fields keep word-like tokens.
-  // Plate: prefer a clean plate-format match anywhere on the front (survives a "1"→"4" number misread),
-  // else field 1's code. A garbled read matches neither → stays empty for manual entry.
-  f.stateNumber = findPlate(frontText) || joinCode(front.get(1) ?? '', 10);
-  if (front.get(2)) f.model = cleanPhrase(front.get(2)!, 3);
-  if (front.get(3)) f.color = cleanPhrase(front.get(3)!, 3);
-  if (front.get(4)) f.ownerName = cleanPhrase(front.get(4)!);
-  if (front.get(5)) f.address = cleanPhrase(front.get(5)!);
+  // Only confident fields are emitted; a garbled read leaves the field empty for manual entry (better
+  // than filling a wrong value). `letters()` requires the value to start with a letter — drops OCR
+  // digit-junk like "00 BELODIMCHATIY" (OQ misread) or a numeric body-type.
+  const letters = (s: string): string => (/^[A-Za-z]/.test(s) ? s : '');
+
+  // Plate: ONLY a clean Uzbek plate-format match — no garbage fallback (was surfacing "EE" etc.).
+  f.stateNumber = findPlate(frontText);
+  if (front.get(2)) f.model = letters(cleanPhrase(front.get(2)!, 3));
+  if (front.get(3)) f.color = letters(cleanPhrase(front.get(3)!, 3));
+  if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
+  if (front.get(5)) f.address = letters(cleanPhrase(front.get(5)!));
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
-  if (front.get(7)) f.issuer = cleanPhrase(front.get(7)!);
+  if (front.get(7)) f.issuer = letters(cleanPhrase(front.get(7)!));
 
   // Year: field 9, or field 8 (a common "9"→"8" OCR misread), or the smallest standalone year in the
   // back text (manufacture year is older than the inspection date, e.g. 2019 vs 2025-11-05).
@@ -154,9 +157,11 @@ export function extractTexFromFields(
     const years = (backText.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number).filter((y) => y >= 1980 && y <= 2035);
     return years.length ? Math.min(...years) : null;
   })();
-  if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!, 3);
-  if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = normalizeVin(v.bodyNo); f.chassis = v.chassis; }
-  if (back.get(14)) f.engineNo = joinCode(back.get(14)!, 15);
+  if (back.get(10)) f.bodyType = letters(cleanPhrase(back.get(10)!, 3));
+  // VIN only when it's a full-length code (≥11); a short/garbled read is dropped.
+  if (back.get(11)) { const v = splitVin(back.get(11)!); const vin = normalizeVin(v.bodyNo); if (vin.length >= 11) f.bodyNo = vin; f.chassis = v.chassis; }
+  // Engine only when it's a reasonable code length (≥8).
+  if (back.get(14)) { const e = joinCode(back.get(14)!, 15); if (e.length >= 8) f.engineNo = e; }
 
   // Series is not numbered — search the back first (it prints there), then the front.
   f.techPassportNo = findSeries(backText) || findSeries(frontText);

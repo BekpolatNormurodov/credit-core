@@ -28,6 +28,10 @@ const FIELD_LABEL: Record<string, string> = {
   bodyNo: 'Kuzov / VIN', chassis: 'Shassi', engineNo: 'Dvigatel raqami', techPassportNo: 'Guvohnoma seriyasi',
 };
 
+// The fields that are actually written to the collateral (and worth reviewing) — owner/address/issuer
+// are read from the certificate but not collateral fields, so they're kept out of the result card.
+const APPLIED_KEYS = new Set(['stateNumber', 'model', 'color', 'year', 'bodyType', 'bodyNo', 'chassis', 'engineNo', 'techPassportNo', 'techPassportDate']);
+
 /** Tex passport (avto guvohnoma) skaneri — old + orqa rasm → avto garov maydonlarini to‘ldiradi. */
 export function TexScan({ onExtract, onScanImages }: {
   onExtract: (p: TexPatch) => void;
@@ -62,7 +66,8 @@ export function TexScan({ onExtract, onScanImages }: {
     const f = result.fields;
     const p: TexPatch = {};
     if (f.stateNumber) p.stateNumber = f.stateNumber;
-    if (f.model) p.model = matchCarModel(f.model) ?? f.model; // snap to a known model for the dropdown
+    // Model: apply only when it snaps to a known car model — otherwise leave blank (don't fill garbage).
+    if (f.model) { const m = matchCarModel(f.model); if (m) p.model = m; }
     if (f.color) p.color = f.color;
     if (f.year != null) p.year = f.year;
     if (f.bodyType) p.bodyType = f.bodyType;
@@ -133,15 +138,22 @@ export function TexScan({ onExtract, onScanImages }: {
             ))}
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">Ishonch: <b className={result.confidence >= 60 ? 'text-success-600' : 'text-warning-600'}>{result.confidence}%</b> — maydonlarni tekshiring</p>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-white p-2.5 dark:bg-white/5">
-            {result.perField.length === 0 && <p className="col-span-2 text-xs text-error-600">Hech narsa o‘qilmadi — rasmlarni yorug‘/tekis oling</p>}
-            {result.perField.map((pf) => (
-              <div key={pf.key} className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400">{FIELD_LABEL[pf.key] ?? pf.key}</p>
-                <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{pf.value}</p>
+          {(() => {
+            // Show only the fields that get applied to the collateral — owner/address/issuer are
+            // informational and low-confidence, so they'd only add noise to the result.
+            const shown = result.perField.filter((pf) => APPLIED_KEYS.has(pf.key));
+            return (
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-white p-2.5 dark:bg-white/5">
+                {shown.length === 0 && <p className="col-span-2 text-xs text-error-600">Hech narsa aniq o‘qilmadi — rasmlarni yorug‘/tekis oling</p>}
+                {shown.map((pf) => (
+                  <div key={pf.key} className="min-w-0">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400">{FIELD_LABEL[pf.key] ?? pf.key}</p>
+                    <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{pf.value}</p>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            );
+          })()}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setResult(null)}><RotateCcw className="h-4 w-4" /> Qayta</Button>
             <Button className="flex-1" onClick={apply}><Check className="h-4 w-4" /> Qo‘llash</Button>
