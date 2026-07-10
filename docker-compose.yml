@@ -2,6 +2,14 @@
 # Subdomains: operator/moderator/director/admin.creditcore.uz + api.creditcore.uz
 # nginx terminates TLS itself and is published directly on the host's 80 (HTTP) + 443 (HTTPS).
 # Usage: docker compose --env-file deploy/.env up -d --build
+#
+# Topology (isolate the CPU-heavy OCR so it never starves the API):
+#   mysql      — DB (buffer pool tuned via MYSQL_BUFFER_POOL)
+#   migrate    — one-shot: prisma db push, then exits (single schema sync; no replica race)
+#   scheduler  — 1 instance, RUN_SCHEDULER=1: runs the @Cron jobs (deadlines, retention) exactly once
+#   backend    — API, 3 replicas behind nginx (round-robin). Scans are NOT served here.
+#   ocr        — 1 instance, CPU-capped: nginx routes /passport/* here so OCR can't steal the API's cores
+#   web-*      — per-role static SPA (operator scaled to 3)
 services:
   mysql:
     image: mysql:8.4
@@ -17,12 +25,48 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
     # Not exposed to the host in prod — only the compose network reaches it.
+
+  # One-shot schema sync. Runs once, exits; backend/ocr/scheduler wait for it to COMPLETE before
+  # starting, so 3 backend replicas never race to `prisma db push` concurrently.
+  migrate:
+    image: credit-core-backend
+    command: ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss"]
+    env_file:
+      - deploy/.env
+    restart: "no"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Runs the @Cron jobs exactly once (RUN_SCHEDULER=1). Serves the app too, but nginx never routes to it.
+  scheduler:
+    image: credit-core-backend
+    restart: unless-stopped
+    env_file:
+      - deploy/.env
+    environment:
+      RUN_SCHEDULER: "1"
+      UPLOAD_DIR: /data/uploads
+      BACKEND_PORT: 3000
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   backend:
     build:
       context: .
       dockerfile: deploy/Dockerfile.backend
+    image: credit-core-backend
     restart: unless-stopped
     env_file:
       - deploy/.env
@@ -31,12 +75,45 @@ services:
       BACKEND_PORT: 3000
     volumes:
       - uploads:/data/uploads
+    # API is light — 3 replicas for concurrency/resilience (nginx round-robins). No cron here.
+    deploy:
+      replicas: 3
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # OCR worker — nginx routes /passport/* here. CPU-capped so a scan burst (8 tesseract threads) can
+  # never take the whole box: on 12 cores this leaves ≥4 for the API. Tune the cap via OCR_CPUS.
+  ocr:
+    image: credit-core-backend
+    restart: unless-stopped
+    env_file:
+      - deploy/.env
+    environment:
+      UPLOAD_DIR: /data/uploads
+      BACKEND_PORT: 3000
+      OCR_MAX_CONCURRENT: ${OCR_MAX_CONCURRENT:-1}
+    volumes:
+      - uploads:/data/uploads
+    deploy:
+      resources:
+        limits:
+          cpus: "${OCR_CPUS:-8}"
+          memory: ${OCR_MEM:-6g}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   web-operator:
     build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-operator, VITE_API_URL: "${VITE_API_URL:-https://api.creditcore.uz}" } }
+    image: credit-core-web-operator
     restart: unless-stopped
+    deploy:
+      replicas: 3
   web-moderator:
     build: { context: ., dockerfile: deploy/Dockerfile.web, args: { APP: web-moderator, VITE_API_URL: "${VITE_API_URL:-https://api.creditcore.uz}" } }
     restart: unless-stopped
@@ -62,6 +139,7 @@ services:
       - certbot_www:/var/www/certbot
     depends_on:
       - backend
+      - ocr
       - web-operator
       - web-moderator
       - web-director

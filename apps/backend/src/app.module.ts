@@ -2,6 +2,12 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { join } from 'path';
+
+// The backend can run as several replicas behind nginx. @Cron jobs (SLA deadlines, audit retention)
+// must fire in exactly ONE instance — otherwise every replica runs them, duplicating notifications
+// and writes. Only the instance with RUN_SCHEDULER=1 (the dedicated `scheduler` service) loads the
+// scheduler; without it the @Cron handlers are inert metadata, so API replicas never fire them.
+const SCHEDULER = process.env.RUN_SCHEDULER === '1';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -24,7 +30,7 @@ import { PassportModule } from './passport/passport.module';
       isGlobal: true,
       envFilePath: [join(__dirname, '..', '.env'), join(__dirname, '..', '..', '..', '.env')],
     }),
-    ScheduleModule.forRoot(),
+    ...(SCHEDULER ? [ScheduleModule.forRoot()] : []),
     PrismaModule,
     DocumentsModule,
     AuthModule,

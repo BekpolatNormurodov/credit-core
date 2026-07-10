@@ -45,7 +45,7 @@ COPY --from=build /app/apps/backend/tessdata ./apps/backend/tessdata
 ENV TESSDATA_PATH=/app/apps/backend/tessdata
 WORKDIR /app/apps/backend
 EXPOSE 3000
-# db push reconciles the schema (matches dev) — no migration history. --accept-data-loss lets it add
-# unique constraints (e.g. contractNumber) and other non-additive changes without a crash-loop; the
-# added columns are nullable so no real data is lost.
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
+# Just run the server. Schema reconciliation (prisma db push) now runs ONCE in the dedicated `migrate`
+# one-shot service (see docker-compose.yml) — not on every container's boot, so 3 backend replicas
+# don't race to push the schema concurrently.
+CMD ["node", "dist/main.js"]
