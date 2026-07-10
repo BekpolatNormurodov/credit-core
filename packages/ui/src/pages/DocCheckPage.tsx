@@ -1,0 +1,241 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ProductType, type CollateralDto, type UpsertCasePayload } from '@credit-core/shared';
+import { Button, Card, Field, Input } from '../components/primitives';
+import { PassportInput, PlateInput, digitsOnly } from '../components/forms';
+import { useToast } from '../components/Toast';
+import {
+  People, House, Car, Bank, IdCard, ShieldCheck, Lock, Search, Plus, Check, Info, type IconProps,
+} from '../lib/icons';
+import { cn } from '../lib/cn';
+
+/**
+ * "Hujjatlar tekshirish" — standalone registry-lookup tool. The operator enters a client identifier
+ * (PINFL / passport / kadastr № / davlat raqami / STIR) and queries one of five state registries via
+ * the e-gov IIP-XAB gateway. The gateway integration is not live yet, so the result card is a
+ * SIMULATION ("yaqinda"): fields show "—". "Arizaga qo'shish" carries the entered identifier into a
+ * new application (draft) so the borrower/collateral is pre-filled once integration goes live.
+ */
+
+type RegKey = 'pop' | 'cad' | 'veh' | 'tax' | 'civ';
+type Vals = Record<string, string>;
+type Prefill = { borrower?: Partial<UpsertCasePayload['borrower']>; collateral?: { type: ProductType; patch: Partial<CollateralDto> } };
+
+type InputDef = { id: string; label: string; kind: 'pinfl' | 'passport' | 'plate' | 'stir' | 'text'; placeholder?: string; hint?: string };
+type Reg = {
+  key: RegKey;
+  code: string;
+  name: string;
+  sub: string;
+  Icon: (p: IconProps) => JSX.Element;
+  inputs: InputDef[];
+  result: string[];
+  canCheck: (v: Vals) => boolean;
+  prefill: (v: Vals) => Prefill;
+};
+
+// Per-registry accent — literal Tailwind classes (JIT can't see templated names).
+const TONE: Record<RegKey, { icon: string; tabOn: string }> = {
+  pop: { icon: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400', tabOn: 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-500/40 dark:bg-blue-500/10 dark:text-blue-300' },
+  cad: { icon: 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400', tabOn: 'border-violet-400 bg-violet-50 text-violet-700 dark:border-violet-500/40 dark:bg-violet-500/10 dark:text-violet-300' },
+  veh: { icon: 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400', tabOn: 'border-amber-400 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300' },
+  tax: { icon: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400', tabOn: 'border-emerald-400 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300' },
+  civ: { icon: 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400', tabOn: 'border-rose-400 bg-rose-50 text-rose-700 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-300' },
+};
+
+/** Split a scanned passport "AA1234567" into { series, number }. */
+const splitPassport = (raw: string) => {
+  const v = (raw ?? '').toUpperCase();
+  return {
+    series: (v.match(/[A-Z]/g) ?? []).slice(0, 2).join(''),
+    number: (v.match(/\d/g) ?? []).slice(0, 7).join(''),
+  };
+};
+
+const REGISTRIES: Reg[] = [
+  {
+    key: 'pop', code: 'Reyestr · aholi', name: 'Aholi davlat reyestri', sub: 'Shaxsga oid ma’lumotlar', Icon: People,
+    inputs: [
+      { id: 'pinfl', label: 'PINFL', kind: 'pinfl', hint: '14 raqam' },
+      { id: 'passport', label: 'Pasport', kind: 'passport' },
+    ],
+    result: ['F.I.Sh.', 'Tug’ilgan sana', 'Tug’ilgan joy', 'Jinsi', 'Fuqaroligi', 'Pasport / ID karta', 'Manzil'],
+    canCheck: (v) => digitsOnly(v.pinfl ?? '', 14).length === 14 || (v.passport ?? '').length === 9,
+    prefill: (v) => {
+      const b: Partial<UpsertCasePayload['borrower']> = {};
+      const pinfl = digitsOnly(v.pinfl ?? '', 14);
+      if (pinfl.length === 14) b.pinfl = pinfl;
+      const { series, number } = splitPassport(v.passport ?? '');
+      if (series.length === 2) b.passportSeries = series;
+      if (number.length === 7) b.passportNumber = number;
+      return { borrower: b };
+    },
+  },
+  {
+    key: 'cad', code: 'Reyestr · kadastr', name: 'Kadastr agentligi', sub: 'Ko’chmas mulk obyektlari', Icon: House,
+    inputs: [{ id: 'kadastr', label: 'Kadastr raqami', kind: 'text', placeholder: 'NN:NN:NN:NN:NN:NNNN' }],
+    result: ['Obyekt turi', 'Manzil', 'Maydon (m²)', 'Holati', 'Kadastr raqami'],
+    canCheck: (v) => (v.kadastr ?? '').replace(/\D/g, '').length >= 12,
+    prefill: (v) => ({ collateral: { type: ProductType.REAL_ESTATE, patch: { cadastreNo: (v.kadastr ?? '').trim() } } }),
+  },
+  {
+    key: 'veh', code: 'Reyestr · YHXX', name: 'YHXX', sub: 'Transport vositalari', Icon: Car,
+    inputs: [{ id: 'plate', label: 'Davlat raqami', kind: 'plate' }],
+    result: ['Marka', 'Model', 'Ishlab chiqarilgan yili', 'Kuzov / VIN', 'Davlat raqami'],
+    canCheck: (v) => (v.plate ?? '').replace(/[^A-Z0-9]/g, '').length >= 6,
+    prefill: (v) => ({ collateral: { type: ProductType.AUTO, patch: { stateNumber: (v.plate ?? '').replace(/\s/g, '') } } }),
+  },
+  {
+    key: 'tax', code: 'Reyestr · soliq', name: 'Soliq qo’mitasi', sub: 'Biznes va soliq ma’lumotlari', Icon: Bank,
+    inputs: [{ id: 'stir', label: 'STIR', kind: 'stir', hint: '9 raqam' }],
+    result: ['STIR', 'Tashkiliy shakl (YATT / MCHJ)', 'Faoliyat turi', 'Soliq holati'],
+    canCheck: (v) => digitsOnly(v.stir ?? '', 9).length === 9,
+    prefill: (v) => ({ borrower: { inn: digitsOnly(v.stir ?? '', 9) } }),
+  },
+  {
+    key: 'civ', code: 'Reyestr · FHDYO', name: 'FHDYO', sub: 'Fuqarolik holati dalolatnomalari', Icon: IdCard,
+    inputs: [{ id: 'pinfl', label: 'PINFL', kind: 'pinfl', hint: '14 raqam' }],
+    result: ['Oilaviy holat', 'Nikoh', 'Bolalar', 'Vafot holati'],
+    canCheck: (v) => digitsOnly(v.pinfl ?? '', 14).length === 14,
+    prefill: (v) => ({ borrower: { pinfl: digitsOnly(v.pinfl ?? '', 14) } }),
+  },
+];
+
+function QueryInput({ inp, value, onChange }: { inp: InputDef; value: string; onChange: (v: string) => void }) {
+  switch (inp.kind) {
+    case 'pinfl': return <Input inputMode="numeric" maxLength={14} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 14))} placeholder={inp.placeholder ?? '14 raqam'} />;
+    case 'stir': return <Input inputMode="numeric" maxLength={9} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 9))} placeholder={inp.placeholder ?? '9 raqam'} />;
+    case 'passport': return <PassportInput value={value} onChange={onChange} />;
+    case 'plate': return <PlateInput value={value} onChange={onChange} />;
+    default: return <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={inp.placeholder} />;
+  }
+}
+
+/** The "document" a registry returns — a simulation card (fields "—"), a divider, a "yaqinda" note. */
+function ResultCard({ reg, onAdd }: { reg: Reg; onAdd: () => void }) {
+  const tone = TONE[reg.key];
+  return (
+    <div className="mt-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-white/5">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', tone.icon)}><reg.Icon className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-white">
+            Reyestr javobi
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success-600 text-white"><Check className="h-3 w-3" /></span>
+          </p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">{reg.name}</p>
+        </div>
+      </div>
+      <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/5">
+        {reg.result.map((label) => (
+          <div key={label} className="flex items-center justify-between gap-2 py-0.5">
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
+            <span className="nums text-xs font-medium text-gray-400 dark:text-gray-500">&mdash;</span>
+          </div>
+        ))}
+      </div>
+      {/* "---" divider, then the "yaqinda" note + the add-to-application action. */}
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-dashed border-gray-200 pt-3 dark:border-gray-700">
+        <p className="flex items-center gap-1.5 text-[11px] text-gray-400 dark:text-gray-500">
+          <Info className="h-3.5 w-3.5" />
+          Real ma&apos;lumot IIP / XAB orqali &middot;
+          <span className="rounded bg-amber-50 px-1 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">yaqinda</span>
+        </p>
+        <Button variant="primary" onClick={onAdd}><Plus className="h-4 w-4" /> Arizaga qo&apos;shish</Button>
+      </div>
+    </div>
+  );
+}
+
+export function DocCheckPage() {
+  const nav = useNavigate();
+  const toast = useToast();
+  const [active, setActive] = useState<RegKey>('pop');
+  const [inputs, setInputs] = useState<Record<RegKey, Vals>>({ pop: {}, cad: {}, veh: {}, tax: {}, civ: {} });
+  const [revealed, setRevealed] = useState<Record<RegKey, boolean>>({} as Record<RegKey, boolean>);
+
+  const reg = REGISTRIES.find((r) => r.key === active)!;
+  const vals = inputs[active];
+  const setVal = (id: string, v: string) => setInputs((s) => ({ ...s, [active]: { ...s[active], [id]: v } }));
+  const check = () => setRevealed((s) => ({ ...s, [active]: true }));
+  const addToApplication = () => {
+    nav('/cases/new', { state: { prefill: reg.prefill(vals) } });
+    toast.success('Arizaga qo’shildi', `${reg.name} ma’lumoti yangi arizaga o’tkazildi`);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Hujjatlar tekshirish</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Mijoz identifikatori (PINFL, pasport, kadastr &#8470;, davlat raqami yoki STIR) asosida davlat reyestrlaridan ma&apos;lumot olinadi.
+        </p>
+      </div>
+
+      {/* Secure-channel banner — IIP/XAB gateway, encrypted transport. */}
+      <Card className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><ShieldCheck className="h-6 w-6" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-800 dark:text-white">Elektron hukumat &middot; IIP / XAB shlyuzi</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Almashinuv shifrlangan kanal orqali &mdash; ma&apos;lumotlar MKO tomonda saqlanmaydi.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {['HTTPS', 'VPN', 'TLS', 'Raqamli sertifikat'].map((c) => (
+            <span key={c} className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-medium text-gray-600 dark:border-gray-700 dark:bg-white/5 dark:text-gray-300">
+              <Lock className="h-3 w-3 text-gray-400" />{c}
+            </span>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="space-y-5">
+        {/* One tab per registry. */}
+        <ol className="flex flex-wrap gap-2">
+          {REGISTRIES.map((r) => {
+            const cur = active === r.key;
+            return (
+              <li key={r.key}>
+                <button
+                  type="button"
+                  onClick={() => setActive(r.key)}
+                  aria-current={cur ? 'true' : undefined}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
+                    cur ? cn('ring-2 ring-brand-500/20', TONE[r.key].tabOn) : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/5',
+                  )}
+                >
+                  <span className={cn('flex h-5 w-5 items-center justify-center rounded-md', TONE[r.key].icon)}><r.Icon className="h-3.5 w-3.5" /></span>
+                  {r.name}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* Active registry: header + query form + check. */}
+        <div>
+          <div className="mb-4 flex items-start gap-3">
+            <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', TONE[active].icon)}><reg.Icon className="h-6 w-6" /></span>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">{reg.code}</p>
+              <p className="text-base font-semibold text-gray-800 dark:text-white">{reg.name}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{reg.sub}</p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {reg.inputs.map((inp) => (
+              <Field key={inp.id} label={inp.label} hint={inp.hint}>
+                <QueryInput inp={inp} value={vals[inp.id] ?? ''} onChange={(v) => setVal(inp.id, v)} />
+              </Field>
+            ))}
+          </div>
+          <div className="mt-4">
+            <Button variant="secondary" onClick={check} disabled={!reg.canCheck(vals)}><Search className="h-4 w-4" /> Tekshirish</Button>
+          </div>
+
+          {revealed[active] && <ResultCard reg={reg} onAdd={addToApplication} />}
+        </div>
+      </Card>
+    </div>
+  );
+}

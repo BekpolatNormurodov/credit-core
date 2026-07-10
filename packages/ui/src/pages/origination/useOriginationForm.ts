@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
@@ -23,11 +24,41 @@ const emptyForm: UpsertCasePayload = {
   employment: null, affordability: null, creditLine: null, creditHistory: null,
 };
 
-/** Shared state + autosave for the 5-step origination wizard. */
+/** Prefill carried from "Hujjatlar tekshirish" → new ariza via router state (identifier only). */
+type Prefill = { borrower?: Partial<UpsertCasePayload['borrower']>; collateral?: { type: ProductType; patch: Partial<CollateralDto> } };
+
+/** Shared state + autosave for the origination wizard. */
 export function useOriginationForm(id?: string) {
   const qc = useQueryClient();
+  const location = useLocation();
   const [caseId, setCaseId] = useState<string | undefined>(id);
   const [form, setForm] = useState<UpsertCasePayload>(emptyForm);
+  const [prefilled, setPrefilled] = useState(false);
+
+  // A new ariza opened from "Hujjatlar tekshirish" carries the queried identifier — merge it once
+  // (borrower fields, and the collateral №) so the form starts pre-filled. Only for a brand-new case.
+  useEffect(() => {
+    if (prefilled || id) return;
+    const pre = (location.state as { prefill?: Prefill } | null)?.prefill;
+    if (!pre) return;
+    setForm((fm) => {
+      let next = fm;
+      if (pre.borrower) next = { ...next, borrower: { ...next.borrower, ...pre.borrower } };
+      if (pre.collateral) {
+        const { type, patch } = pre.collateral;
+        const keyField: keyof CollateralDto = type === ProductType.AUTO ? 'stateNumber' : 'cadastreNo';
+        const cols = next.collaterals;
+        const idx = cols.findIndex((c) => c.type === type && !c[keyField]);
+        const collaterals = idx >= 0
+          ? cols.map((c, i) => (i === idx ? { ...c, ...patch } : c))
+          : [...cols, { ...newCollateral(type), ...patch }];
+        next = { ...next, collaterals };
+      }
+      return next;
+    });
+    setPrefilled(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, id, prefilled]);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [attempted, setAttempted] = useState(false);

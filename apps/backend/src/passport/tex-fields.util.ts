@@ -52,6 +52,51 @@ const joinCode = (s: string, max: number): string => {
   return out;
 };
 
+// Levenshtein edit distance — small strings only (single tokens).
+function lev(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+    dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  }
+  return dp[m][n];
+}
+
+// Canonical Uzbek region + administrative terms printed in a tex-passport address/issuer. OCR reads
+// them with letter swaps ("QASHQADARYO"→"KASHKADARYO", "VILOYATI"→"VILOYATT"); we snap each token to
+// its canonical form when it's a close misread. Names/streets stay untouched (they match nothing).
+const UZ_CANON = [
+  "O'ZBEKISTON", 'QASHQADARYO', 'SURXONDARYO', 'ANDIJON', 'NAMANGAN', "FARG'ONA", 'SAMARQAND',
+  'BUXORO', 'NAVOIY', 'JIZZAX', 'SIRDARYO', 'TOSHKENT', 'XORAZM', "QORAQALPOG'ISTON",
+  'VILOYATI', 'TUMANI', 'SHAHRI', 'SHAHAR', "QISHLOG'I", "KO'CHASI", 'MAHALLASI',
+];
+// Letters only, upper-cased — apostrophes/case stripped, so misreads match regardless of punctuation.
+const flatten = (s: string): string => s.toUpperCase().replace(/[^A-Z]/g, '');
+const UZ_FLAT = UZ_CANON.map((c) => ({ canon: c, flat: flatten(c) }));
+
+/** Snap a single token to a canonical Uzbek term when it's an exact or close misread, else keep it. */
+function snapUzToken(tok: string): string {
+  const f = flatten(tok);
+  if (f.length < 5) return tok; // too short to correct safely (UY, IND, MFY, numbers)
+  let best = ''; let bestD = Infinity;
+  for (const { canon, flat } of UZ_FLAT) {
+    if (Math.abs(flat.length - f.length) > 2) continue;
+    const d = lev(f, flat);
+    if (d < bestD) { bestD = d; best = canon; }
+  }
+  if (bestD === 0) return best;                      // exact — normalise apostrophes/case
+  const limit = f.length >= 8 ? 2 : 1;               // longer tokens tolerate one more swap
+  return bestD <= limit ? best : tok;
+}
+
+/** Correct region + administrative terms in a phrase (address / issuing office). Non-word tokens
+ *  (house numbers like "23-UY", "IND") pass through unchanged. */
+export function fixUzbekText(s: string): string {
+  return s.split(/\s+/).map((t) => (/[A-Za-z]/.test(t) ? snapUzToken(t) : t)).join(' ').trim();
+}
+
 /** Merge the numbered fields from several OCR passes — per field keep the value with the most
  *  alphanumeric content. Different passes/thresholds recover different fields, so the union beats
  *  any single pass. */
@@ -158,9 +203,10 @@ export function extractTexFromFields(
   if (front.get(2)) f.model = letters(cleanPhrase(front.get(2)!, 3));
   if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 3)));
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
-  if (front.get(5)) f.address = letters(cleanPhrase(front.get(5)!, 14));
+  // Address + issuer carry region/administrative terms — snap their OCR misreads to canonical Uzbek.
+  if (front.get(5)) f.address = fixUzbekText(letters(cleanPhrase(front.get(5)!, 14)));
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
-  if (front.get(7)) f.issuer = letters(cleanPhrase(front.get(7)!));
+  if (front.get(7)) f.issuer = fixUzbekText(letters(cleanPhrase(front.get(7)!)));
 
   // Year: field 9, or field 8 (a common "9"→"8" OCR misread), or the smallest standalone year in the
   // back text (manufacture year is older than the inspection date, e.g. 2019 vs 2025-11-05).

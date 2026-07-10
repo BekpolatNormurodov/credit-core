@@ -1,4 +1,4 @@
-import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate } from './tex-fields.util';
+import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText } from './tex-fields.util';
 
 // Transcribed roughly as the eng OCR reads the two sample certificates (Downloads/tex-1*.jpg).
 const FRONT_1 = `AVTOMOTOTRANSPORT VOSITASI
@@ -39,6 +39,17 @@ describe('findSeries', () => {
 describe('findPlate', () => {
   it('finds a clean Uzbek plate anywhere in the text', () => expect(findPlate('junk 70U922DB more')).toBe('70U922DB'));
   it('stays empty for a garbled plate read (no clean match)', () => expect(findPlate('70UGZ2D8 noise')).toBe(''));
+});
+
+describe('fixUzbekText', () => {
+  it('snaps region + admin-term misreads to canonical Uzbek', () => {
+    // As eng OCR reads the angled tex-2 address: "KASHKADARYO" (K↔Q) and "VILOYATT" (trailing T↔I).
+    expect(fixUzbekText('OZBEKISTON KASHKADARYO VILOYATT QARSHI TUMANI'))
+      .toBe("O'ZBEKISTON QASHQADARYO VILOYATI QARSHI TUMANI");
+  });
+  it('leaves names, streets and house numbers untouched', () => {
+    expect(fixUzbekText('FAROVON 23-UY IND')).toBe('FAROVON 23-UY IND');
+  });
 });
 
 describe('numberedFields', () => {
