@@ -308,6 +308,32 @@ export interface PassportScanResult {
   unverifiedFields?: string[];
 }
 
+/** OCR result for a vehicle registration certificate (tex passport) — maps to an AUTO collateral.
+ *  There is no MRZ, so all fields are OCR-read (no check digits): review before trusting. */
+export interface TexScanResult {
+  /** 0..100 heuristic — share of the expected numbered fields that were recognized. */
+  confidence: number;
+  fields: {
+    stateNumber: string;   // 1 — davlat raqami (plate)
+    model: string;         // 2 — rusumi/model
+    color: string;         // 3 — rangi
+    ownerName: string;     // 4 — egasi
+    address: string;       // 5 — manzil
+    techPassportDate: string | null; // 6 — berilgan sanasi (ISO)
+    issuer: string;        // 7 — bergan bo'lim (IOB)
+    year: number | null;   // 9 — ishlab chiqarilgan yili
+    bodyType: string;      // 10 — kuzov turi (e.g. YENGIL SEDAN)
+    bodyNo: string;        // 11 — kuzov/shassi raqami (VIN)
+    chassis: string;       // 11 — shassi (often RAKAMSIZ)
+    engineNo: string;      // 14 — dvigatel raqami
+    techPassportNo: string; // certificate series/number (e.g. VL8011449)
+  };
+  /** Non-empty field keys, for the UI review chips (all unverified — no check digit). */
+  perField: { key: string; value: string }[];
+  // 'tex_not_found' | 'low_confidence' | 'back_not_found'
+  warnings: string[];
+}
+
 export interface StatsResponse {
   byStatus: { status: CaseStatus; count: number }[];
   byBranch: { branch: string; count: number; amount: number }[];

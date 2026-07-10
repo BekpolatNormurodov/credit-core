@@ -15,6 +15,7 @@ import type {
   MessageDto,
   NotificationItem,
   PassportScanResult,
+  TexScanResult,
   ReMflContractDto,
   Role,
   StatsResponse,
@@ -221,6 +222,14 @@ export const api = {
     fd.append('front', front);
     fd.append('back', back);
     const { data } = await http.post<PassportScanResult>('/passport/scan-id', fd);
+    return data;
+  },
+  /** Scan a tex passport (vehicle certificate) front + back → AUTO collateral fields (stateless). */
+  async scanTex(front: File, back: File): Promise<TexScanResult> {
+    const fd = new FormData();
+    fd.append('front', front);
+    fd.append('back', back);
+    const { data } = await http.post<TexScanResult>('/passport/scan-tex', fd);
     return data;
   },
   documentUrl(id: string): string {

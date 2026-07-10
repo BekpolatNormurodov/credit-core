@@ -5,12 +5,13 @@ import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
   INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP, insurancePremiumRate,
-  monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, type RepaymentMethod,
+  monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, DocumentType, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../../components/primitives';
 import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/forms';
 import { Toggle } from '../../components/Switches';
+import { useToast } from '../../components/Toast';
 import { House, Car, Plus, Trash } from '../../lib/icons';
 import { formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
@@ -32,14 +33,30 @@ type Hist = NonNullable<UpsertCasePayload['creditHistory']>;
 /** Step 1 — Qarz oluvchi: identity + demographics. */
 export function Step1({ f }: { f: OriginationForm }) {
   const b = f.form.borrower;
+  const toast = useToast();
   const set = (p: Partial<Borrower>) => f.setBorrower(p);
+  // Persist the scanned passport/ID image(s) as PASSPORT case documents, titled with the passport
+  // number — they show up in the case's passport section. Best-effort: never blocks the scan.
+  const saveScan = async (files: File[], passportNumber: string) => {
+    try {
+      const id = await f.ensureCase();
+      if (!id) return;
+      for (const file of files) {
+        await api.uploadDocument(id, DocumentType.PASSPORT, file, { title: passportNumber ? `Passport ${passportNumber}` : 'Passport' });
+      }
+      toast.success('Saqlandi', 'Passport fayllari biriktirildi');
+    } catch { /* best-effort — the scanned fields are already applied */ }
+  };
   return (
     <Card className="space-y-4">
       <h2 className="font-semibold text-gray-800 dark:text-white">Qarz oluvchi</h2>
-      <PassportScan onExtract={(x) => {
-        const { nationality, ...rest } = x;
-        set({ ...rest, ...(nationality ? { citizenship: nationality } : {}) } as Partial<Borrower>);
-      }} />
+      <PassportScan
+        onExtract={(x) => {
+          const { nationality, ...rest } = x;
+          set({ ...rest, ...(nationality ? { citizenship: nationality } : {}) } as Partial<Borrower>);
+        }}
+        onSaveScan={saveScan}
+      />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="F.I.O" required error={f.attempted ? f.errors.fullName : undefined}><Input value={b.fullName} onChange={(e) => set({ fullName: e.target.value })} /></Field>
         <Field label="PINFL" required error={f.attempted ? f.errors.pinfl : undefined}><Input inputMode="numeric" maxLength={14} value={b.pinfl ?? ''} onChange={(e) => set({ pinfl: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></Field>

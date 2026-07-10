@@ -7,6 +7,7 @@ import { ProductType, DocumentType, type CollateralDto } from '@credit-core/shar
 import { Button, Card, Field, Input } from '../components/primitives';
 import { MoneyInput, DatePicker, PassportInput, PlateInput, Select, digitsOnly } from '../components/forms';
 import { CAR_MODELS } from '../lib/cars';
+import { TexScan } from './origination/TexScan';
 import { cn } from '../lib/cn';
 
 const num = (v: string): number | null => (v === '' ? null : Number(v));
@@ -39,6 +40,8 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
       </div>
 
       {isAuto ? (
+        <>
+        <TexScan onExtract={onChange} />
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Model (markasi)" required icon={Car} error={error}>
             <Select<string> value={c.model ?? ''} onChange={(v) => onChange({ model: v })} searchable placeholder="— mashinani tanlang —"
@@ -54,6 +57,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           <Field label="Yil" icon={Calendar}><Input type="number" value={c.year ?? ''} onChange={(e) => onChange({ year: num(e.target.value) })} /></Field>
           <Field label="Probeg (km)" icon={Clock}><Input type="number" value={c.mileage ?? ''} onChange={(e) => onChange({ mileage: num(e.target.value) })} /></Field>
         </div>
+        </>
       ) : (
         <div className="space-y-4">
           {/* Uy-joy turi: Kvartira (apartment) yoki Hovli (house) — maydonlar shунга qarab o'zgaradi. */}

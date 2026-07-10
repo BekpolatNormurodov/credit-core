@@ -8,9 +8,10 @@ import { createWorker, createScheduler, PSM } from 'tesseract.js';
 sharp.cache(false);
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { parse } = require('mrz');
-import type { PassportScanResult } from '@credit-core/shared';
+import type { PassportScanResult, TexScanResult } from '@credit-core/shared';
 import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, namesFromMrzLine, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
 import { extractIdFront, extractIdBackViz, mergeIdResult, extractPassportViz } from './id-fields.util';
+import { extractTexFields } from './tex-fields.util';
 
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
@@ -243,6 +244,33 @@ export class PassportService {
       merged.warnings = [...merged.warnings.filter((w) => w !== 'mrz_not_found'), 'id_back_mrz_not_found'];
     }
     return merged;
+  }
+
+  /**
+   * Scan a vehicle-registration certificate (tex passport): front + back printed sides → AUTO
+   * collateral fields. No MRZ, so it OCRs each side (eng) at all 4 orientations, keeps the text with
+   * the most numbered anchors, and parses the numbered fields. Inject `ocr` in tests.
+   */
+  async scanTex(front: Buffer, back: Buffer, ocr?: OcrFn): Promise<TexScanResult> {
+    [front, back] = await Promise.all([this.toImage(front), this.toImage(back)]);
+    if (ocr) {
+      const [ft, bt] = await Promise.all([this.bestTexText(front, ocr), this.bestTexText(back, ocr)]);
+      return extractTexFields(ft, bt);
+    }
+    const eng = await this.makeScheduler('eng', TEXT_POOL);
+    try {
+      const [ft, bt] = await Promise.all([this.bestTexText(front, eng.ocr), this.bestTexText(back, eng.ocr)]);
+      return extractTexFields(ft, bt);
+    } finally {
+      await eng.terminate();
+    }
+  }
+
+  /** OCR all 4 orientations of a tex-passport side; return the text with the most numbered anchors. */
+  private async bestTexText(file: Buffer, ocr: OcrFn): Promise<string> {
+    const texts = await Promise.all(ORIENTATIONS.map(async (angle) => ocr(await this.preprocessViz(file, angle, 1600))));
+    const score = (t: string) => (t.match(/^\s*\d{1,2}\s*[.)]/gm) ?? []).length;
+    return texts.reduce((best, t) => (score(t) > score(best) ? t : best), texts[0] ?? '');
   }
 
   /** Preprocess the printed (VIZ) side for the eng text OCR: the labels/values are large and upright,

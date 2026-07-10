@@ -112,7 +112,11 @@ function Thumb({ file, label, onView }: { file: File; label: string; onView: (ur
 }
 
 /** Passport MRZ scanner — prefills the borrower form. Mounted in the origination borrower step. */
-export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>) => void }) {
+export function PassportScan({ onExtract, onSaveScan }: {
+  onExtract: (patch: Partial<Fields>) => void;
+  /** Called on confirm with the scanned image file(s) + the read passport number, to persist them. */
+  onSaveScan?: (files: File[], passportNumber: string) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -194,6 +198,10 @@ export function PassportScan({ onExtract }: { onExtract: (patch: Partial<Fields>
     if (form.passportIssueDate) patch.passportIssueDate = form.passportIssueDate;
     if (form.passportIssuer) patch.passportIssuer = form.passportIssuer;
     onExtract(patch);
+    // Persist the scanned image(s), linked to the passport number, for the case's passport section.
+    const files = (docType === 'PASSPORT' ? [passportFile] : [idFront, idBack]).filter(Boolean) as File[];
+    const passportNumber = [form.passportSeries, form.passportNumber].filter(Boolean).join('');
+    if (files.length) onSaveScan?.(files, passportNumber);
     setResult(null);
   };
 
