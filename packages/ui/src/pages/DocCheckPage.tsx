@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ProductType, type CollateralDto, type UpsertCasePayload } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';
 import { PassportInput, PlateInput, digitsOnly } from '../components/forms';
@@ -103,19 +103,42 @@ const REGISTRIES: Reg[] = [
 
 function QueryInput({ inp, value, onChange }: { inp: InputDef; value: string; onChange: (v: string) => void }) {
   switch (inp.kind) {
-    case 'pinfl': return <Input inputMode="numeric" maxLength={14} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 14))} placeholder={inp.placeholder ?? '14 raqam'} />;
-    case 'stir': return <Input inputMode="numeric" maxLength={9} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 9))} placeholder={inp.placeholder ?? '9 raqam'} />;
+    case 'pinfl': return <Input className="nums" inputMode="numeric" maxLength={14} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 14))} placeholder={inp.placeholder ?? '14 raqam'} />;
+    case 'stir': return <Input className="nums" inputMode="numeric" maxLength={9} value={value} onChange={(e) => onChange(digitsOnly(e.target.value, 9))} placeholder={inp.placeholder ?? '9 raqam'} />;
     case 'passport': return <PassportInput value={value} onChange={onChange} />;
     case 'plate': return <PlateInput value={value} onChange={onChange} />;
-    default: return <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={inp.placeholder} />;
+    default: return <Input className="nums" value={value} onChange={(e) => onChange(e.target.value)} placeholder={inp.placeholder} />;
   }
 }
 
+/** The entered identifier, echoed back in the result so the "document" reads as a reply to the query. */
+const queryLabel = (reg: Reg, v: Vals): string => reg.inputs.map((i) => (v[i.id] ?? '').trim()).filter(Boolean).join(' · ');
+
+/** Loading placeholder — a shimmer skeleton in the result's shape, with a "querying the gateway" note.
+ *  Progressive-loading: shows structure instead of a blank wait; `.skeleton` freezes under reduced-motion. */
+function ResultSkeleton({ reg }: { reg: Reg }) {
+  return (
+    <div className="mt-5 cc-rise rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-white/5">
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className="skeleton h-9 w-9 rounded-lg" />
+        <div className="flex-1 space-y-1.5"><span className="skeleton block h-3 w-28 rounded" /><span className="skeleton block h-2.5 w-20 rounded" /></div>
+      </div>
+      <div className="space-y-2 rounded-lg bg-gray-50 px-3 py-2.5 dark:bg-white/5">
+        {reg.result.map((_, i) => <span key={i} className="skeleton block h-3 w-full rounded" />)}
+      </div>
+      <p className="mt-3 flex items-center gap-2 text-[11px] text-gray-400 dark:text-gray-500">
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />
+        IIP / XAB shlyuziga so&apos;rov yuborilmoqda&hellip;
+      </p>
+    </div>
+  );
+}
+
 /** The "document" a registry returns — a simulation card (fields "—"), a divider, a "yaqinda" note. */
-function ResultCard({ reg, onAdd }: { reg: Reg; onAdd: () => void }) {
+function ResultCard({ reg, query, onAdd }: { reg: Reg; query: string; onAdd: () => void }) {
   const tone = TONE[reg.key];
   return (
-    <div className="mt-5 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-white/5">
+    <div className="mt-5 cc-rise rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-white/5">
       <div className="mb-3 flex items-center gap-2.5">
         <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', tone.icon)}><reg.Icon className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1">
@@ -123,7 +146,7 @@ function ResultCard({ reg, onAdd }: { reg: Reg; onAdd: () => void }) {
             Reyestr javobi
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success-600 text-white"><Check className="h-3 w-3" /></span>
           </p>
-          <p className="text-[11px] text-gray-400 dark:text-gray-500">{reg.name}</p>
+          <p className="truncate text-[11px] text-gray-400 dark:text-gray-500">{reg.name}{query && <> &middot; <span className="nums">{query}</span></>}</p>
         </div>
       </div>
       <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/5">
@@ -147,17 +170,36 @@ function ResultCard({ reg, onAdd }: { reg: Reg; onAdd: () => void }) {
   );
 }
 
+type Status = 'idle' | 'loading' | 'done';
+const isRegKey = (k: string | null): k is RegKey => !!k && REGISTRIES.some((r) => r.key === k);
+
 export function DocCheckPage() {
   const nav = useNavigate();
   const toast = useToast();
-  const [active, setActive] = useState<RegKey>('pop');
+  const [params, setParams] = useSearchParams();
+  // Active registry lives in the URL (?reg=veh) — deep-linkable and the browser Back button works.
+  const active: RegKey = isRegKey(params.get('reg')) ? (params.get('reg') as RegKey) : 'pop';
+  const setActive = (k: RegKey) => setParams((p) => { const n = new URLSearchParams(p); n.set('reg', k); return n; }, { replace: true });
+
   const [inputs, setInputs] = useState<Record<RegKey, Vals>>({ pop: {}, cad: {}, veh: {}, tax: {}, civ: {} });
-  const [revealed, setRevealed] = useState<Record<RegKey, boolean>>({} as Record<RegKey, boolean>);
+  const [status, setStatus] = useState<Record<RegKey, Status>>({ pop: 'idle', cad: 'idle', veh: 'idle', tax: 'idle', civ: 'idle' });
+  const timers = useRef<Partial<Record<RegKey, ReturnType<typeof setTimeout>>>>({});
+  useEffect(() => () => { Object.values(timers.current).forEach((t) => t && clearTimeout(t)); }, []);
 
   const reg = REGISTRIES.find((r) => r.key === active)!;
   const vals = inputs[active];
-  const setVal = (id: string, v: string) => setInputs((s) => ({ ...s, [active]: { ...s[active], [id]: v } }));
-  const check = () => setRevealed((s) => ({ ...s, [active]: true }));
+  // Editing the identifier invalidates a shown result — reset to idle so it must be re-checked.
+  const setVal = (id: string, v: string) => {
+    setInputs((s) => ({ ...s, [active]: { ...s[active], [id]: v } }));
+    setStatus((s) => (s[active] === 'idle' ? s : { ...s, [active]: 'idle' }));
+  };
+  // Simulate the gateway round-trip: loading feedback → result. Real IIP/XAB latency will replace this.
+  const check = () => {
+    const key = active;
+    if (timers.current[key]) clearTimeout(timers.current[key]);
+    setStatus((s) => ({ ...s, [key]: 'loading' }));
+    timers.current[key] = setTimeout(() => setStatus((s) => ({ ...s, [key]: 'done' })), 700);
+  };
   const addToApplication = () => {
     nav('/cases/new', { state: { prefill: reg.prefill(vals) } });
     toast.success('Arizaga qo’shildi', `${reg.name} ma’lumoti yangi arizaga o’tkazildi`);
@@ -189,18 +231,21 @@ export function DocCheckPage() {
       </Card>
 
       <Card className="space-y-5">
-        {/* One tab per registry. */}
-        <ol className="flex flex-wrap gap-2">
+        {/* One tab per registry — an ARIA tablist so keyboard/screen-reader users get proper semantics. */}
+        <ol role="tablist" aria-label="Davlat reyestrlari" className="flex flex-wrap gap-2">
           {REGISTRIES.map((r) => {
             const cur = active === r.key;
             return (
-              <li key={r.key}>
+              <li key={r.key} role="presentation">
                 <button
                   type="button"
+                  role="tab"
+                  id={`reg-tab-${r.key}`}
+                  aria-selected={cur}
+                  aria-controls="reg-panel"
                   onClick={() => setActive(r.key)}
-                  aria-current={cur ? 'true' : undefined}
                   className={cn(
-                    'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
+                    'flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
                     cur ? cn('ring-2 ring-brand-500/20', TONE[r.key].tabOn) : 'border-gray-200 text-gray-500 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-400 dark:hover:bg-white/5',
                   )}
                 >
@@ -213,7 +258,7 @@ export function DocCheckPage() {
         </ol>
 
         {/* Active registry: header + query form + check. */}
-        <div>
+        <div id="reg-panel" role="tabpanel" aria-labelledby={`reg-tab-${active}`}>
           <div className="mb-4 flex items-start gap-3">
             <span className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-xl', TONE[active].icon)}><reg.Icon className="h-6 w-6" /></span>
             <div>
@@ -230,10 +275,22 @@ export function DocCheckPage() {
             ))}
           </div>
           <div className="mt-4">
-            <Button variant="secondary" onClick={check} disabled={!reg.canCheck(vals)}><Search className="h-4 w-4" /> Tekshirish</Button>
+            <Button variant="secondary" onClick={check} loading={status[active] === 'loading'} disabled={!reg.canCheck(vals)}>
+              <Search className="h-4 w-4" /> Tekshirish
+            </Button>
           </div>
 
-          {revealed[active] && <ResultCard reg={reg} onAdd={addToApplication} />}
+          {/* Result region — announced to screen readers when it appears (aria-live). */}
+          <div role="region" aria-live="polite" aria-label="Reyestr javobi">
+            {status[active] === 'idle' && (
+              <div className="mt-5 flex items-center gap-3 rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-6 text-sm text-gray-400 dark:border-gray-700 dark:bg-white/5 dark:text-gray-500">
+                <Search className="h-5 w-5 shrink-0" />
+                <span>Identifikatorni kiriting va <b className="font-medium text-gray-600 dark:text-gray-300">Tekshirish</b> tugmasini bosing &mdash; reyestr javobi shu yerda ko&apos;rinadi.</span>
+              </div>
+            )}
+            {status[active] === 'loading' && <ResultSkeleton reg={reg} />}
+            {status[active] === 'done' && <ResultCard reg={reg} query={queryLabel(reg, vals)} onAdd={addToApplication} />}
+          </div>
         </div>
       </Card>
     </div>
