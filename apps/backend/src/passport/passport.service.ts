@@ -257,8 +257,9 @@ export class PassportService {
       const [ff, bf] = await Promise.all([this.bestTexFields(front, ocr), this.bestTexFields(back, ocr)]);
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     }
-    // A 6-worker eng pool so both sides' passes run concurrently. Front + back are scanned in parallel.
-    const eng = await this.makeScheduler('eng', 6);
+    // An 8-worker eng pool so both sides' 4 rotation checks (8 jobs) run fully in parallel; front +
+    // back are scanned concurrently.
+    const eng = await this.makeScheduler('eng', 8);
     try {
       const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr), this.bestTexFields(back, eng.ocr)]);
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
@@ -268,21 +269,25 @@ export class PassportService {
   }
 
   /**
-   * Two-phase: (1) a cheap orientation SCOUT — OCR all 4 orientations at low res and pick the one with
-   * the most numbered fields; (2) at that orientation, OCR SEVERAL high-res variants (different sizes /
-   * binarization thresholds) and merge them all. Different variants recover different fields, so the
-   * union gives the fullest read (a single pass drops model/colour/owner that another catches).
+   * Two-phase:
+   *  (1) ROTATION CHECK — OCR all 4 orientations IN PARALLEL at low res (1200px) and keep the one that
+   *      reads the most numbered fields (they only line up when the side is upright). Verified locally:
+   *      1200 picks the correct angle reliably; a higher-res scout makes dense sides tie and mis-pick.
+   *  (2) REFINE — at the winning orientation, OCR 4 size/threshold variants and merge. Different variants
+   *      recover different fields (model / colour / owner), so the union is the fullest read.
+   * NOTE: a badly rotated + glare photo can still be un-orientable (no angle yields clean fields) — that
+   * is a photo-quality limit, not fixable here; the confident-only gates then leave those fields blank.
    */
   private async bestTexFields(file: Buffer, ocr: OcrFn): Promise<{ fields: Map<number, string>; text: string }> {
-    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ocr(await this.preprocessTex(file, a, 0, 1200))));
-    let bi = 0;
-    for (let i = 1; i < scouts.length; i++) if (numberedFields(scouts[i]).size > numberedFields(scouts[bi]).size) bi = i;
-    const angle = ORIENTATIONS[bi];
-    // width × threshold variants at the chosen orientation (threshold 0 = no binarization).
-    const variants: Array<[number, number]> = [[2600, 0], [2600, 150], [2400, 120], [2800, 0], [2200, 175]];
-    const texts = await Promise.all(variants.map(async ([w, t]) => ocr(await this.preprocessTex(file, angle, t, w))));
-    const fields = mergeFields([numberedFields(scouts[bi]), ...texts.map(numberedFields)]);
-    return { fields, text: texts.join('\n') };
+    // Score: numbered fields dominate (they only appear when upright); alnum count breaks near-ties.
+    const score = (t: string) => numberedFields(t).size * 1000 + (t.match(/[A-Za-z0-9]/g)?.length ?? 0);
+    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ({ a, text: await ocr(await this.preprocessTex(file, a, 0, 1200)) })));
+    const best = scouts.reduce((b, s) => (score(s.text) > score(b.text) ? s : b));
+    // Drop the old 2800px pass — verified to add ~nothing over these four while being the slowest.
+    const variants: Array<[number, number]> = [[2600, 0], [2600, 150], [2400, 120], [2200, 175]];
+    const extra = await Promise.all(variants.map(async ([w, t]) => ocr(await this.preprocessTex(file, best.a, t, w))));
+    const fields = mergeFields([numberedFields(best.text), ...extra.map(numberedFields)]);
+    return { fields, text: [best.text, ...extra].join('\n') };
   }
 
   /** Preprocess a tex-passport side: rotate + grayscale + normalize + sharpen (+ optional threshold),
