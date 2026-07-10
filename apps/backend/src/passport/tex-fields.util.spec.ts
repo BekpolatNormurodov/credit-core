@@ -93,4 +93,8 @@ describe('extractTexFields', () => {
     const r = extractTexFields(FRONT_1, '8. 2019\n10. YENGIL SEDAN');
     expect(r.fields.year).toBe(2019);
   });
+  it('fixes the white colour misread ("00" → "OQ")', () => {
+    const r = extractTexFields('3. 00 BELODIMCHATIY', '');
+    expect(r.fields.color).toMatch(/^OQ/);
+  });
 });

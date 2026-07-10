@@ -150,11 +150,13 @@ export function extractTexFromFields(
   // than filling a wrong value). `letters()` requires the value to start with a letter — drops OCR
   // digit-junk like "00 BELODIMCHATIY" (OQ misread) or a numeric body-type.
   const letters = (s: string): string => (/^[A-Za-z]/.test(s) ? s : '');
+  // OCR reads the very common white colour "OQ" as "00" / "0Q" / "O0" — fix that leading token.
+  const fixColor = (s: string): string => s.replace(/^(00|0O|O0|0Q|Q0)\b/i, 'OQ');
 
   // Plate: ONLY a clean Uzbek plate-format match — no garbage fallback (was surfacing "EE" etc.).
   f.stateNumber = findPlate(frontText);
   if (front.get(2)) f.model = letters(cleanPhrase(front.get(2)!, 3));
-  if (front.get(3)) f.color = letters(cleanPhrase(front.get(3)!, 3));
+  if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 3)));
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
   if (front.get(5)) f.address = letters(cleanPhrase(front.get(5)!, 14));
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);

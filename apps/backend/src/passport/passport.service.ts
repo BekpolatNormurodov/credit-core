@@ -268,28 +268,28 @@ export class PassportService {
   }
 
   /**
-   * Two-phase, so it's fast: (1) a cheap orientation SCOUT — OCR all 4 orientations at low res (plain)
-   * and pick the one with the most numbered fields; (2) only at that orientation, OCR twice at high
-   * res (plain + binarized) and merge. Total 6 OCR calls/side (4 cheap + 2 costly) instead of 8 costly.
+   * Two-phase: (1) a cheap orientation SCOUT — OCR all 4 orientations at low res and pick the one with
+   * the most numbered fields; (2) at that orientation, OCR SEVERAL high-res variants (different sizes /
+   * binarization thresholds) and merge them all. Different variants recover different fields, so the
+   * union gives the fullest read (a single pass drops model/colour/owner that another catches).
    */
   private async bestTexFields(file: Buffer, ocr: OcrFn): Promise<{ fields: Map<number, string>; text: string }> {
-    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ocr(await this.preprocessTex(file, a, false, 1200))));
+    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ocr(await this.preprocessTex(file, a, 0, 1200))));
     let bi = 0;
     for (let i = 1; i < scouts.length; i++) if (numberedFields(scouts[i]).size > numberedFields(scouts[bi]).size) bi = i;
     const angle = ORIENTATIONS[bi];
-    const [hi0, hi1] = await Promise.all([
-      this.preprocessTex(file, angle, false, 2600).then(ocr),
-      this.preprocessTex(file, angle, true, 2600).then(ocr),
-    ]);
-    const fields = mergeFields([numberedFields(scouts[bi]), numberedFields(hi0), numberedFields(hi1)]);
-    return { fields, text: `${hi0}\n${hi1}` };
+    // width × threshold variants at the chosen orientation (threshold 0 = no binarization).
+    const variants: Array<[number, number]> = [[2600, 0], [2600, 150], [2400, 120], [2800, 0], [2200, 175]];
+    const texts = await Promise.all(variants.map(async ([w, t]) => ocr(await this.preprocessTex(file, angle, t, w))));
+    const fields = mergeFields([numberedFields(scouts[bi]), ...texts.map(numberedFields)]);
+    return { fields, text: texts.join('\n') };
   }
 
   /** Preprocess a tex-passport side: rotate + grayscale + normalize + sharpen (+ optional threshold),
-   *  upscaled so the small numbered print (over a security pattern) is legible to eng. */
-  private async preprocessTex(file: Buffer, angle: number, binarize: boolean, width = 2600): Promise<Buffer> {
+   *  upscaled so the small numbered print (over a security pattern) is legible to eng. threshold 0 = none. */
+  private async preprocessTex(file: Buffer, angle: number, threshold = 0, width = 2600): Promise<Buffer> {
     let img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen();
-    if (binarize) img = img.threshold(150);
+    if (threshold > 0) img = img.threshold(threshold);
     return img.resize({ width }).toBuffer();
   }
 
