@@ -48,7 +48,6 @@ function KadastrCard({ cadastreNo }: { cadastreNo: string }) {
         {row('Maydon (m²)', '—')}
         {row('Holati', '—')}
       </div>
-      <p className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">Simulyatsiya — tashqi xizmat ulangach real ma'lumotlar chiqadi</p>
     </div>
   );
 }

@@ -4,6 +4,20 @@ import type { CollateralDto, TexScanResult } from '@credit-core/shared';
 import { Button } from '../../components/primitives';
 import { useToast } from '../../components/Toast';
 import { Car, Upload, Check, RotateCcw, X } from '../../lib/icons';
+import { CAR_MODELS } from '../../lib/cars';
+
+/** Snap an OCR'd model ("DAMAS", "CHEVROLET SPARK") to the closest known model in the dropdown list,
+ *  so the required Model field lands on a valid, canonical value. Null when nothing overlaps. */
+function matchCarModel(ocr: string): string | null {
+  const words = new Set(ocr.toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length >= 3));
+  if (!words.size) return null;
+  let best: { model: string; score: number } | null = null;
+  for (const model of CAR_MODELS) {
+    const score = model.toUpperCase().split(/\s+/).filter((w) => w.length >= 3 && words.has(w)).length;
+    if (score > 0 && (!best || score > best.score)) best = { model, score };
+  }
+  return best?.model ?? null;
+}
 
 type TexPatch = Partial<Pick<CollateralDto,
   'stateNumber' | 'model' | 'color' | 'year' | 'bodyType' | 'bodyNo' | 'chassis' | 'engineNo' | 'techPassportNo' | 'techPassportDate'>>;
@@ -48,7 +62,7 @@ export function TexScan({ onExtract, onScanImages }: {
     const f = result.fields;
     const p: TexPatch = {};
     if (f.stateNumber) p.stateNumber = f.stateNumber;
-    if (f.model) p.model = f.model;
+    if (f.model) p.model = matchCarModel(f.model) ?? f.model; // snap to a known model for the dropdown
     if (f.color) p.color = f.color;
     if (f.year != null) p.year = f.year;
     if (f.bodyType) p.bodyType = f.bodyType;
