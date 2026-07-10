@@ -29,6 +29,30 @@ const OCR_LANG = 'mrz';
 // TESSDATA_PATH; otherwise resolve the bundled dir next to the backend root (works in dist + tests).
 const TESSDATA_DIR = process.env.TESSDATA_PATH || path.join(__dirname, '..', '..', 'tessdata');
 
+/**
+ * OCR is CPU-bound (each scan spins up 4–8 tesseract worker threads for 10–40s). The backend is ONE
+ * Node process serving all four portals, so uncapped concurrent scans saturate every core and freeze
+ * the whole system for everyone. This gate serializes scans (default 1 at a time; raise via
+ * OCR_MAX_CONCURRENT on a bigger box) — excess scans queue instead of multiplying the CPU load.
+ */
+class Semaphore {
+  private queue: Array<() => void> = [];
+  private active = 0;
+  constructor(private readonly max: number) {}
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.active >= this.max) await new Promise<void>((resolve) => this.queue.push(resolve));
+    this.active++;
+    try {
+      return await fn();
+    } finally {
+      this.active--;
+      this.queue.shift()?.();
+    }
+  }
+}
+const OCR_MAX_CONCURRENT = Math.max(1, Number(process.env.OCR_MAX_CONCURRENT) || 1);
+const ocrGate = new Semaphore(OCR_MAX_CONCURRENT);
+
 /** One orientation's parse result plus its check-digit confidence and the orientation it came from. */
 interface Candidate {
   parsed: any;
@@ -79,6 +103,7 @@ export class PassportService {
     // ~5s for a full page), so a well-framed passport reads in a few seconds instead of ~20s. Full
     // frame is the fallback for a passport small/high in the frame (MRZ not at the bottom).
     if (ocr) return this.run(file, ocr, [true, false]);
+    return ocrGate.run(async () => {
     // mrz pool OCRs all orientations in parallel; eng reads the visible page (VIZ) for the fields the
     // MRZ lacks (place of birth, issue date, issuer). Both models ship as raw .traineddata locally.
     const [mrz, text] = await Promise.all([
@@ -107,6 +132,7 @@ export class PassportService {
     } finally {
       await Promise.all([mrz.terminate(), text.terminate()]);
     }
+    });
   }
 
   /**
@@ -204,12 +230,14 @@ export class PassportService {
     // a fallback (e.g. the card small in frame). PSM 4 (single column of variable-size text) reads
     // the cropped MRZ block far better than the default layout analysis.
     if (ocr) return this.run(file, ocr, [true, false], 90);
-    const mrz = await this.makeScheduler(OCR_LANG, MRZ_POOL, { tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
-    try {
-      return await this.run(file, mrz.ocr, [true, false], 90);
-    } finally {
-      await mrz.terminate();
-    }
+    return ocrGate.run(async () => {
+      const mrz = await this.makeScheduler(OCR_LANG, MRZ_POOL, { tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN });
+      try {
+        return await this.run(file, mrz.ocr, [true, false], 90);
+      } finally {
+        await mrz.terminate();
+      }
+    });
   }
 
   /**
@@ -219,6 +247,7 @@ export class PassportService {
   async scanIdCard(front: Buffer, back: Buffer, mrzOcr?: OcrFn, textOcr?: OcrFn): Promise<PassportScanResult> {
     [front, back] = await Promise.all([this.toImage(front), this.toImage(back)]);
     if (mrzOcr && textOcr) return this.mergeId(front, back, mrzOcr, textOcr);
+    return ocrGate.run(async () => {
     // mrz pool (all orientations parallel) + eng pool (front & back read in parallel), created together.
     const [mrz, text] = await Promise.all([
       this.makeScheduler(OCR_LANG, MRZ_POOL, { tessedit_char_whitelist: MRZ_WHITELIST, tessedit_pageseg_mode: PSM.SINGLE_COLUMN }),
@@ -229,6 +258,7 @@ export class PassportService {
     } finally {
       await Promise.all([mrz.terminate(), text.terminate()]);
     }
+    });
   }
 
   private async mergeId(front: Buffer, back: Buffer, mrzOcr: OcrFn, textOcr: OcrFn): Promise<PassportScanResult> {
@@ -257,15 +287,17 @@ export class PassportService {
       const [ff, bf] = await Promise.all([this.bestTexFields(front, ocr), this.bestTexFields(back, ocr)]);
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     }
-    // An 8-worker eng pool so both sides' 4 rotation checks (8 jobs) run fully in parallel; front +
-    // back are scanned concurrently.
-    const eng = await this.makeScheduler('eng', 8);
-    try {
-      const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr), this.bestTexFields(back, eng.ocr)]);
-      return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
-    } finally {
-      await eng.terminate();
-    }
+    return ocrGate.run(async () => {
+      // An 8-worker eng pool so both sides' 4 rotation checks (8 jobs) run fully in parallel; front +
+      // back are scanned concurrently. The gate ensures only one such burst runs at a time.
+      const eng = await this.makeScheduler('eng', 8);
+      try {
+        const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr), this.bestTexFields(back, eng.ocr)]);
+        return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
+      } finally {
+        await eng.terminate();
+      }
+    });
   }
 
   /**
