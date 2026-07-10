@@ -297,8 +297,18 @@ export function Step4({ f }: { f: OriginationForm }) {
     if ((t.monthlyPayment ?? null) !== (monthly ?? null)) setTr({ monthlyPayment: monthly });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthly]);
+  // Hidden fields default automatically: tranche № = 1, application date = today (drives the payment
+  // day). Kept out of the UI — they are auto-derived, not entered by hand.
+  const appDate = t.applicationDate || new Date().toISOString().slice(0, 10);
+  useEffect(() => {
+    const patch: Partial<Tr> = {};
+    if (t.trancheNo == null) patch.trancheNo = 1;
+    if (!t.applicationDate) patch.applicationDate = appDate;
+    if (Object.keys(patch).length) setTr(patch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // To'lov kuni is derived from the application date: the day-of-month, capped at 15.
-  const paymentDay = paymentDayFor(t.applicationDate);
+  const paymentDay = paymentDayFor(appDate);
   useEffect(() => {
     if ((t.paymentDay ?? null) !== (paymentDay ?? null)) setTr({ paymentDay });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -310,18 +320,17 @@ export function Step4({ f }: { f: OriginationForm }) {
     <Card className="space-y-4">
       <h2 className="font-semibold text-gray-800 dark:text-white">Transh (drawdown)</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Transh №"><Input type="number" value={t.trancheNo ?? ''} onChange={(e) => setTr({ trancheNo: numv(e.target.value) })} placeholder="1" /></Field>
+        {/* Transh №, Ariza sanasi, To'lov kuni, Oylik to'lov, Sug'urta to'lovi — hidden: all auto-derived
+            (Transh №=1, sana=bugun, to'lov kuni sanadan, oylik to'lov jadvaldan, sug'urta tizimda hisoblanadi).
+            Oylik to'lov chapdagi Xulosada ko'rinadi. Kerak bo'lsa qaytaramiz. */}
         <Field label="Ariza №"><Input value={t.applicationNo ?? ''} onChange={(e) => setTr({ applicationNo: e.target.value })} /></Field>
-        <Field label="Ariza sanasi"><DatePicker value={t.applicationDate ?? null} onChange={(iso) => setTr({ applicationDate: iso })} /></Field>
         <Field label="Asosiy summa" required error={f.attempted ? f.errors.principal : undefined}><MoneyInput value={t.principal ?? null} onChange={(v) => setTr({ principal: v })} /></Field>
         <Field label="Jadval turi" required error={f.attempted ? f.errors.scheduleType : undefined}><Select value={(t.scheduleType ?? '') as 'ANNUITY' | 'DIFFERENTIATED' | ''} onChange={(v) => setTr({ scheduleType: v })} options={[{ value: 'ANNUITY', label: 'Annuitet (max 30 oy)' }, { value: 'DIFFERENTIATED', label: 'Differensial (max 48 oy)' }]} /></Field>
         <Field label="Muddat (oy)" required hint={cap ? `max ${cap} oy` : 'avval jadval turini tanlang'} error={capExceeded ? `Muddat 1–${cap} oy oralig‘ida` : f.attempted ? f.errors.trancheTerm : undefined}>
           <Input type="number" min={1} max={cap ?? undefined} value={t.termMonths ?? ''} onChange={(e) => setTr({ termMonths: numv(e.target.value) })} />
         </Field>
-        <Field label="Oylik to‘lov" hint="auto — jadval turi bo‘yicha"><Input readOnly value={monthly != null ? formatMoney(monthly) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-        <Field label="To‘lov kuni" hint="auto — ariza sanasidan, max 15"><Input readOnly value={paymentDay != null ? `Har oyning ${paymentDay}-kuni` : '—'} className="bg-gray-50 dark:bg-white/5" /></Field>
-        <Field label="Sug‘urta to‘lovi"><MoneyInput value={t.insurancePayment ?? null} onChange={(v) => setTr({ insurancePayment: v })} /></Field>
       </div>
+      <p className="text-xs text-gray-400 dark:text-gray-500">Oylik to‘lov, to‘lov kuni va sug‘urta to‘lovi tizimda avtomatik hisoblanadi (chapdagi Xulosada ko‘rinadi).</p>
     </Card>
   );
 }

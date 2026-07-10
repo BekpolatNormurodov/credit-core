@@ -41,9 +41,15 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
       {row('To‘lov kuni', form.creditLine?.tranche?.paymentDay ? `Har oyning ${form.creditLine.tranche.paymentDay}-kuni` : '—')}
       {row('Jami daromad', formatMoney(calc.totalIncome))}
       {row('Jami xarajat', formatMoney(calc.totalExpenses))}
-      {row('DTI (qarz yuki)', `${(calc.dtiRatio * 100).toFixed(1)}%`)}
-      {row('Surplus', formatMoney(calc.surplus), calc.surplus < 0)}
-      {row('Min kerakli daromad', formatMoney(calc.minRequiredIncome))}
+      {/* DTI / Surplus / Min income only make sense once income is entered — otherwise Surplus just
+          shows the negative monthly payment, which is confusing. */}
+      {calc.totalIncome > 0 && (
+        <>
+          {row('DTI (qarz yuki)', `${(calc.dtiRatio * 100).toFixed(1)}%`)}
+          {row('Surplus', formatMoney(calc.surplus), calc.surplus < 0)}
+          {row('Min kerakli daromad', formatMoney(calc.minRequiredIncome))}
+        </>
+      )}
       {row('Sug‘urta puli', formatMoney(calc.premium))}
       {row('Garov qoplami', amountTotal ? `${(calc.coverageRatio * 100).toFixed(0)}%` : '—')}
       {!calc.affordabilityOk && (calc.totalIncome > 0) && (
