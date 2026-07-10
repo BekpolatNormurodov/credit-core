@@ -17,6 +17,7 @@ import { cn, formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
 import { PassportScan } from './PassportScan';
 import { GenDovernostUpload } from './GenDovernost';
+import { CollateralMediaUpload } from './CollateralMediaUpload';
 import type { OriginationForm } from './useOriginationForm';
 
 const numv = (s: string): number | null => (s === '' ? null : Number(s));
@@ -240,7 +241,8 @@ export function Step3({ f }: { f: OriginationForm }) {
         <div className="space-y-4">
           {f.form.collaterals.map((c, i) => (
             <CollateralCard key={i} index={i} c={c} onChange={(p) => f.setCol(i, p)} onRemove={() => f.removeCol(i)} canRemove={f.form.collaterals.length > 1}
-              hideDocs docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
+              mediaSlot={<CollateralMediaUpload f={f} colIndex={i} />}
+              docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
           ))}
         </div>
         {f.attempted && f.errors.collateral && (
@@ -250,10 +252,18 @@ export function Step3({ f }: { f: OriginationForm }) {
 
       <Card className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi <span className="text-gray-500 dark:text-gray-400">(polis qismi ×130%; ≤2 yil 2% / 2–4 yil 4%; max 4 yil)</span></h2>
+          <h2 className="font-semibold text-gray-800 dark:text-white">Sug‘urta polisi</h2>
           <Toggle checked={ins.insured ?? false} onChange={(v) => setIns(v ? { insured: v, loanUnderPolicy: l.amountPolis ?? ins.loanUnderPolicy ?? null } : { insured: v })} label="Sug‘urtalangan" />
         </div>
         {ins.insured && (
+          <>
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-brand-100 bg-brand-50/50 p-2.5 text-xs dark:border-brand-500/20 dark:bg-brand-500/5">
+            <span className="rounded-md bg-white px-2 py-1 font-medium text-brand-700 shadow-sm dark:bg-white/10 dark:text-brand-300">Polis qismi ×130%</span>
+            <span className={cn('rounded-md px-2 py-1 font-medium', bracketRate === 0.02 ? 'bg-brand-600 text-white' : 'bg-white text-gray-500 dark:bg-white/10 dark:text-gray-300')}>≤ 2 yil → 2%</span>
+            <span className={cn('rounded-md px-2 py-1 font-medium', bracketRate === 0.04 ? 'bg-brand-600 text-white' : 'bg-white text-gray-500 dark:bg-white/10 dark:text-gray-300')}>2–4 yil → 4%</span>
+            <span className="rounded-md bg-white px-2 py-1 font-medium text-gray-500 dark:bg-white/10 dark:text-gray-300">max 4 yil</span>
+            {calc.premium > 0 && <span className="ml-auto font-semibold text-gray-800 dark:text-white">Sug‘urta puli: <span className="nums">{formatMoney(calc.premium)}</span></span>}
+          </div>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Kompaniya"><Select value={(ins.company ?? '') as string} onChange={(v) => setIns({ company: v })} options={opt([...INSURANCE_COMPANIES])} /></Field>
             <Field label="Sug‘urta raqami (gen)" hint="polisdan oldin"><Input value={ins.genAgreementNo ?? ''} onChange={(e) => setIns({ genAgreementNo: e.target.value })} placeholder={INSURANCE_GEN_PREFIX} /></Field>
@@ -265,6 +275,7 @@ export function Step3({ f }: { f: OriginationForm }) {
             <Field label="Sug‘urta summasi" hint="polis ×130%"><Input readOnly value={formatMoney(calc.insuredSum)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
             <Field label="Sug‘urta puli" hint="summa × bracket"><Input readOnly value={formatMoney(calc.premium)} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           </div>
+          </>
         )}
       </Card>
       {(amountAuto || amountTotal) != null && (

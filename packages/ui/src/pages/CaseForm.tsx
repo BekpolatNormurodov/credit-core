@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
   Plus, Trash2, House, Car, IdCard, Hashtag, Location,
   Money, Clock, Ruler, Tag, Calendar, Palette, Upload, FileText, Check,
@@ -56,12 +56,14 @@ function KadastrCard({ cadastreNo }: { cadastreNo: string }) {
 // A per-collateral staged attachment (image/file + name + free text), bound by collateral index.
 export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
 
-export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false }: {
+export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot }: {
   index: number; c: CollateralDto; error?: string; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
   docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
   onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;
   /** In the wizard, photos/videos are attached in the case view after saving (needs a collateral id). */
   hideDocs?: boolean;
+  /** When provided (wizard), replaces the staged doc block with a working media uploader. */
+  mediaSlot?: ReactNode;
 }) {
   const isAuto = c.type === ProductType.AUTO;
   const setOwners = (owners: CollateralDto['owners']) => onChange({ owners });
@@ -159,11 +161,12 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
         ))}
       </div>
 
-      {/* In the wizard the collateral has no id yet — photos/videos are attached after saving, in the
-          case view (min 1, max 10 per collateral). Show a hint there instead of a dead uploader. */}
-      {hideDocs ? (
+      {/* Wizard: a working per-collateral media uploader (mediaSlot). Elsewhere: the staged doc block. */}
+      {mediaSlot ? (
+        mediaSlot
+      ) : hideDocs ? (
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/60 px-4 py-3 text-xs text-gray-500 dark:border-gray-700 dark:bg-white/5 dark:text-gray-400">
-          <span className="font-medium text-gray-700 dark:text-gray-200">Rasm / video:</span> arizani saqlagach, garov bo‘limida biriktiriladi — har bir garovga <b>kamida 1 ta</b>, ko‘pi <b>10 ta</b> (rasm yoki video).
+          <span className="font-medium text-gray-700 dark:text-gray-200">Rasm / video:</span> arizani saqlagach, garov bo‘limida biriktiriladi — ixtiyoriy, ko‘pi <b>10 ta</b> (rasm yoki video).
         </div>
       ) : (
       <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-800">

@@ -22,6 +22,15 @@ const emptyFields = (): TexFields => ({
 /** Collapse whitespace and trim. */
 const squish = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
+/** Keep only word-like tokens (≥2 chars, contain a letter, mostly letters/digits) — drops the OCR
+ *  symbol-junk the busy background produces ("= | Zee }?'y" …). Empty when nothing survives. */
+const cleanPhrase = (s: string): string =>
+  s.split(/\s+/)
+    .filter((t) => t.length >= 2 && /[A-Za-z]/.test(t) && t.replace(/[^A-Za-z0-9']/g, '').length / t.length >= 0.6)
+    .slice(0, 8)
+    .join(' ')
+    .trim();
+
 /** Uppercase alphanumerics only (plate, VIN, engine no) — drops spaces, dots and stray punctuation. */
 const alnum = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
@@ -89,17 +98,17 @@ export function extractTexFields(frontText: string, backText: string): TexScanRe
   const front = numberedFields(frontText);
   const back = numberedFields(backText);
 
-  // Identity fields are the 1st token (drops OCR background garbage); text fields keep the phrase.
+  // Identity fields are the 1st token (drops OCR background garbage); text fields keep word-like tokens.
   if (front.get(1)) f.stateNumber = firstAlnum(front.get(1)!);
-  if (front.get(2)) f.model = squish(front.get(2)!);
-  if (front.get(3)) f.color = squish(front.get(3)!);
-  if (front.get(4)) f.ownerName = squish(front.get(4)!);
-  if (front.get(5)) f.address = squish(front.get(5)!);
+  if (front.get(2)) f.model = cleanPhrase(front.get(2)!);
+  if (front.get(3)) f.color = cleanPhrase(front.get(3)!);
+  if (front.get(4)) f.ownerName = cleanPhrase(front.get(4)!);
+  if (front.get(5)) f.address = cleanPhrase(front.get(5)!);
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
-  if (front.get(7)) f.issuer = squish(front.get(7)!);
+  if (front.get(7)) f.issuer = cleanPhrase(front.get(7)!);
 
   if (back.get(9)) f.year = parseYear(back.get(9)!);
-  if (back.get(10)) f.bodyType = squish(back.get(10)!);
+  if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!);
   if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = v.bodyNo; f.chassis = v.chassis; }
   if (back.get(14)) f.engineNo = firstAlnum(back.get(14)!);
 
