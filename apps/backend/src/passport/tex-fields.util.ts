@@ -117,6 +117,11 @@ export function findPlate(text: string): string {
   return m ? alnum(m[1]) : '';
 }
 
+/** A real VIN never contains I, O or Q (they'd be confused with 1/0/0), so OCR reading one of those
+ *  is a misread — map it back. Only touch a 17-char VIN so a short/garbled read isn't altered. */
+const normalizeVin = (s: string): string =>
+  s.length === 17 ? s.replace(/I/g, '1').replace(/[OQ]/g, '0') : s;
+
 /** Split field 11 "XWB7T12YDLP165062 / RAKAMSIZ" into { bodyNo, chassis }. */
 function splitVin(raw: string): { bodyNo: string; chassis: string } {
   const parts = raw.split('/').map((p) => p.trim()).filter(Boolean);
@@ -150,7 +155,7 @@ export function extractTexFromFields(
     return years.length ? Math.min(...years) : null;
   })();
   if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!, 3);
-  if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = v.bodyNo; f.chassis = v.chassis; }
+  if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = normalizeVin(v.bodyNo); f.chassis = v.chassis; }
   if (back.get(14)) f.engineNo = joinCode(back.get(14)!, 15);
 
   // Series is not numbered — search the back first (it prints there), then the front.
