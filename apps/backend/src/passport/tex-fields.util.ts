@@ -110,6 +110,13 @@ export function findSeries(text: string): string {
   return m ? alnum(m[1]) : '';
 }
 
+/** A clean Uzbek plate anywhere on the front: 2 digits, a letter, 3 digits, 2 letters (70U922DB,
+ *  10Z310GB). Only a clean match returns — a garbled OCR read stays empty rather than filling junk. */
+export function findPlate(text: string): string {
+  const m = text.toUpperCase().replace(/\s+/g, ' ').match(/\b(\d{2}\s?[A-Z]\s?\d{3}\s?[A-Z]{2})\b/);
+  return m ? alnum(m[1]) : '';
+}
+
 /** Split field 11 "XWB7T12YDLP165062 / RAKAMSIZ" into { bodyNo, chassis }. */
 function splitVin(raw: string): { bodyNo: string; chassis: string } {
   const parts = raw.split('/').map((p) => p.trim()).filter(Boolean);
@@ -126,7 +133,9 @@ export function extractTexFromFields(
   const f = emptyFields();
 
   // Identity fields rejoin the code tokens (drops OCR background garbage); text fields keep word-like tokens.
-  if (front.get(1)) f.stateNumber = joinCode(front.get(1)!, 10);
+  // Plate: prefer a clean plate-format match anywhere on the front (survives a "1"→"4" number misread),
+  // else field 1's code. A garbled read matches neither → stays empty for manual entry.
+  f.stateNumber = findPlate(frontText) || joinCode(front.get(1) ?? '', 10);
   if (front.get(2)) f.model = cleanPhrase(front.get(2)!, 3);
   if (front.get(3)) f.color = cleanPhrase(front.get(3)!, 3);
   if (front.get(4)) f.ownerName = cleanPhrase(front.get(4)!);
@@ -134,7 +143,12 @@ export function extractTexFromFields(
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
   if (front.get(7)) f.issuer = cleanPhrase(front.get(7)!);
 
-  if (back.get(9)) f.year = parseYear(back.get(9)!);
+  // Year: field 9, or field 8 (a common "9"→"8" OCR misread), or the smallest standalone year in the
+  // back text (manufacture year is older than the inspection date, e.g. 2019 vs 2025-11-05).
+  f.year = parseYear(back.get(9) ?? '') ?? parseYear(back.get(8) ?? '') ?? (() => {
+    const years = (backText.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number).filter((y) => y >= 1980 && y <= 2035);
+    return years.length ? Math.min(...years) : null;
+  })();
   if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!, 3);
   if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = v.bodyNo; f.chassis = v.chassis; }
   if (back.get(14)) f.engineNo = joinCode(back.get(14)!, 15);

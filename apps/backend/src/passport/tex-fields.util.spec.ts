@@ -1,4 +1,4 @@
-import { extractTexFields, numberedFields, texDateToIso, findSeries } from './tex-fields.util';
+import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate } from './tex-fields.util';
 
 // Transcribed roughly as the eng OCR reads the two sample certificates (Downloads/tex-1*.jpg).
 const FRONT_1 = `AVTOMOTOTRANSPORT VOSITASI
@@ -34,6 +34,11 @@ describe('texDateToIso', () => {
 describe('findSeries', () => {
   it('finds the certificate series token', () => expect(findSeries(BACK_1)).toBe('VL8011449'));
   it('ignores a 14-digit reg number (no letters)', () => expect(findSeries('8. 37703865740060')).toBe(''));
+});
+
+describe('findPlate', () => {
+  it('finds a clean Uzbek plate anywhere in the text', () => expect(findPlate('junk 70U922DB more')).toBe('70U922DB'));
+  it('stays empty for a garbled plate read (no clean match)', () => expect(findPlate('70UGZ2D8 noise')).toBe(''));
 });
 
 describe('numberedFields', () => {
@@ -77,5 +82,9 @@ describe('extractTexFields', () => {
     expect(front.warnings).toContain('back_not_found');
     expect(front.fields.bodyNo).toBe('');
     expect(front.fields.stateNumber).toBe('70U922DB');
+  });
+  it('recovers the year from field 8 when field 9 is misread', () => {
+    const r = extractTexFields(FRONT_1, '8. 2019\n10. YENGIL SEDAN');
+    expect(r.fields.year).toBe(2019);
   });
 });
