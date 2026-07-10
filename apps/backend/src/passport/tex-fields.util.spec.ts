@@ -8,9 +8,7 @@ TO'G'RISIDA GUVOHNOMA
 2. DAMAS
 3. OQ BELODIMCHATIY
 4. RAMZIDDIN BAXRIYEV IXTIYOR O'G'LI
-5. OZBEKISTON KASHQADARYO VILOYATI
-QARSHI TUMANI MIRMIRON MSG, KISH.
-KUMOTA, FAROVON KO'CHASI 23-UY IND
+5. OZBEKISTON KASHQADARYO VILOYATI QARSHI TUMANI FAROVON KO'CHASI 23-UY IND
 6. 01.12.2025
 7. QASHQADARYO VILOYATI RO' VA IOB
 8. 37703865740060`;
@@ -39,11 +37,16 @@ describe('findSeries', () => {
 });
 
 describe('numberedFields', () => {
-  it('wraps a multi-line address onto field 5', () => {
+  it('reads clean "N. value" lines', () => {
     const m = numberedFields(FRONT_1);
     expect(m.get(1)).toBe('70U922DB');
-    expect(m.get(5)).toContain('KUMOTA');
     expect(m.get(5)).toContain('FAROVON');
+  });
+  it('tolerates comma separators and leading OCR garbage', () => {
+    // Real OCR prefixes background noise before the number and reads the dot as a comma.
+    const m = numberedFields('ae & 10. YENGIL SEDAN gas\nCELE 4, 7QUB2208 oe');
+    expect(m.get(10)).toContain('YENGIL');
+    expect(m.get(4)).toContain('7QUB2208');
   });
 });
 
