@@ -34,9 +34,32 @@ const cleanPhrase = (s: string): string =>
 /** Uppercase alphanumerics only (plate, VIN, engine no) — drops spaces, dots and stray punctuation. */
 const alnum = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-/** First whitespace-delimited token, alnum-cleaned. OCR appends garbage tokens from the busy
- *  background after the real value ("7QUB2208 oe" → "7QUB2208"); the identity fields are the 1st token. */
-const firstAlnum = (s: string): string => alnum((s.trim().split(/\s+/)[0] ?? ''));
+/** Join leading alnum tokens (code-like) up to `max` chars. OCR splits a plate/VIN/engine number with
+ *  a space ("F8CB191 160056") and appends background garbage after it ("… RAGA POT"); this rejoins the
+ *  real code and stops before the garbage by length. */
+const joinCode = (s: string, max: number): string => {
+  let out = '';
+  for (const t of s.split(/\s+/)) {
+    const a = alnum(t);
+    if (!a) continue;
+    if (out.length + a.length > max) break;
+    out += a;
+  }
+  return out;
+};
+
+/** Merge the numbered fields from several OCR passes — per field keep the value with the most
+ *  alphanumeric content. Different passes/thresholds recover different fields, so the union beats
+ *  any single pass. */
+export function mergeFields(maps: Array<Map<number, string>>): Map<number, string> {
+  const out = new Map<number, string>();
+  const score = (v: string) => (v.match(/[A-Za-z0-9]/g) || []).length;
+  for (const m of maps) for (const [k, v] of m) {
+    const cur = out.get(k);
+    if (!cur || score(v) > score(cur)) out.set(k, v);
+  }
+  return out;
+}
 
 /** dd.mm.yyyy | dd/mm/yyyy | yyyy-mm-dd → ISO (yyyy-mm-dd), or null. */
 export function texDateToIso(raw: string): string | null {
@@ -89,17 +112,17 @@ function splitVin(raw: string): { bodyNo: string; chassis: string } {
   const isNumberless = (s: string) => /RAKAMSIZ|РАКАМСИЗ|RAQAMSIZ/i.test(s);
   const body = parts.find((p) => !isNumberless(p)) ?? '';
   const chassisPart = parts.find((p) => isNumberless(p));
-  return { bodyNo: firstAlnum(body), chassis: chassisPart ? squish(chassisPart) : '' };
+  return { bodyNo: joinCode(body, 17), chassis: chassisPart ? squish(chassisPart) : '' };
 }
 
-/** Parse a tex passport's front + back OCR text into the collateral fields + a confidence score. */
-export function extractTexFields(frontText: string, backText: string): TexScanResult {
+/** Build the result from already-merged numbered fields (+ the raw texts, for the un-numbered series). */
+export function extractTexFromFields(
+  front: Map<number, string>, back: Map<number, string>, frontText: string, backText: string,
+): TexScanResult {
   const f = emptyFields();
-  const front = numberedFields(frontText);
-  const back = numberedFields(backText);
 
-  // Identity fields are the 1st token (drops OCR background garbage); text fields keep word-like tokens.
-  if (front.get(1)) f.stateNumber = firstAlnum(front.get(1)!);
+  // Identity fields rejoin the code tokens (drops OCR background garbage); text fields keep word-like tokens.
+  if (front.get(1)) f.stateNumber = joinCode(front.get(1)!, 10);
   if (front.get(2)) f.model = cleanPhrase(front.get(2)!);
   if (front.get(3)) f.color = cleanPhrase(front.get(3)!);
   if (front.get(4)) f.ownerName = cleanPhrase(front.get(4)!);
@@ -110,7 +133,7 @@ export function extractTexFields(frontText: string, backText: string): TexScanRe
   if (back.get(9)) f.year = parseYear(back.get(9)!);
   if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!);
   if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = v.bodyNo; f.chassis = v.chassis; }
-  if (back.get(14)) f.engineNo = firstAlnum(back.get(14)!);
+  if (back.get(14)) f.engineNo = joinCode(back.get(14)!, 15);
 
   // Series is not numbered — search the back first (it prints there), then the front.
   f.techPassportNo = findSeries(backText) || findSeries(frontText);
@@ -130,4 +153,9 @@ export function extractTexFields(frontText: string, backText: string): TexScanRe
   if (!back.size) warnings.push('back_not_found');
 
   return { confidence, fields: f, perField, warnings };
+}
+
+/** Parse a tex passport's front + back OCR text into the collateral fields + a confidence score. */
+export function extractTexFields(frontText: string, backText: string): TexScanResult {
+  return extractTexFromFields(numberedFields(frontText), numberedFields(backText), frontText, backText);
 }

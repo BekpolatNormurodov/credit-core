@@ -11,7 +11,7 @@ const { parse } = require('mrz');
 import type { PassportScanResult, TexScanResult } from '@credit-core/shared';
 import { extractMrzLines, normalizeMrzLines, mapMrzToBorrower, namesFromMrzLine, scoreConfidence, expiryWarnings, MrzDetail } from './mrz.util';
 import { extractIdFront, extractIdBackViz, mergeIdResult, extractPassportViz } from './id-fields.util';
-import { extractTexFields, countFields } from './tex-fields.util';
+import { extractTexFromFields, mergeFields, numberedFields } from './tex-fields.util';
 
 /** OCR a preprocessed image buffer → raw text. Injectable so the pipeline is unit-testable. */
 export type OcrFn = (image: Buffer) => Promise<string>;
@@ -254,34 +254,42 @@ export class PassportService {
   async scanTex(front: Buffer, back: Buffer, ocr?: OcrFn): Promise<TexScanResult> {
     [front, back] = await Promise.all([this.toImage(front), this.toImage(back)]);
     if (ocr) {
-      const [ft, bt] = await Promise.all([this.bestTexText(front, ocr), this.bestTexText(back, ocr)]);
-      return extractTexFields(ft, bt);
+      const [ff, bf] = await Promise.all([this.bestTexFields(front, ocr), this.bestTexFields(back, ocr)]);
+      return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     }
     // 4-worker pool so all orientations OCR concurrently (≈ one call wall-clock), like the MRZ pool.
     const eng = await this.makeScheduler('eng', 4);
     try {
-      const [ft, bt] = await Promise.all([this.bestTexText(front, eng.ocr), this.bestTexText(back, eng.ocr)]);
-      return extractTexFields(ft, bt);
+      const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr), this.bestTexFields(back, eng.ocr)]);
+      return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     } finally {
       await eng.terminate();
     }
   }
 
-  /** OCR every orientation × {plain, binarized} of a tex-passport side (concurrently) and return the
-   *  text that yields the most numbered fields — the busy background makes one fixed pass unreliable. */
-  private async bestTexText(file: Buffer, ocr: OcrFn): Promise<string> {
+  /** OCR every orientation × {plain, binarized} concurrently, MERGE the two passes per orientation
+   *  (different thresholds recover different fields), and keep the orientation whose merge has the
+   *  most fields. Returns the merged fields + the two texts (for the un-numbered certificate series). */
+  private async bestTexFields(file: Buffer, ocr: OcrFn): Promise<{ fields: Map<number, string>; text: string }> {
     const variants: Array<[number, boolean]> = [];
     for (const angle of ORIENTATIONS) for (const bin of [false, true]) variants.push([angle, bin]);
     const texts = await Promise.all(variants.map(async ([angle, bin]) => ocr(await this.preprocessTex(file, angle, bin))));
-    return texts.reduce((best, t) => (countFields(t) > countFields(best) ? t : best), texts[0] ?? '');
+    let best = { fields: new Map<number, string>(), text: '', n: -1 };
+    for (let i = 0; i < ORIENTATIONS.length; i++) {
+      const t0 = texts[i * 2] ?? '';
+      const t1 = texts[i * 2 + 1] ?? '';
+      const merged = mergeFields([numberedFields(t0), numberedFields(t1)]);
+      if (merged.size > best.n) best = { fields: merged, text: `${t0}\n${t1}`, n: merged.size };
+    }
+    return best;
   }
 
   /** Preprocess a tex-passport side: rotate + grayscale + normalize + sharpen (+ optional threshold),
-   *  upscaled to ~1800px so the small numbered print is legible to the eng model. */
+   *  upscaled to ~2600px so the small numbered print (over a security pattern) is legible to eng. */
   private async preprocessTex(file: Buffer, angle: number, binarize: boolean): Promise<Buffer> {
     let img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen();
     if (binarize) img = img.threshold(150);
-    return img.resize({ width: 1800 }).toBuffer();
+    return img.resize({ width: 2600 }).toBuffer();
   }
 
   /** Preprocess the printed (VIZ) side for the eng text OCR: the labels/values are large and upright,
