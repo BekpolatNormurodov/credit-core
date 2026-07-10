@@ -219,16 +219,14 @@ export function Step3({ f }: { f: OriginationForm }) {
           );
         })()}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Liniya № (РКЛ)" hint="avto — submit'da"><Input readOnly value={f.contractYearlyNo != null ? String(f.contractYearlyNo) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
+          {/* Liniya №, Jami summa, Yillik foiz, Jarima foizi, Shartnoma raqami — bu yerda ko'rsatilmaydi:
+              jami summa va foizlar yuqoridagi kartada; liniya № va shartnoma raqami submit'da avtomatik beriladi. */}
           <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
           <Field label="Summa — polis"><MoneyInput value={l.amountPolis ?? null} onChange={(v) => setLine({ amountPolis: v })} /></Field>
-          <Field label="Jami summa" required hint="auto = avto + polis" error={f.attempted ? f.errors.amountTotal : undefined}><Input readOnly value={amountTotal != null ? formatMoney(amountTotal) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Liniya muddati (oy)" required hint={`max ${LINE_TERM_CAP} oy (bosh kelishuv)`} error={(l.termMonths ?? 0) > LINE_TERM_CAP ? `Liniya muddati ${LINE_TERM_CAP} oydan oshmasligi kerak` : f.attempted ? f.errors.lineTerm : undefined}><Input type="number" min={1} max={LINE_TERM_CAP} value={l.termMonths ?? ''} onChange={(e) => setLine({ termMonths: numv(e.target.value) })} /></Field>
           <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
-          <Field label="Yillik foiz" hint="admin belgilaydi"><Input readOnly value={`${Math.round((l.interestRate ?? minRate) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-          <Field label="Jarima foizi"><Input readOnly value={`${Math.round((l.penaltyRate ?? 1.05) * 100)}%`} className="nums bg-gray-50 dark:bg-white/5" /></Field>
-          <Field label="Shartnoma raqami" hint="avto — moderatorga yuborilganda"><Input readOnly value={f.contractNumber ?? '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
         </div>
+        {f.attempted && f.errors.amountTotal && <p className="text-xs font-medium text-error-600 dark:text-error-500">{f.errors.amountTotal}</p>}
       </Card>
 
       <div>
