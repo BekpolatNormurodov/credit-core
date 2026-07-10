@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
@@ -12,12 +12,11 @@ import { Button, Card, Field, Input } from '../../components/primitives';
 import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/forms';
 import { Toggle } from '../../components/Switches';
 import { useToast } from '../../components/Toast';
-import { House, Car, Plus, Trash } from '../../lib/icons';
+import { House, Car, Plus, Trash, Check } from '../../lib/icons';
 import { cn, formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
 import { PassportScan } from './PassportScan';
-import { GenDovernostUpload } from './GenDovernost';
-import { CollateralMediaUpload, saveCollateralMedia } from './CollateralMediaUpload';
+import { CollateralAttachments, saveCollateralMedia } from './CollateralMediaUpload';
 import { TexScan } from './TexScan';
 import type { OriginationForm } from './useOriginationForm';
 
@@ -107,8 +106,6 @@ export function Step1({ f }: { f: OriginationForm }) {
         ))}
         {f.attempted && f.errors.contacts && <p className="text-xs font-medium text-error-600 dark:text-error-500">{f.errors.contacts}</p>}
       </div>
-
-      <GenDovernostUpload f={f} />
     </Card>
   );
 }
@@ -168,6 +165,13 @@ export function Step2({ f }: { f: OriginationForm }) {
 /** Step 3 — Liniya & garov & sug‘urta. */
 export function Step3({ f }: { f: OriginationForm }) {
   const qc = useQueryClient();
+  const [activeCol, setActiveCol] = useState(0);
+  const cols = f.form.collaterals;
+  const active = Math.min(activeCol, cols.length - 1);
+  // A collateral is "complete" (green tab) once it has a value + its key identity (model / address).
+  const isColComplete = (c: (typeof cols)[number]) =>
+    (c.agreedValue ?? 0) > 0 && (c.type === ProductType.AUTO ? !!c.model : !!c.address);
+  const addCol = (t: ProductType) => { f.addCol(t); setActiveCol(cols.length); };
   const { data: cfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
   const minRate = cfg?.minRate ?? 0.55;
   const l = f.form.creditLine ?? ({} as Line);
@@ -234,23 +238,60 @@ export function Step3({ f }: { f: OriginationForm }) {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800 dark:text-white">Garovlar <span className="text-gray-500 dark:text-gray-400">({f.form.collaterals.length})</span></h2>
+          <h2 className="font-semibold text-gray-800 dark:text-white">Garovlar <span className="text-gray-500 dark:text-gray-400">({cols.length})</span></h2>
           <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => f.addCol(ProductType.REAL_ESTATE)}><House className="h-4 w-4" /> Uy-joy</Button>
-            <Button variant="secondary" onClick={() => f.addCol(ProductType.AUTO)}><Car className="h-4 w-4" /> Avto</Button>
+            <Button variant="secondary" onClick={() => addCol(ProductType.REAL_ESTATE)}><House className="h-4 w-4" /> Uy-joy</Button>
+            <Button variant="secondary" onClick={() => addCol(ProductType.AUTO)}><Car className="h-4 w-4" /> Avto</Button>
           </div>
         </div>
-        <div className="space-y-4">
-          {f.form.collaterals.map((c, i) => (
-            <CollateralCard key={i} index={i} c={c} onChange={(p) => f.setCol(i, p)} onRemove={() => f.removeCol(i)} canRemove={f.form.collaterals.length > 1}
-              mediaSlot={<CollateralMediaUpload f={f} colIndex={i} />}
-              texSlot={<TexScan
-                onExtract={(p) => f.setCol(i, p)}
-                onScanImages={async (files) => { const id = await saveCollateralMedia(f, i, files); if (id) qc.invalidateQueries({ queryKey: ['col-media', id, i] }); }}
-              />}
-              docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
-          ))}
-        </div>
+        {/* One tab per collateral — green ✓ when complete, red ! when a required field is missing.
+            Only the selected collateral is shown below. */}
+        <ol className="mb-3 flex flex-wrap gap-2">
+          {cols.map((c, i) => {
+            const done = isColComplete(c);
+            const cur = active === i;
+            return (
+              <li key={i}>
+                <button
+                  type="button"
+                  onClick={() => setActiveCol(i)}
+                  aria-current={cur ? 'true' : undefined}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30',
+                    cur && 'ring-2 ring-brand-500/40',
+                    done
+                      ? 'border-success-300 bg-success-50 text-success-700 dark:border-success-500/40 dark:bg-success-500/10 dark:text-success-400'
+                      : 'border-error-300 bg-error-50 text-error-700 dark:border-error-500/40 dark:bg-error-500/10 dark:text-error-400',
+                  )}
+                >
+                  <span className={cn('flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold', done ? 'bg-success-600 text-white' : 'bg-error-600 text-white')}>
+                    {done ? <Check className="h-3 w-3" /> : '!'}
+                  </span>
+                  Garov {i + 1} · {c.type === ProductType.AUTO ? 'Avto' : 'Uy-joy'}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        {cols[active] && (
+          <CollateralCard
+            key={active}
+            index={active}
+            c={cols[active]}
+            onChange={(p) => f.setCol(active, p)}
+            onRemove={() => { f.removeCol(active); setActiveCol(Math.max(0, active - 1)); }}
+            canRemove={cols.length > 1}
+            mediaSlot={<>
+              <CollateralAttachments f={f} colIndex={active} type={DocumentType.COLLATERAL_PHOTO} accept="image/*,video/*" title="Rasm / video" max={10} />
+              <CollateralAttachments f={f} colIndex={active} type={DocumentType.GEN_DOVERNOST} accept="image/*,application/pdf" title="Ishonchnoma" max={5} />
+            </>}
+            texSlot={<TexScan
+              onExtract={(p) => f.setCol(active, p)}
+              onScanImages={async (files) => { const id = await saveCollateralMedia(f, active, files); if (id) qc.invalidateQueries({ queryKey: ['col-att', id, active, DocumentType.COLLATERAL_PHOTO] }); }}
+            />}
+            docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined}
+          />
+        )}
         {f.attempted && f.errors.collateral && (
           <p className="mt-2 text-xs font-medium text-error-600 dark:text-error-500">{f.errors.collateral}</p>
         )}
