@@ -22,14 +22,18 @@ const emptyFields = (): TexFields => ({
 /** Collapse whitespace and trim. */
 const squish = (s: string): string => s.replace(/\s+/g, ' ').trim();
 
-/** Keep only word-like tokens (≥2 chars, contain a letter, mostly letters/digits) — drops the OCR
- *  symbol-junk the busy background produces ("= | Zee }?'y" …). Empty when nothing survives. */
-const cleanPhrase = (s: string): string =>
-  s.split(/\s+/)
-    .filter((t) => t.length >= 2 && /[A-Za-z]/.test(t) && t.replace(/[^A-Za-z0-9']/g, '').length / t.length >= 0.6)
-    .slice(0, 8)
-    .join(' ')
-    .trim();
+/** Tex-passport text values are printed ALL-CAPS, but OCR reads the security-pattern background as
+ *  lowercase word-junk right after the real value ("DAMAS wn ee yuri" / "YENGIL SEDAN iis Aa"). Keep
+ *  the leading run of upper-case code tokens and stop at the first token that isn't one. */
+const cleanPhrase = (s: string, max = 10): string => {
+  const out: string[] = [];
+  for (const t of s.split(/\s+/)) {
+    if (!/^[A-Z0-9][A-Z0-9'.\-]*$/.test(t)) break; // first lowercase / symbol token → stop
+    out.push(t);
+    if (out.length >= max) break;
+  }
+  return out.join(' ').trim();
+};
 
 /** Uppercase alphanumerics only (plate, VIN, engine no) — drops spaces, dots and stray punctuation. */
 const alnum = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -123,15 +127,15 @@ export function extractTexFromFields(
 
   // Identity fields rejoin the code tokens (drops OCR background garbage); text fields keep word-like tokens.
   if (front.get(1)) f.stateNumber = joinCode(front.get(1)!, 10);
-  if (front.get(2)) f.model = cleanPhrase(front.get(2)!);
-  if (front.get(3)) f.color = cleanPhrase(front.get(3)!);
+  if (front.get(2)) f.model = cleanPhrase(front.get(2)!, 3);
+  if (front.get(3)) f.color = cleanPhrase(front.get(3)!, 3);
   if (front.get(4)) f.ownerName = cleanPhrase(front.get(4)!);
   if (front.get(5)) f.address = cleanPhrase(front.get(5)!);
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
   if (front.get(7)) f.issuer = cleanPhrase(front.get(7)!);
 
   if (back.get(9)) f.year = parseYear(back.get(9)!);
-  if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!);
+  if (back.get(10)) f.bodyType = cleanPhrase(back.get(10)!, 3);
   if (back.get(11)) { const v = splitVin(back.get(11)!); f.bodyNo = v.bodyNo; f.chassis = v.chassis; }
   if (back.get(14)) f.engineNo = joinCode(back.get(14)!, 15);
 

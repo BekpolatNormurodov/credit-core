@@ -15,7 +15,11 @@ const FIELD_LABEL: Record<string, string> = {
 };
 
 /** Tex passport (avto guvohnoma) skaneri — old + orqa rasm → avto garov maydonlarini to‘ldiradi. */
-export function TexScan({ onExtract }: { onExtract: (p: TexPatch) => void }) {
+export function TexScan({ onExtract, onScanImages }: {
+  onExtract: (p: TexPatch) => void;
+  /** On "Qo‘llash", the two scanned images are handed off (to save them as collateral media). */
+  onScanImages?: (files: File[]) => void | Promise<void>;
+}) {
   const toast = useToast();
   const frontRef = useRef<HTMLInputElement>(null);
   const backRef = useRef<HTMLInputElement>(null);
@@ -47,6 +51,8 @@ export function TexScan({ onExtract }: { onExtract: (p: TexPatch) => void }) {
     if (f.techPassportNo) p.techPassportNo = f.techPassportNo;
     if (f.techPassportDate) p.techPassportDate = f.techPassportDate;
     onExtract(p);
+    // Hand the two scanned images off to be saved as this collateral's media, then clear.
+    if (onScanImages && front && back) void onScanImages([front, back]);
     toast.success('Qo‘llandi', 'Tex passport maydonlari');
     setResult(null); setFront(null); setBack(null);
   };

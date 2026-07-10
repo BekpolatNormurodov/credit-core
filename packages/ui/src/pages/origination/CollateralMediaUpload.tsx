@@ -10,6 +10,20 @@ import type { OriginationForm } from './useOriginationForm';
 const MAX = 10;
 const isMedia = (m?: string | null) => { const x = m ?? ''; return x.startsWith('image/') || x.startsWith('video/'); };
 
+/** Persist files as media on the collateral at `colIndex`: ensure the case exists, save the line so
+ *  the collateral gets an id, then upload each to it. Returns the case id (for cache invalidation) or
+ *  null if the collateral has no id yet. Shared by the media strip and the tex-passport scanner. */
+export async function saveCollateralMedia(f: OriginationForm, colIndex: number, files: File[]): Promise<string | null> {
+  const id = await f.ensureCase();
+  if (!id) return null;
+  await f.saveSection('creditLine');
+  const c = await api.case(id);
+  const col = c.collaterals[colIndex];
+  if (!col?.id) return null;
+  for (const file of files) await api.uploadDocument(id, DocumentType.COLLATERAL_PHOTO, file, { collateralId: col.id });
+  return id;
+}
+
 /**
  * Per-collateral photos/videos in the wizard (optional, max 10). The collateral has no id until it's
  * saved, so the first upload ensures the case exists, persists the line/collaterals, then uploads to
@@ -39,13 +53,8 @@ export function CollateralMediaUpload({ f, colIndex }: { f: OriginationForm; col
     if (picked.length > remaining) { toast.error('Ko‘p', `Ko‘pi ${MAX} ta — yana ${Math.max(0, remaining)} ta`); return; }
     setBusy(true);
     try {
-      const id = await f.ensureCase();
-      if (!id) throw new Error('no case');
-      await f.saveSection('creditLine'); // persist collaterals so this one gets an id
-      const c = await api.case(id);
-      const col = c.collaterals[colIndex];
-      if (!col?.id) { toast.error('Avval saqlang', 'Garovni saqlab, qayta urinib ko‘ring'); return; }
-      for (const file of picked) await api.uploadDocument(id, DocumentType.COLLATERAL_PHOTO, file, { collateralId: col.id });
+      const id = await saveCollateralMedia(f, colIndex, picked);
+      if (!id) { toast.error('Avval saqlang', 'Garovni saqlab, qayta urinib ko‘ring'); return; }
       qc.invalidateQueries({ queryKey: ['col-media', id, colIndex] });
       qc.invalidateQueries({ queryKey: ['case', id] });
       toast.success('Yuklandi', 'Garov rasm/videolari');

@@ -56,7 +56,7 @@ function KadastrCard({ cadastreNo }: { cadastreNo: string }) {
 // A per-collateral staged attachment (image/file + name + free text), bound by collateral index.
 export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
 
-export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot }: {
+export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot, texSlot }: {
   index: number; c: CollateralDto; error?: string; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
   docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
   onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;
@@ -64,6 +64,8 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
   hideDocs?: boolean;
   /** When provided (wizard), replaces the staged doc block with a working media uploader. */
   mediaSlot?: ReactNode;
+  /** When provided (wizard, AUTO), the tex-passport scanner — so it can also save the scanned images. */
+  texSlot?: ReactNode;
 }) {
   const isAuto = c.type === ProductType.AUTO;
   const setOwners = (owners: CollateralDto['owners']) => onChange({ owners });
@@ -84,7 +86,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
 
       {isAuto ? (
         <>
-        <TexScan onExtract={onChange} />
+        {texSlot ?? <TexScan onExtract={onChange} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Model (markasi)" required icon={Car} error={error}>
             <Select<string> value={c.model ?? ''} onChange={(v) => onChange({ model: v })} searchable placeholder="— mashinani tanlang —"

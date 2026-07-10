@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
@@ -17,7 +17,8 @@ import { cn, formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
 import { PassportScan } from './PassportScan';
 import { GenDovernostUpload } from './GenDovernost';
-import { CollateralMediaUpload } from './CollateralMediaUpload';
+import { CollateralMediaUpload, saveCollateralMedia } from './CollateralMediaUpload';
+import { TexScan } from './TexScan';
 import type { OriginationForm } from './useOriginationForm';
 
 const numv = (s: string): number | null => (s === '' ? null : Number(s));
@@ -166,6 +167,7 @@ export function Step2({ f }: { f: OriginationForm }) {
 
 /** Step 3 — Liniya & garov & sug‘urta. */
 export function Step3({ f }: { f: OriginationForm }) {
+  const qc = useQueryClient();
   const { data: cfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
   const minRate = cfg?.minRate ?? 0.55;
   const l = f.form.creditLine ?? ({} as Line);
@@ -242,6 +244,10 @@ export function Step3({ f }: { f: OriginationForm }) {
           {f.form.collaterals.map((c, i) => (
             <CollateralCard key={i} index={i} c={c} onChange={(p) => f.setCol(i, p)} onRemove={() => f.removeCol(i)} canRemove={f.form.collaterals.length > 1}
               mediaSlot={<CollateralMediaUpload f={f} colIndex={i} />}
+              texSlot={<TexScan
+                onExtract={(p) => f.setCol(i, p)}
+                onScanImages={async (files) => { const id = await saveCollateralMedia(f, i, files); if (id) qc.invalidateQueries({ queryKey: ['col-media', id, i] }); }}
+              />}
               docs={[]} onAddDocs={() => undefined} onRemoveDoc={() => undefined} onSetDocField={() => undefined} />
           ))}
         </div>
@@ -329,10 +335,9 @@ export function Step4({ f }: { f: OriginationForm }) {
     <Card className="space-y-4">
       <h2 className="font-semibold text-gray-800 dark:text-white">Transh (drawdown)</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Transh №, Ariza sanasi, To'lov kuni, Oylik to'lov, Sug'urta to'lovi — hidden: all auto-derived
-            (Transh №=1, sana=bugun, to'lov kuni sanadan, oylik to'lov jadvaldan, sug'urta tizimda hisoblanadi).
-            Oylik to'lov chapdagi Xulosada ko'rinadi. Kerak bo'lsa qaytaramiz. */}
-        <Field label="Ariza №"><Input value={t.applicationNo ?? ''} onChange={(e) => setTr({ applicationNo: e.target.value })} /></Field>
+        {/* Transh №, Ariza №, Ariza sanasi, To'lov kuni, Oylik to'lov, Sug'urta to'lovi — hidden: all
+            auto-derived (Transh №=1, ariza № va sana avto, to'lov kuni sanadan, oylik to'lov jadvaldan,
+            sug'urta tizimda hisoblanadi). Oylik to'lov chapdagi Xulosada ko'rinadi. Kerak bo'lsa qaytaramiz. */}
         <Field label="Asosiy summa" required error={f.attempted ? f.errors.principal : undefined}><MoneyInput value={t.principal ?? null} onChange={(v) => setTr({ principal: v })} /></Field>
         <Field label="Jadval turi" required error={f.attempted ? f.errors.scheduleType : undefined}><Select value={(t.scheduleType ?? '') as 'ANNUITY' | 'DIFFERENTIATED' | ''} onChange={(v) => setTr({ scheduleType: v })} options={[{ value: 'ANNUITY', label: 'Annuitet (max 30 oy)' }, { value: 'DIFFERENTIATED', label: 'Differensial (max 48 oy)' }]} /></Field>
         <Field label="Muddat (oy)" required hint={cap ? `max ${cap} oy` : 'avval jadval turini tanlang'} error={capExceeded ? `Muddat 1–${cap} oy oralig‘ida` : f.attempted ? f.errors.trancheTerm : undefined}>

@@ -24,7 +24,7 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
         kv('Shartnoma raqami', c.contractNumber ?? line?.orderNumber ?? '—'),
         kv("So'ralayotgan summa", money(tr?.principal ?? line?.amountTotal)),
         kv('Muddati', tr?.termMonths != null ? `${tr.termMonths} oy` : '—'),
-        kv('Ariza raqami', tr?.applicationNo ?? '—'),
+        kv('Ariza raqami', tr?.applicationNo ?? c.number),
         kv('Ariza sanasi', tr?.applicationDate ? dateToUzbekWords(tr.applicationDate) : '—'),
         kv("To'lov kuni", tr?.paymentDay != null ? `Har oyning ${tr.paymentDay}-kuni` : '—'),
       ]),
