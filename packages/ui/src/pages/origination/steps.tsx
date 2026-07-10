@@ -353,7 +353,9 @@ export function Step5({ f }: { f: OriginationForm }) {
         <Field label="Jami qarz" required><MoneyInput value={h.totalOutstandingDebt ?? null} onChange={(v) => set({ totalOutstandingDebt: v })} /></Field>
         <Field label="O‘rtacha oylik to‘lov" required><MoneyInput value={h.avgMonthlyPaymentExisting ?? null} onChange={(v) => set({ avgMonthlyPaymentExisting: v })} /></Field>
         <Field label="Komitet protokoli"><Input value={h.committeeProtocolRef ?? ''} onChange={(e) => set({ committeeProtocolRef: e.target.value })} /></Field>
-        <Field label="Komitet qarori sanasi"><DatePicker value={h.committeeDecisionDate ?? null} onChange={(iso) => set({ committeeDecisionDate: iso })} /></Field>
+        {/* Komitet qarori sanasi — olib tashlandi (komitet qarori keyinroq, operator bosqichida emas).
+            Kerak bo'lsa qaytaramiz:
+        <Field label="Komitet qarori sanasi"><DatePicker value={h.committeeDecisionDate ?? null} onChange={(iso) => set({ committeeDecisionDate: iso })} /></Field> */}
       </div>
     </Card>
   );
