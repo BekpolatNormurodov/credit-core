@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
@@ -24,8 +24,26 @@ const emptyForm: UpsertCasePayload = {
   employment: null, affordability: null, creditLine: null, creditHistory: null,
 };
 
-/** Prefill carried from "Hujjatlar tekshirish" → new ariza via router state (identifier only). */
+/** Prefill carried from "Hujjatlar tekshirish" → an ariza via router state (identifier only). */
 type Prefill = { borrower?: Partial<UpsertCasePayload['borrower']>; collateral?: { type: ProductType; patch: Partial<CollateralDto> } };
+
+/** Merge a prefill into a form — sets borrower identifier fields, fills the first empty matching
+ *  collateral (or appends one) with the queried №. Pure, so it works for a new form or a loaded draft. */
+function applyPrefill(form: UpsertCasePayload, pre: Prefill): UpsertCasePayload {
+  let next = form;
+  if (pre.borrower) next = { ...next, borrower: { ...next.borrower, ...pre.borrower } };
+  if (pre.collateral) {
+    const { type, patch } = pre.collateral;
+    const keyField: keyof CollateralDto = type === ProductType.AUTO ? 'stateNumber' : 'cadastreNo';
+    const cols = next.collaterals;
+    const idx = cols.findIndex((c) => c.type === type && !c[keyField]);
+    const collaterals = idx >= 0
+      ? cols.map((c, i) => (i === idx ? { ...c, ...patch } : c))
+      : [...cols, { ...newCollateral(type), ...patch }];
+    next = { ...next, collaterals };
+  }
+  return next;
+}
 
 /** Shared state + autosave for the origination wizard. */
 export function useOriginationForm(id?: string) {
@@ -33,32 +51,18 @@ export function useOriginationForm(id?: string) {
   const location = useLocation();
   const [caseId, setCaseId] = useState<string | undefined>(id);
   const [form, setForm] = useState<UpsertCasePayload>(emptyForm);
-  const [prefilled, setPrefilled] = useState(false);
+  const prefilledRef = useRef(false);
 
-  // A new ariza opened from "Hujjatlar tekshirish" carries the queried identifier — merge it once
-  // (borrower fields, and the collateral №) so the form starts pre-filled. Only for a brand-new case.
+  // "Hujjatlar tekshirish" → Arizaga qo'shish carries the queried identifier in router state. Merge it
+  // once: for a NEW ariza here, or for an EXISTING draft inside the loader below (on top of loaded
+  // data). prefilledRef guards against re-applying on a react-query refetch.
   useEffect(() => {
-    if (prefilled || id) return;
+    if (prefilledRef.current || id) return;
     const pre = (location.state as { prefill?: Prefill } | null)?.prefill;
     if (!pre) return;
-    setForm((fm) => {
-      let next = fm;
-      if (pre.borrower) next = { ...next, borrower: { ...next.borrower, ...pre.borrower } };
-      if (pre.collateral) {
-        const { type, patch } = pre.collateral;
-        const keyField: keyof CollateralDto = type === ProductType.AUTO ? 'stateNumber' : 'cadastreNo';
-        const cols = next.collaterals;
-        const idx = cols.findIndex((c) => c.type === type && !c[keyField]);
-        const collaterals = idx >= 0
-          ? cols.map((c, i) => (i === idx ? { ...c, ...patch } : c))
-          : [...cols, { ...newCollateral(type), ...patch }];
-        next = { ...next, collaterals };
-      }
-      return next;
-    });
-    setPrefilled(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.state, id, prefilled]);
+    setForm((fm) => applyPrefill(fm, pre));
+    prefilledRef.current = true;
+  }, [location.state, id]);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [attempted, setAttempted] = useState(false);
@@ -75,12 +79,16 @@ export function useOriginationForm(id?: string) {
       // Backfill close-contact rows to the required minimum of 2 for the form.
       const loadedContacts = c.borrower?.closeContacts ?? [];
       const closeContacts = loadedContacts.length >= 2 ? loadedContacts : [...loadedContacts, emptyContact(), emptyContact()].slice(0, Math.max(2, loadedContacts.length));
-      setForm({
+      const loaded: UpsertCasePayload = {
         amount: c.amount, termMonths: c.termMonths,
         borrower: c.borrower ? { ...c.borrower, closeContacts } : { ...emptyBorrower }, guarantors: c.guarantors,
         collaterals: c.collaterals.length ? c.collaterals : [newCollateral(ProductType.REAL_ESTATE)],
         employment: c.employment, affordability: c.affordability, creditLine: c.creditLine, creditHistory: c.creditHistory,
-      });
+      };
+      // Add-to-draft: apply the "Hujjatlar tekshirish" prefill on top of the loaded draft, once.
+      const pre = !prefilledRef.current ? (location.state as { prefill?: Prefill } | null)?.prefill : undefined;
+      setForm(pre ? applyPrefill(loaded, pre) : loaded);
+      if (pre) prefilledRef.current = true;
       setCaseId(c.id);
       return c;
     },
@@ -147,14 +155,15 @@ export function useOriginationForm(id?: string) {
   } as const;
   type ErrKey = keyof typeof errors;
   // Which errors belong to which wizard step (index in OriginationWizard.STEPS).
-  // Steps: 0 Qarz oluvchi · 1 Ish & daromad · 2 Liniya · 3 Garov · 4 Transh · 5 KATM.
+  // Steps: 0 Qarz oluvchi · 1 Ish & daromad · 2 Liniya · 3 Sug‘urta · 4 Garov · 5 Transh · 6 KATM.
   const STEP_ERRORS: Record<number, ErrKey[]> = {
     0: ['fullName', 'pinfl', 'passportSeries', 'passportNumber', 'phone', 'contacts'],
     1: [],
     2: ['amountTotal', 'lineTerm'],
-    3: ['collateral'],
-    4: ['scheduleType', 'trancheTerm', 'principal'],
-    5: ['katm'],
+    3: [],
+    4: ['collateral'],
+    5: ['scheduleType', 'trancheTerm', 'principal'],
+    6: ['katm'],
   };
   const stepHasErrors = (s: number) => (STEP_ERRORS[s] ?? []).some((k) => errors[k]);
   // A step is "complete" (green ✓) only when it actually HAS required fields and all are satisfied.

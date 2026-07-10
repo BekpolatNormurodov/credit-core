@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ProductType, type CollateralDto, type UpsertCasePayload } from '@credit-core/shared';
-import { Button, Card, Field, Input } from '../components/primitives';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@credit-core/api-client';
+import { CaseStatus, ProductType, type CollateralDto, type UpsertCasePayload } from '@credit-core/shared';
+import { Button, Card, Field, Input, StatusBadge, Skeleton } from '../components/primitives';
 import { PassportInput, PlateInput, digitsOnly } from '../components/forms';
+import { Modal } from '../components/Modal';
 import { useToast } from '../components/Toast';
 import {
-  People, House, Car, Bank, IdCard, ShieldCheck, Lock, Search, Plus, Check, Info, type IconProps,
+  People, House, Car, Bank, IdCard, ShieldCheck, Lock, Search, Plus, Check, Info, ArrowRight, Calendar, Inbox, type IconProps,
 } from '../lib/icons';
 import { cn } from '../lib/cn';
 
@@ -170,13 +173,74 @@ function ResultCard({ reg, query, onAdd }: { reg: Reg; query: string; onAdd: () 
   );
 }
 
+/** "Arizaga qo'shish" target picker — create a new ariza, or search an existing DRAFT and add the
+ *  queried identifier to it. Both carry the prefill via router state (applied by useOriginationForm). */
+function AddToArizaModal({ open, onClose, prefill, regName }: { open: boolean; onClose: () => void; prefill: Prefill; regName: string }) {
+  const nav = useNavigate();
+  const toast = useToast();
+  const [term, setTerm] = useState('');
+  const [debounced, setDebounced] = useState('');
+  useEffect(() => { const t = setTimeout(() => setDebounced(term.trim()), 300); return () => clearTimeout(t); }, [term]);
+  const enabled = debounced.length >= 2;
+  const q = useQuery({ queryKey: ['draft-search', debounced], queryFn: () => api.searchCases(debounced), enabled });
+  // Only DRAFTs are editable in origination — a submitted case can't take new data here.
+  const drafts = (q.data ?? []).filter((c) => c.status === CaseStatus.DRAFT);
+  const goNew = () => { nav('/cases/new', { state: { prefill } }); toast.success('Yangi ariza', `${regName} ma’lumoti bilan`); };
+  const goDraft = (id: string) => { nav(`/cases/${id}/origination`, { state: { prefill } }); toast.success('Qoralamaga qo’shildi', `${regName} ma’lumoti o’tkazildi`); };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Arizaga qo'shish" description={`${regName} ma'lumoti qayerga qo'shilsin?`} size="md">
+      <div className="space-y-4">
+        <Button variant="primary" className="w-full" onClick={goNew}><Plus className="h-4 w-4" /> Yangi ariza yaratish</Button>
+        <div className="flex items-center gap-3 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+          <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />yoki mavjud qoralamaga<span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+          <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder="Qoralama: F.I.O, PINFL, raqam…" className="pl-11" autoFocus />
+        </div>
+        {!enabled && <p className="text-xs text-gray-400 dark:text-gray-500">Qoralamani qidirish uchun kamida 2 ta belgi kiriting.</p>}
+        {enabled && q.isFetching && <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-xl" />)}</div>}
+        {enabled && !q.isFetching && drafts.length === 0 && (
+          <div className="flex flex-col items-center gap-1.5 py-6 text-center">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-gray-100 text-gray-400 dark:bg-white/5"><Inbox className="h-5 w-5" /></span>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Qoralama topilmadi</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">Yangi ariza yarating yoki boshqacha qidiring.</p>
+          </div>
+        )}
+        {drafts.length > 0 && (
+          <div className="space-y-2">
+            {drafts.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => goDraft(c.id)}
+                className="group flex w-full cursor-pointer items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left transition hover:border-brand-300 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:border-gray-800 dark:bg-white/5 dark:hover:border-brand-500/40"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate font-semibold text-gray-800 dark:text-white">{c.borrowerName || 'Nomsiz qoralama'}</span>
+                    <span className="nums rounded-md bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">{c.contractNumber ?? c.number}</span>
+                    <StatusBadge status={c.status} />
+                  </div>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><Calendar className="h-3.5 w-3.5" /> {new Date(c.updatedAt).toLocaleDateString()}</p>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition group-hover:bg-brand-700">Qo&apos;shish <ArrowRight className="h-4 w-4" /></span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
 type Status = 'idle' | 'loading' | 'done';
 const isRegKey = (k: string | null): k is RegKey => !!k && REGISTRIES.some((r) => r.key === k);
 
 export function DocCheckPage() {
-  const nav = useNavigate();
-  const toast = useToast();
   const [params, setParams] = useSearchParams();
+  const [addOpen, setAddOpen] = useState(false);
   // Active registry lives in the URL (?reg=veh) — deep-linkable and the browser Back button works.
   const active: RegKey = isRegKey(params.get('reg')) ? (params.get('reg') as RegKey) : 'pop';
   const setActive = (k: RegKey) => setParams((p) => { const n = new URLSearchParams(p); n.set('reg', k); return n; }, { replace: true });
@@ -200,10 +264,7 @@ export function DocCheckPage() {
     setStatus((s) => ({ ...s, [key]: 'loading' }));
     timers.current[key] = setTimeout(() => setStatus((s) => ({ ...s, [key]: 'done' })), 700);
   };
-  const addToApplication = () => {
-    nav('/cases/new', { state: { prefill: reg.prefill(vals) } });
-    toast.success('Arizaga qo’shildi', `${reg.name} ma’lumoti yangi arizaga o’tkazildi`);
-  };
+  const addToApplication = () => setAddOpen(true);
 
   return (
     <div className="space-y-6">
@@ -293,6 +354,8 @@ export function DocCheckPage() {
           </div>
         </div>
       </Card>
+
+      <AddToArizaModal open={addOpen} onClose={() => setAddOpen(false)} prefill={reg.prefill(vals)} regName={reg.name} />
     </div>
   );
 }
