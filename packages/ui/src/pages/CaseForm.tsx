@@ -141,7 +141,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
       )}
 
       <div className="grid gap-4 border-t border-gray-200 pt-4 dark:border-gray-800 sm:grid-cols-2">
-        <Field label="Kelishilgan garov qiymati" icon={Money}><MoneyInput value={c.agreedValue ?? null} onChange={(v) => onChange({ agreedValue: v })} /></Field>
+        <Field label="Kelishilgan garov qiymati" required icon={Money}><MoneyInput value={c.agreedValue ?? null} onChange={(v) => onChange({ agreedValue: v })} /></Field>
         <Field label="Qiymat (prописью)" icon={Tag}><Input value={c.agreedValueWords ?? ''} onChange={(e) => onChange({ agreedValueWords: e.target.value })} /></Field>
       </div>
 

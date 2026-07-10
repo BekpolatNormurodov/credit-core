@@ -116,12 +116,14 @@ export function useOriginationForm(id?: string) {
   } as const;
   type ErrKey = keyof typeof errors;
   // Which errors belong to which wizard step (index in OriginationWizard.STEPS).
+  // Steps: 0 Qarz oluvchi · 1 Ish & daromad · 2 Liniya · 3 Garov · 4 Transh · 5 KATM.
   const STEP_ERRORS: Record<number, ErrKey[]> = {
     0: ['fullName', 'pinfl', 'passportSeries', 'passportNumber', 'phone', 'contacts'],
     1: [],
-    2: ['amountTotal', 'lineTerm', 'collateral'],
-    3: ['scheduleType', 'trancheTerm', 'principal'],
-    4: ['katm'],
+    2: ['amountTotal', 'lineTerm'],
+    3: ['collateral'],
+    4: ['scheduleType', 'trancheTerm', 'principal'],
+    5: ['katm'],
   };
   const stepHasErrors = (s: number) => (STEP_ERRORS[s] ?? []).some((k) => errors[k]);
   // A step is "complete" (green ✓) only when it actually HAS required fields and all are satisfied.

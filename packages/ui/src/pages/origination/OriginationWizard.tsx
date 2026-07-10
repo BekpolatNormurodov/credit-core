@@ -5,13 +5,14 @@ import { useToast } from '../../components/Toast';
 import { Check } from '../../lib/icons';
 import { cn } from '../../lib/cn';
 import { useOriginationForm } from './useOriginationForm';
-import { Step1, Step2, Step3, Step4, Step5 } from './steps';
+import { Step1, Step2, Step3, StepGarov, Step4, Step5 } from './steps';
 import { Summary } from './Summary';
 
 const STEPS: { title: string; section: CaseSectionKey; Comp: (p: { f: ReturnType<typeof useOriginationForm> }) => JSX.Element }[] = [
   { title: 'Qarz oluvchi', section: 'borrower', Comp: Step1 },
   { title: 'Ish & daromad', section: 'employment', Comp: Step2 },
-  { title: 'Liniya & garov', section: 'creditLine', Comp: Step3 },
+  { title: 'Liniya', section: 'creditLine', Comp: Step3 },
+  { title: 'Garov', section: 'creditLine', Comp: StepGarov },
   { title: 'Transh', section: 'creditLine', Comp: Step4 },
   { title: 'KATM', section: 'creditHistory', Comp: Step5 },
 ];
