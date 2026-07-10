@@ -27,7 +27,14 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
   return (
     <Card className="sticky top-4 space-y-0.5">
       <h3 className="mb-2 font-semibold text-gray-800 dark:text-white">Xulosa</h3>
-      {row('Kredit turi', loanType === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz')}
+      <div className={`mb-2 flex items-center justify-between rounded-xl px-3 py-2 ${loanType === 'MICROCREDIT'
+        ? 'bg-warning-50 dark:bg-warning-500/10'
+        : 'bg-brand-50 dark:bg-brand-500/10'}`}>
+        <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Kredit turi</span>
+        <span className={`text-base font-bold ${loanType === 'MICROCREDIT' ? 'text-warning-700 dark:text-warning-400' : 'text-brand-700 dark:text-brand-400'}`}>
+          {loanType === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz'}
+        </span>
+      </div>
       {row('Jami summa', amountTotal ? formatMoney(amountTotal) : '—')}
       {row('Transh muddati', form.creditLine?.tranche?.termMonths ? `${form.creditLine.tranche.termMonths} oy` : '—')}
       {row('Oylik to‘lov', form.creditLine?.tranche?.monthlyPayment ? formatMoney(form.creditLine.tranche.monthlyPayment) : '—')}

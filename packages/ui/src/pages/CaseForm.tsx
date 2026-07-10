@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import {
   Plus, Trash2, House, Car, IdCard, Hashtag, Location,
-  Money, Clock, Ruler, Tag, Calendar, Palette, Upload, FileText,
+  Money, Clock, Ruler, Tag, Calendar, Palette, Upload, FileText, Check,
 } from '../lib/icons';
 import { ProductType, DocumentType, type CollateralDto } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';
@@ -11,6 +11,47 @@ import { TexScan } from './origination/TexScan';
 import { cn } from '../lib/cn';
 
 const num = (v: string): number | null => (v === '' ? null : Number(v));
+
+// Full cadastre number, e.g. "10:01:05:03:01:1234".
+const KADASTR_FULL = /^\d{2}:\d{2}:\d{2}:\d{2}:\d{2}:\d{3,4}$/;
+
+/**
+ * Kadastr agency lookup card — a dropdown-style card under the cadastre number. Shown once the
+ * number is fully typed, with a green check. Currently a SIMULATION (fields are placeholders);
+ * a real POST /api/kadastr/check to the Kadastr Agency will populate it later ("yaqinda").
+ */
+function KadastrCard({ cadastreNo }: { cadastreNo: string }) {
+  if (!KADASTR_FULL.test((cadastreNo ?? '').trim())) return null;
+  const row = (label: string, value: string) => (
+    <div className="flex items-center justify-between gap-2 py-0.5">
+      <span className="text-[11px] text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="nums text-xs font-medium text-gray-700 dark:text-gray-200">{value}</span>
+    </div>
+  );
+  return (
+    <div className="-mt-1 rounded-xl border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-white/5 sm:col-span-2">
+      <div className="mb-2 flex items-center gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400"><FileText className="h-5 w-5" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-white">
+            Hujjat va ma'lumotlar
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-success-600 text-white"><Check className="h-3 w-3" /></span>
+          </p>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500">
+            Kadastr agentligi · <span className="rounded bg-amber-50 px-1 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">yaqinda</span>
+          </p>
+        </div>
+      </div>
+      <div className="rounded-lg bg-gray-50 px-3 py-2 dark:bg-white/5">
+        {row('Turi', '—')}
+        {row('Manzil', '—')}
+        {row('Maydon (m²)', '—')}
+        {row('Holati', '—')}
+      </div>
+      <p className="mt-1.5 text-[10px] text-gray-400 dark:text-gray-500">Simulyatsiya — tashqi xizmat ulangach real ma'lumotlar chiqadi</p>
+    </div>
+  );
+}
 
 // A per-collateral staged attachment (image/file + name + free text), bound by collateral index.
 export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
@@ -76,7 +117,8 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Manzil" required className="sm:col-span-2" icon={Location} error={error}><Input value={c.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} /></Field>
             <Field label="Reestr №" icon={Hashtag}><Input value={c.registryNo ?? ''} onChange={(e) => onChange({ registryNo: e.target.value })} /></Field>
-            <Field label="Kadastr №" icon={Hashtag}><Input value={c.cadastreNo ?? ''} onChange={(e) => onChange({ cadastreNo: e.target.value })} /></Field>
+            <Field label="Kadastr №" icon={Hashtag} hint="10:01:05:03:01:1234"><Input value={c.cadastreNo ?? ''} onChange={(e) => onChange({ cadastreNo: e.target.value })} placeholder="NN:NN:NN:NN:NN:NNNN" /></Field>
+            <KadastrCard cadastreNo={c.cadastreNo ?? ''} />
             <Field label="Mulk turi" icon={House}><Input value={c.propertyType ?? ''} onChange={(e) => onChange({ propertyType: e.target.value })} placeholder={(c.realtyKind ?? 'APARTMENT') === 'HOUSE' ? "YAKKA TARTIBDAGI TURAR JOY" : "KO'P QAVATLI UYDAGI XONADON"} /></Field>
             <Field label="Ko'chirma sanasi" icon={Calendar}><DatePicker value={c.registrationDate ?? null} onChange={(iso) => onChange({ registrationDate: iso })} /></Field>
             {(c.realtyKind ?? 'APARTMENT') === 'HOUSE' && (

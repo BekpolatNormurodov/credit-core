@@ -575,7 +575,7 @@ export class CreditCasesService {
     // Runs only for the actual submit, so other DRAFT decisions get the correct workflow error.
     if (c.status === CaseStatus.DRAFT && rule.to === CaseStatus.MODERATION) {
       if (!c.collaterals.length) throw new ForbiddenException('Kamida bitta garov kiritilishi shart');
-      // Each collateral needs 1..10 photos/videos (media = image|video mime or COLLATERAL_PHOTO type).
+      // Photos/videos are optional (0..10 per collateral) — only the upper bound is enforced.
       const mediaByCol = new Map<string, number>();
       for (const d of c.documents) {
         if (!d.collateralId) continue;
@@ -583,9 +583,6 @@ export class CreditCasesService {
         if (m.startsWith('image/') || m.startsWith('video/') || d.type === DocumentType.COLLATERAL_PHOTO) {
           mediaByCol.set(d.collateralId, (mediaByCol.get(d.collateralId) ?? 0) + 1);
         }
-      }
-      if (c.collaterals.some((col) => (mediaByCol.get(col.id) ?? 0) < 1)) {
-        throw new ForbiddenException('Har bir garovga kamida 1 ta rasm yoki video biriktirilishi shart');
       }
       if (c.collaterals.some((col) => (mediaByCol.get(col.id) ?? 0) > 10)) {
         throw new ForbiddenException('Har bir garovga ko‘pi bilan 10 ta rasm yoki video biriktiriladi');

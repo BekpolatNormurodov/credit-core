@@ -796,7 +796,7 @@ function CollateralMedia({
       </div>
       <input ref={inputRef} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => onPick(e.target.files)} />
       {media.length === 0 ? (
-        <p className="text-xs font-medium text-error-600 dark:text-error-500">Kamida 1 ta rasm yoki video majburiy</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">Rasm yoki video biriktirish ixtiyoriy — ko‘pi 10 ta</p>
       ) : (
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
           {media.map((d) => {

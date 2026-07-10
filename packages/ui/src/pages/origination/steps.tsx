@@ -13,7 +13,7 @@ import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/for
 import { Toggle } from '../../components/Switches';
 import { useToast } from '../../components/Toast';
 import { House, Car, Plus, Trash } from '../../lib/icons';
-import { formatMoney } from '../../lib/cn';
+import { cn, formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
 import { PassportScan } from './PassportScan';
 import { GenDovernostUpload } from './GenDovernost';
@@ -194,12 +194,30 @@ export function Step3({ f }: { f: OriginationForm }) {
   return (
     <div className="space-y-6">
       <Card className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800 dark:text-white">Kredit liniyasi (РКЛ)</h2>
-          <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
-            {loanTypeFor(amountTotal) === 'MICROCREDIT' ? 'Mikrokredit' : 'Mikroqarz'}
-          </span>
-        </div>
+        <h2 className="font-semibold text-gray-800 dark:text-white">Kredit liniyasi (РКЛ)</h2>
+        {(() => {
+          const isBig = loanTypeFor(amountTotal) === 'MICROCREDIT';
+          const annual = Math.round((l.interestRate ?? minRate) * 100);
+          const penalty = Math.round((l.penaltyRate ?? 1.05) * 100);
+          return (
+            <div className={cn('rounded-2xl border p-4', isBig
+              ? 'border-warning-200 bg-warning-50/60 dark:border-warning-500/20 dark:bg-warning-500/5'
+              : 'border-brand-200 bg-brand-50/60 dark:border-brand-500/20 dark:bg-brand-500/5')}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Kredit turi</p>
+                  <p className={cn('text-2xl font-bold', isBig ? 'text-warning-700 dark:text-warning-400' : 'text-brand-700 dark:text-brand-400')}>{isBig ? 'Mikrokredit' : 'Mikroqarz'}</p>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">{isBig ? '100 mln so‘mdan yuqori' : '100 mln so‘mgacha'}</p>
+                </div>
+                <div className="flex flex-wrap gap-x-6 gap-y-2 text-right">
+                  <div><p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Yillik foiz</p><p className="nums text-xl font-bold text-gray-800 dark:text-white">{annual}%</p></div>
+                  <div><p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Jarima foizi</p><p className="nums text-xl font-bold text-gray-800 dark:text-white">{penalty}%</p></div>
+                  <div><p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Jami summa</p><p className="nums text-xl font-bold text-gray-800 dark:text-white">{amountTotal != null ? formatMoney(amountTotal) : '—'}</p></div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Liniya № (РКЛ)" hint="avto — submit'da"><Input readOnly value={f.contractYearlyNo != null ? String(f.contractYearlyNo) : '—'} className="nums bg-gray-50 dark:bg-white/5" /></Field>
           <Field label="Summa — avto/ko‘chmas"><MoneyInput value={l.amountAuto ?? null} onChange={(v) => setLine({ amountAuto: v })} /></Field>
