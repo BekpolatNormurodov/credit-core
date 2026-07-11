@@ -317,17 +317,29 @@ export class PassportService {
     const score = (t: string) => numberedFields(t).size * 1000 + (t.match(/[A-Za-z0-9]/g)?.length ?? 0);
     const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ({ a, text: await ocr(await this.preprocessTex(file, a, 0, scoutWidth)) })));
     const best = scouts.reduce((b, s) => (score(s.text) > score(b.text) ? s : b));
-    // Drop the old 2800px pass — verified to add ~nothing over these four while being the slowest.
-    const variants: Array<[number, number]> = [[2600, 0], [2600, 150], [2400, 120], [2200, 175]];
-    const extra = await Promise.all(variants.map(async ([w, t]) => ocr(await this.preprocessTex(file, best.a, t, w))));
+    // width × threshold × CLAHE. The last is a CLAHE (local-contrast) pass — it lifts faint printed
+    // text on washed-out / unevenly-lit scans, recovering the low-contrast owner name + region that a
+    // global normalize misses (verified: it reads "SHAKIROV"/"TOSHKENT" the others can't).
+    const variants: Array<[number, number, boolean]> = [[2600, 0, false], [2600, 150, false], [2400, 120, false], [2600, 0, true]];
+    const extra = await Promise.all(variants.map(async ([w, t, cl]) => ocr(await this.preprocessTex(file, best.a, t, w, cl))));
     const fields = mergeFields([numberedFields(best.text), ...extra.map(numberedFields)]);
     return { fields, text: [best.text, ...extra].join('\n') };
   }
 
   /** Preprocess a tex-passport side: rotate + grayscale + normalize + sharpen (+ optional threshold),
-   *  upscaled so the small numbered print (over a security pattern) is legible to eng. threshold 0 = none. */
-  private async preprocessTex(file: Buffer, angle: number, threshold = 0, width = 2600): Promise<Buffer> {
-    let img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale().normalize().sharpen();
+   *  upscaled so the small numbered print (over a security pattern) is legible to eng. threshold 0 = none.
+   *  `clahe` adds contrast-limited adaptive histogram equalization (local contrast) for faded scans. */
+  private async preprocessTex(file: Buffer, angle: number, threshold = 0, width = 2600, clahe = false): Promise<Buffer> {
+    let img: sharp.Sharp;
+    if (clahe) {
+      // CLAHE needs an 8-bit single-channel image — materialise grayscale first, then equalise. If
+      // libvips rejects the input, fall back to plain grayscale (best-effort, never fails the scan).
+      const base = await sharp(file, { failOn: 'none' }).rotate(angle).grayscale().toColourspace('b-w').toBuffer();
+      try { img = sharp(base).clahe({ width: 80, height: 80, maxSlope: 5 }); } catch { img = sharp(base); }
+    } else {
+      img = sharp(file, { failOn: 'none' }).rotate(angle).grayscale();
+    }
+    img = img.normalize().sharpen();
     if (threshold > 0) img = img.threshold(threshold);
     return img.resize({ width }).toBuffer();
   }

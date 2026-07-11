@@ -245,9 +245,17 @@ export function findModelHint(frontText: string): string {
 export function recoverOwner(frontText: string): string {
   const PAT = /(OVICH|EVICH|O'?G'?LI|QIZI|OVNA|EVNA)$/;
   const toks = frontText.toUpperCase().replace(/[^A-Z'ʻ ]/g, ' ').split(/\s+/).filter((t) => t.length >= 2);
-  const idx = toks.findIndex((t) => t.length >= 5 && PAT.test(t));
-  if (idx < 0) return '';
-  return toks.slice(Math.max(0, idx - 2), idx + 1).join(' ');
+  // The name is scattered across OCR passes; the patronymic appears several times with different
+  // neighbours. Take EVERY patronymic occurrence's "2 words before + it" and keep the one carrying the
+  // most letters (the fullest run — e.g. "SHAKIROV VAXABJAN TEMIROVICH" beats "VAYADGAN TEMIROVICH").
+  const alpha = (s: string) => (s.match(/[A-Z]/g) ?? []).length;
+  let best = '';
+  for (let idx = 0; idx < toks.length; idx++) {
+    if (toks[idx].length < 5 || !PAT.test(toks[idx])) continue;
+    const run = toks.slice(Math.max(0, idx - 2), idx + 1).join(' ');
+    if (alpha(run) > alpha(best)) best = run;
+  }
+  return best;
 }
 
 /**
