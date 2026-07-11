@@ -193,7 +193,12 @@ export function KadastrInput({
   );
 }
 
-export interface Option<T extends string> { value: T; label: string; icon?: React.ComponentType<{ className?: string }> }
+export interface Option<T extends string> { value: T; label: string; icon?: React.ComponentType<{ className?: string }>; swatch?: string }
+
+/** A small colour dot (for the car-colour dropdown) — always ringed so white/light stays visible. */
+function Swatch({ hex }: { hex: string }) {
+  return <span className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-black/15 dark:ring-white/25" style={{ backgroundColor: hex }} />;
+}
 
 /** Custom styled dropdown (replaces the unstyled native <select>); portal-based menu. */
 export function Select<T extends string>({
@@ -212,6 +217,7 @@ export function Select<T extends string>({
       <button ref={btnRef} type="button" onClick={() => setOpen((o) => !o)} className={cn(fieldBase, 'justify-between text-left')}>
         <span className={cn('flex items-center gap-2 truncate', !display && 'text-slate-400')}>
           {sel?.icon && <sel.icon className="h-4 w-4" />}
+          {sel?.swatch && <Swatch hex={sel.swatch} />}
           {display || placeholder}
         </span>
         <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition', open && 'rotate-180')} />
@@ -229,6 +235,7 @@ export function Select<T extends string>({
             <button key={o.value} type="button" onClick={() => { onChange(o.value); close(); }}
               className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition hover:bg-brand-50 dark:hover:bg-white/5', o.value === value && 'bg-brand-50 font-medium text-brand-700 dark:bg-brand-600/20 dark:text-brand-300')}>
               {o.icon && <o.icon className="h-4 w-4" />}
+              {o.swatch && <Swatch hex={o.swatch} />}
               {o.label}
             </button>
           ))}

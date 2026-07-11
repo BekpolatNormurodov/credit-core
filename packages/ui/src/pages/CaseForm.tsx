@@ -7,6 +7,7 @@ import { ProductType, DocumentType, type CollateralDto } from '@credit-core/shar
 import { Button, Card, Field, Input } from '../components/primitives';
 import { MoneyInput, DatePicker, PassportInput, PlateInput, KadastrInput, Select, digitsOnly } from '../components/forms';
 import { CAR_MODELS } from '../lib/cars';
+import { CAR_COLORS } from '../lib/colors';
 import { TexScan } from './origination/TexScan';
 import { cn } from '../lib/cn';
 
@@ -97,7 +98,10 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
           <Field label="Kuzov №" icon={Hashtag}><Input value={c.bodyNo ?? ''} onChange={(e) => onChange({ bodyNo: e.target.value })} /></Field>
           <Field label="Dvigatel №" icon={Hashtag}><Input value={c.engineNo ?? ''} onChange={(e) => onChange({ engineNo: e.target.value })} /></Field>
           <Field label="Shassi" icon={Hashtag}><Input value={c.chassis ?? ''} onChange={(e) => onChange({ chassis: e.target.value })} /></Field>
-          <Field label="Rang" icon={Palette}><Input value={c.color ?? ''} onChange={(e) => onChange({ color: e.target.value })} /></Field>
+          <Field label="Rang" icon={Palette}>
+            <Select<string> value={c.color ?? ''} onChange={(v) => onChange({ color: v })} searchable placeholder="— rang tanlang —"
+              options={CAR_COLORS.map((col) => ({ value: col.name, label: col.name, swatch: col.hex }))} />
+          </Field>
           <Field label="Yil" icon={Calendar}><Input type="number" value={c.year ?? ''} onChange={(e) => onChange({ year: num(e.target.value) })} /></Field>
           <Field label="Probeg (km)" icon={Clock}><Input type="number" value={c.mileage ?? ''} onChange={(e) => onChange({ mileage: num(e.target.value) })} /></Field>
         </div>

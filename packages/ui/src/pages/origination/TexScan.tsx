@@ -5,6 +5,7 @@ import { Button } from '../../components/primitives';
 import { useToast } from '../../components/Toast';
 import { Car, Upload, Check, RotateCcw, X, Warning } from '../../lib/icons';
 import { CAR_MODELS } from '../../lib/cars';
+import { matchCarColor, colorHex } from '../../lib/colors';
 
 /** Snap an OCR'd model ("DAMAS", "CHEVROLET SPARK") to the closest known model in the dropdown list,
  *  so the required Model field lands on a valid, canonical value. Null when nothing overlaps. */
@@ -85,7 +86,8 @@ export function TexScan({ storeKey, onExtract, onScanImages }: {
     // Model: snap to a known model, else keep the (already gated, clean) OCR value — a new model that
     // isn't in the list still fills the free-text dropdown.
     if (f.model) p.model = matchCarModel(f.model) ?? f.model;
-    if (f.color) p.color = f.color;
+    // Snap the OCR colour to a canonical car colour ("OQ BELIY" → "Oq"); keep free text if unknown.
+    if (f.color) p.color = matchCarColor(f.color) ?? f.color;
     if (f.year != null) p.year = f.year;
     if (f.bodyType) p.bodyType = f.bodyType;
     if (f.bodyNo) p.bodyNo = f.bodyNo;
@@ -165,12 +167,21 @@ export function TexScan({ storeKey, onExtract, onScanImages }: {
           {(() => {
             const applied = result.perField.filter((pf) => APPLIED_KEYS.has(pf.key));
             const info = result.perField.filter((pf) => !APPLIED_KEYS.has(pf.key));
-            const cell = (pf: { key: string; value: string }) => (
-              <div key={pf.key} className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wide text-gray-400">{FIELD_LABEL[pf.key] ?? pf.key}</p>
-                <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{pf.value}</p>
-              </div>
-            );
+            const cell = (pf: { key: string; value: string }) => {
+              // Colour cell: show the canonical colour name + a small swatch (nice, glanceable).
+              const isColor = pf.key === 'color';
+              const value = isColor ? (matchCarColor(pf.value) ?? pf.value) : pf.value;
+              const hex = isColor ? colorHex(value) : undefined;
+              return (
+                <div key={pf.key} className="min-w-0">
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">{FIELD_LABEL[pf.key] ?? pf.key}</p>
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-gray-800 dark:text-gray-200">
+                    {hex && <span className="h-3 w-3 shrink-0 rounded-full ring-1 ring-black/15 dark:ring-white/25" style={{ backgroundColor: hex }} />}
+                    <span className="truncate">{value}</span>
+                  </p>
+                </div>
+              );
+            };
             return (
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-lg bg-white p-2.5 dark:bg-white/5">
