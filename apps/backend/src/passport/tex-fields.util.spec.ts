@@ -1,4 +1,4 @@
-import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText } from './tex-fields.util';
+import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType } from './tex-fields.util';
 
 // Transcribed roughly as the eng OCR reads the two sample certificates (Downloads/tex-1*.jpg).
 const FRONT_1 = `AVTOMOTOTRANSPORT VOSITASI
@@ -49,6 +49,16 @@ describe('fixUzbekText', () => {
   });
   it('leaves names, streets and house numbers untouched', () => {
     expect(fixUzbekText('FAROVON 23-UY IND')).toBe('FAROVON 23-UY IND');
+  });
+});
+
+describe('fixBodyType', () => {
+  it('snaps a body-type misread to the canonical spelling', () => {
+    expect(fixBodyType('YENGIL SEOAN')).toBe('YENGIL SEDAN');
+    expect(fixBodyType('YENGIL UNVERSAL')).toBe('YENGIL UNIVERSAL');
+  });
+  it('leaves an exact body type unchanged', () => {
+    expect(fixBodyType('YENGIL SEDAN')).toBe('YENGIL SEDAN');
   });
 });
 

@@ -77,14 +77,19 @@ const UZ_CANON = [
 ];
 // Letters only, upper-cased — apostrophes/case stripped, so misreads match regardless of punctuation.
 const flatten = (s: string): string => s.toUpperCase().replace(/[^A-Z]/g, '');
-const UZ_FLAT = UZ_CANON.map((c) => ({ canon: c, flat: flatten(c) }));
+type Canon = { canon: string; flat: string };
+const toFlat = (list: string[]): Canon[] => list.map((c) => ({ canon: c, flat: flatten(c) }));
+const UZ_FLAT = toFlat(UZ_CANON);
+// Vehicle body types printed in field 10 ("kuzov turi") — a small closed set, so an OCR misread
+// ("SEOAN", "UNVERSAL") snaps to the canonical spelling.
+const BODY_FLAT = toFlat(['YENGIL', 'YUK', 'AVTOBUS', 'SEDAN', 'UNIVERSAL', 'XETCHBEK', 'MINIVEN', 'FURGON', 'SIDELKA', 'PIKAP', 'KUPE', 'MOTOTSIKL', 'TRAKTOR', 'PRITSEP']);
 
-/** Snap a single token to a canonical Uzbek term when it's an exact or close misread, else keep it. */
-function snapUzToken(tok: string): string {
+/** Snap a token to the closest canonical value (exact or close misread), else keep it as-is. */
+function snapToken(tok: string, list: Canon[], minLen: number): string {
   const f = flatten(tok);
-  if (f.length < 5) return tok; // too short to correct safely (UY, IND, MFY, numbers)
+  if (f.length < minLen) return tok; // too short to correct safely
   let best = ''; let bestD = Infinity;
-  for (const { canon, flat } of UZ_FLAT) {
+  for (const { canon, flat } of list) {
     if (Math.abs(flat.length - f.length) > 2) continue;
     const d = lev(f, flat);
     if (d < bestD) { bestD = d; best = canon; }
@@ -97,7 +102,12 @@ function snapUzToken(tok: string): string {
 /** Correct region + administrative terms in a phrase (address / issuing office). Non-word tokens
  *  (house numbers like "23-UY", "IND") pass through unchanged. */
 export function fixUzbekText(s: string): string {
-  return s.split(/\s+/).map((t) => (/[A-Za-z]/.test(t) ? snapUzToken(t) : t)).join(' ').trim();
+  return s.split(/\s+/).map((t) => (/[A-Za-z]/.test(t) ? snapToken(t, UZ_FLAT, 5) : t)).join(' ').trim();
+}
+
+/** Correct the vehicle body type (field 10) — snap "YENGIL SEOAN" → "YENGIL SEDAN" etc. */
+export function fixBodyType(s: string): string {
+  return s.split(/\s+/).map((t) => (/[A-Za-z]/.test(t) ? snapToken(t, BODY_FLAT, 3) : t)).join(' ').trim();
 }
 
 /** Merge the numbered fields from several OCR passes — per field keep the value with the most
@@ -219,7 +229,7 @@ export function extractTexFromFields(
     const years = (backText.match(/\b(19|20)\d{2}\b/g) ?? []).map(Number).filter((y) => y >= 1980 && y <= 2035);
     return years.length ? Math.min(...years) : null;
   })();
-  if (back.get(10)) f.bodyType = letters(cleanPhrase(back.get(10)!, 3));
+  if (back.get(10)) f.bodyType = fixBodyType(letters(cleanPhrase(back.get(10)!, 3)));
   // VIN only when it's a full-length code (≥11); a short/garbled read is dropped.
   if (back.get(11)) { const v = splitVin(back.get(11)!); const vin = normalizeVin(v.bodyNo); if (vin.length >= 11) f.bodyNo = vin; f.chassis = v.chassis; }
   // Engine only when it's a reasonable code length (≥8).
