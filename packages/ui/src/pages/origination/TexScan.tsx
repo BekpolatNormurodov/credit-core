@@ -3,7 +3,7 @@ import { api } from '@credit-core/api-client';
 import type { CollateralDto, TexScanResult } from '@credit-core/shared';
 import { Button } from '../../components/primitives';
 import { useToast } from '../../components/Toast';
-import { Car, Upload, Check, RotateCcw, X } from '../../lib/icons';
+import { Car, Upload, Check, RotateCcw, X, Warning } from '../../lib/icons';
 import { CAR_MODELS } from '../../lib/cars';
 
 /** Snap an OCR'd model ("DAMAS", "CHEVROLET SPARK") to the closest known model in the dropdown list,
@@ -32,8 +32,16 @@ const FIELD_LABEL: Record<string, string> = {
 // are read from the certificate but not collateral fields, so they're kept out of the result card.
 const APPLIED_KEYS = new Set(['stateNumber', 'model', 'color', 'year', 'bodyType', 'bodyNo', 'chassis', 'engineNo', 'techPassportNo', 'techPassportDate']);
 
+/** Scanner state kept across step/page navigation (lost only on a full reload). So an operator who
+ *  uploads + scans, jumps to another wizard step, and comes back finds the images + result still there.
+ *  Keyed per collateral; images are File objects held in memory (no storage size limit). */
+type TexScanState = { front: File | null; back: File | null; result: TexScanResult | null };
+const texScanStore = new Map<string, TexScanState>();
+
 /** Tex passport (avto guvohnoma) skaneri — old + orqa rasm → avto garov maydonlarini to‘ldiradi. */
-export function TexScan({ onExtract, onScanImages }: {
+export function TexScan({ storeKey, onExtract, onScanImages }: {
+  /** Stable key (per collateral) — when set, the uploaded images + result survive step/page switches. */
+  storeKey?: string;
   onExtract: (p: TexPatch) => void;
   /** On "Qo‘llash", the two scanned images are handed off (to save them as collateral media). */
   onScanImages?: (files: File[]) => void | Promise<void>;
@@ -41,11 +49,18 @@ export function TexScan({ onExtract, onScanImages }: {
   const toast = useToast();
   const frontRef = useRef<HTMLInputElement>(null);
   const backRef = useRef<HTMLInputElement>(null);
-  const [front, setFront] = useState<File | null>(null);
-  const [back, setBack] = useState<File | null>(null);
+  // Hydrate once from the store (lazy initializers run only on mount) so a remount restores the scan.
+  const [front, setFront] = useState<File | null>(() => (storeKey ? texScanStore.get(storeKey)?.front ?? null : null));
+  const [back, setBack] = useState<File | null>(() => (storeKey ? texScanStore.get(storeKey)?.back ?? null : null));
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<TexScanResult | null>(null);
+  const [result, setResult] = useState<TexScanResult | null>(() => (storeKey ? texScanStore.get(storeKey)?.result ?? null : null));
   const [lightbox, setLightbox] = useState<string | null>(null);
+
+  // Mirror the scanner state into the store on every change, so jumping between steps/pages and back
+  // restores the uploaded images and the scan result instead of resetting to empty.
+  useEffect(() => {
+    if (storeKey) texScanStore.set(storeKey, { front, back, result });
+  }, [storeKey, front, back, result]);
 
   // Object URLs for the thumbnails (images only) — created once per file, revoked on change/unmount.
   const frontUrl = useMemo(() => (front && front.type.startsWith('image/') ? URL.createObjectURL(front) : null), [front]);
@@ -139,6 +154,12 @@ export function TexScan({ onExtract, onScanImages }: {
             ))}
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400">Ishonch: <b className={result.confidence >= 60 ? 'text-success-600' : 'text-warning-600'}>{result.confidence}%</b> — maydonlarni tekshiring</p>
+          {result.confidence < 60 && (
+            <p className="flex items-start gap-1.5 rounded-lg bg-warning-50 px-2.5 py-1.5 text-[11px] text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+              <Warning className="mt-px h-3.5 w-3.5 shrink-0" />
+              Rasm qiya yoki xira bo‘lishi mumkin. Old va orqa tomonni <b>tekis</b>, <b>to‘g‘ri</b> va <b>yorug‘</b> joyda, kadrni to‘ldirib qayta oling.
+            </p>
+          )}
           {/* Applied collateral fields first, then the informational ones (owner / address / issuer). */}
           {(() => {
             const applied = result.perField.filter((pf) => APPLIED_KEYS.has(pf.key));

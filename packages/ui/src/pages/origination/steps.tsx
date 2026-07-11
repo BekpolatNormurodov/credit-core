@@ -339,6 +339,7 @@ export function StepGarov({ f }: { f: OriginationForm }) {
               <CollateralAttachments f={f} colIndex={active} type={DocumentType.GEN_DOVERNOST} accept="image/*,application/pdf" title="Ishonchnoma" max={5} />
             </>}
             texSlot={<TexScan
+              storeKey={`tex:${f.caseId ?? 'new'}:${active}`}
               onExtract={(p) => f.setCol(active, p)}
               onScanImages={async (files) => { const id = await saveCollateralMedia(f, active, files); if (id) qc.invalidateQueries({ queryKey: ['col-att', id, active, DocumentType.COLLATERAL_PHOTO] }); }}
             />}

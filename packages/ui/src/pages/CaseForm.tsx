@@ -85,7 +85,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
 
       {isAuto ? (
         <>
-        {texSlot ?? <TexScan onExtract={onChange} />}
+        {texSlot ?? <TexScan storeKey={`tex:col:${index}`} onExtract={onChange} />}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Model (markasi)" required icon={Car} error={error}>
             <Select<string> value={c.model ?? ''} onChange={(v) => onChange({ model: v })} searchable placeholder="— mashinani tanlang —"
