@@ -148,6 +148,10 @@ describe('extractTexFields', () => {
     const r = extractTexFields('2. - DAMAS', '');
     expect(r.fields.model).toBe('DAMAS');
   });
+  it('strips short OCR noise tokens from a free-text field', () => {
+    const r = extractTexFields('4. SEE VAYADGAN TEMIROVICH', '');
+    expect(r.fields.ownerName).toBe('VAYADGAN TEMIROVICH');
+  });
   it('recovers the model from a hint word when field 2 is garbled', () => {
     // OCR reads field 2 as "RF" (dropped) but the model word survives elsewhere ("…OLET SPARK…").
     const r = extractTexFields('1. 10Z310GB\n2. RF\n3. OQ\nOLET SPARK', '');

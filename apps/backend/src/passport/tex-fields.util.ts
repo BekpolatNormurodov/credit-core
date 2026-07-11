@@ -41,6 +41,16 @@ const cleanPhrase = (s: string, max = 10): string => {
 /** Uppercase alphanumerics only (plate, VIN, engine no) — drops spaces, dots and stray punctuation. */
 const alnum = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, '');
 
+// Real short tokens that must survive noise-stripping (neighbourhood/street abbreviations, house-no).
+const KEEP_SHORT = new Set(['MFY', 'HFY', 'MSG', 'UY', 'IND', 'IOB', 'IIB', 'RO', 'VA', 'OQ']);
+/** Drop leftover OCR noise from a free-text field: short junk tokens ("SEE", "SAS", "WU") go, while
+ *  real words (≥4 letters), known abbreviations, and anything with a digit (house numbers) stay. */
+const dropNoise = (s: string): string =>
+  s.split(/\s+/)
+    .filter((t) => { const w = t.replace(/[^A-Za-z']/g, ''); return /\d/.test(t) || w.length >= 4 || KEEP_SHORT.has(w.toUpperCase()); })
+    .join(' ')
+    .trim();
+
 /** Join leading alnum tokens (code-like) up to `max` chars. OCR splits a plate/VIN/engine number with
  *  a space ("F8CB191 160056") and appends background garbage after it ("… RAGA POT"); this rejoins the
  *  real code and stops before the garbage by length. */
@@ -298,6 +308,11 @@ export function extractTexFromFields(
   if (!f.address) f.address = fixUzbekText(recoverAddress(frontText));
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
   if (front.get(7)) f.issuer = fixUzbekText(letters(cleanPhrase(front.get(7)!)));
+  // Strip leftover OCR noise from the free-text fields so a degraded scan shows the real words
+  // ("SEE VAYADGAN TEMIROVICH" → "VAYADGAN TEMIROVICH", "TOSHKENT OYA SS" → "TOSHKENT").
+  f.ownerName = dropNoise(f.ownerName);
+  f.address = dropNoise(f.address);
+  f.issuer = dropNoise(f.issuer);
 
   // Year: field 9, or field 8 (a common "9"→"8" OCR misread), or the smallest standalone year in the
   // back text (manufacture year is older than the inspection date, e.g. 2019 vs 2025-11-05).
