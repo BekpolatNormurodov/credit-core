@@ -1,4 +1,4 @@
-import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType, formatUzPlate } from './tex-fields.util';
+import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType, formatUzPlate, recoverAddress } from './tex-fields.util';
 
 // Transcribed roughly as the eng OCR reads the two sample certificates (Downloads/tex-1*.jpg).
 const FRONT_1 = `AVTOMOTOTRANSPORT VOSITASI
@@ -54,6 +54,18 @@ describe('fixUzbekText', () => {
   });
   it('leaves names, streets and house numbers untouched', () => {
     expect(fixUzbekText('FAROVON 23-UY IND')).toBe('FAROVON 23-UY IND');
+  });
+});
+
+describe('recoverAddress', () => {
+  it('recovers the address when the "5." marker is lost, stopping before the next label', () => {
+    const addr = recoverAddress("4 OWNER NAME 5 TOSHKENT VILOYATI TOSHKENT TUMANI DURMON KO'CHASI 39-UY 6 BERILGAN SANASI");
+    expect(addr).toContain('TUMANI');
+    expect(addr).toContain('39-UY');
+    expect(addr).not.toContain('BERILGAN');
+  });
+  it('does NOT match the printed viloyat list (no district/street anchor)', () => {
+    expect(recoverAddress('ANDIJON VILOYATI BUXORO VILOYATI JIZZAX VILOYATI NAVOIY VILOYATI')).toBe('');
   });
 });
 

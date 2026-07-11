@@ -227,6 +227,28 @@ export function findModelHint(frontText: string): string {
   return MODEL_HINTS.find((h) => new RegExp(`\\b${h}\\b`).test(up)) ?? '';
 }
 
+/**
+ * Recover the owner's address when the "5." marker was lost — OCR often drops the dot ("5." → "5 "),
+ * so the address bleeds into field 4 and field 5 reads noise. Anchor on "TUMANI"/"KO'CHASI"/"MAHALLASI"
+ * (a district/street term the certificate's PRINTED viloyat-list lacks — so no false match from that
+ * list) and take the words from just before it up to the house number "NN-UY". Empty if no anchor.
+ */
+export function recoverAddress(frontText: string): string {
+  // Next-field labels / boilerplate — stop before spilling into them.
+  const STOP = /^(BERILGAN|SANA|SANASI|DATE|ISSUE|ISSUING|VEHICLE|COLOUR|COLOR|OWNER|ADDRESS|NUMBER|AUTHORITY|IOB|IIB)/;
+  const toks = frontText.toUpperCase().replace(/[^A-Z0-9'ʻ\- ]/g, ' ').split(/\s+/).filter(Boolean);
+  const anchor = toks.findIndex((t) => /^(TUMAN|KO'?CHAS|KUCHAS|MAHALLA)/.test(t));
+  if (anchor < 0) return '';
+  const start = Math.max(0, anchor - 4);
+  let end = anchor + 1;
+  for (let i = anchor + 1; i < Math.min(toks.length, anchor + 7); i++) {
+    if (STOP.test(toks[i])) break;             // don't spill into the next field's label
+    end = i + 1;
+    if (/^\d{1,3}-?UY$/.test(toks[i])) break;   // house number = natural end of the address
+  }
+  return toks.slice(start, end).filter((t) => t.length >= 2).join(' ');
+}
+
 /** Build the result from already-merged numbered fields (+ the raw texts, for the un-numbered series). */
 export function extractTexFromFields(
   front: Map<number, string>, back: Map<number, string>, frontText: string, backText: string,
@@ -254,6 +276,8 @@ export function extractTexFromFields(
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
   // Address + issuer carry region/administrative terms — snap their OCR misreads to canonical Uzbek.
   if (front.get(5)) f.address = fixUzbekText(letters(cleanPhrase(front.get(5)!, 14)));
+  // If the "5." marker was lost (address bled into field 4 → field 5 empty/noise), recover it.
+  if (!f.address) f.address = fixUzbekText(recoverAddress(frontText));
   if (front.get(6)) f.techPassportDate = texDateToIso(front.get(6)!);
   if (front.get(7)) f.issuer = fixUzbekText(letters(cleanPhrase(front.get(7)!)));
 
