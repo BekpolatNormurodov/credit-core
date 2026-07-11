@@ -184,6 +184,12 @@ export function findPlate(text: string): string {
   return m ? alnum(m[1]) : '';
 }
 
+/** Space a canonical plate for display: "10Z310GB" → "10 Z 310 GB". Non-matching input passes through. */
+export function formatUzPlate(p: string): string {
+  const m = p.match(/^(\d{2})([A-Z])(\d{3})([A-Z]{2})$/);
+  return m ? `${m[1]} ${m[2]} ${m[3]} ${m[4]}` : p;
+}
+
 /** A real VIN never contains I, O or Q (they'd be confused with 1/0/0), so OCR reading one of those
  *  is a misread — map it back. Only touch a 17-char VIN so a short/garbled read isn't altered. */
 const normalizeVin = (s: string): string =>
@@ -212,11 +218,14 @@ export function extractTexFromFields(
   const fixColor = (s: string): string => s.replace(/^(00|0O|O0|0Q|Q0)\b/i, 'OQ');
 
   // Plate: ONLY a clean Uzbek plate-format match — no garbage fallback (was surfacing "EE" etc.).
-  f.stateNumber = findPlate(frontText);
+  // Spaced for display: "10Z310GB" → "10 Z 310 GB".
+  f.stateNumber = formatUzPlate(findPlate(frontText));
   // Model: ≥3 letters — every real model (DAMAS, SPARK, NEXIA, ONIX…) qualifies, but a 2-char OCR
   // misread ("RF") is dropped rather than surfaced as a wrong model.
   if (front.get(2)) { const m = letters(cleanPhrase(front.get(2)!, 3)); if (m.replace(/[^A-Za-z]/g, '').length >= 3) f.model = m; }
-  if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 3)));
+  // Colour is 1–2 words (OQ · OQ BELIY · QORA · KULRANG); cap at 2 so a garbage tail ("OQ BELIY OAS")
+  // from the security pattern is dropped.
+  if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 2)));
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
   // Address + issuer carry region/administrative terms — snap their OCR misreads to canonical Uzbek.
   if (front.get(5)) f.address = fixUzbekText(letters(cleanPhrase(front.get(5)!, 14)));

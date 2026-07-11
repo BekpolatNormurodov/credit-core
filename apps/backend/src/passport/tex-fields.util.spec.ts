@@ -1,4 +1,4 @@
-import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType } from './tex-fields.util';
+import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType, formatUzPlate } from './tex-fields.util';
 
 // Transcribed roughly as the eng OCR reads the two sample certificates (Downloads/tex-1*.jpg).
 const FRONT_1 = `AVTOMOTOTRANSPORT VOSITASI
@@ -39,6 +39,11 @@ describe('findSeries', () => {
 describe('findPlate', () => {
   it('finds a clean Uzbek plate anywhere in the text', () => expect(findPlate('junk 70U922DB more')).toBe('70U922DB'));
   it('stays empty for a garbled plate read (no clean match)', () => expect(findPlate('70UGZ2D8 noise')).toBe(''));
+});
+
+describe('formatUzPlate', () => {
+  it('spaces a canonical plate for display', () => expect(formatUzPlate('10Z310GB')).toBe('10 Z 310 GB'));
+  it('leaves a non-plate string untouched', () => expect(formatUzPlate('')).toBe(''));
 });
 
 describe('fixUzbekText', () => {
@@ -85,7 +90,7 @@ describe('numberedFields', () => {
 describe('extractTexFields', () => {
   const r = extractTexFields(FRONT_1, BACK_1);
   it('reads the front fields', () => {
-    expect(r.fields.stateNumber).toBe('70U922DB');
+    expect(r.fields.stateNumber).toBe('70 U 922 DB');
     expect(r.fields.model).toBe('DAMAS');
     expect(r.fields.color).toBe('OQ BELODIMCHATIY');
     expect(r.fields.ownerName).toContain('RAMZIDDIN');
@@ -108,7 +113,7 @@ describe('extractTexFields', () => {
     const front = extractTexFields(FRONT_1, '');
     expect(front.warnings).toContain('back_not_found');
     expect(front.fields.bodyNo).toBe('');
-    expect(front.fields.stateNumber).toBe('70U922DB');
+    expect(front.fields.stateNumber).toBe('70 U 922 DB');
   });
   it('recovers the year from field 8 when field 9 is misread', () => {
     const r = extractTexFields(FRONT_1, '8. 2019\n10. YENGIL SEDAN');
