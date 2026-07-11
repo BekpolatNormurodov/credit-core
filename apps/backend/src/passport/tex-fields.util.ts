@@ -228,6 +228,19 @@ export function findModelHint(frontText: string): string {
 }
 
 /**
+ * Recover the owner's name when field 4 is garbled — anchor on the patronymic ("…OVICH" / "…O'G'LI" /
+ * "…QIZI"), which OCR noise lacks, and take the two words before it (surname + first name). Digits are
+ * stripped first so "1VAYADGAN" → "VAYADGAN". Empty if no patronymic is found.
+ */
+export function recoverOwner(frontText: string): string {
+  const PAT = /(OVICH|EVICH|O'?G'?LI|QIZI|OVNA|EVNA)$/;
+  const toks = frontText.toUpperCase().replace(/[^A-Z'ʻ ]/g, ' ').split(/\s+/).filter((t) => t.length >= 2);
+  const idx = toks.findIndex((t) => t.length >= 5 && PAT.test(t));
+  if (idx < 0) return '';
+  return toks.slice(Math.max(0, idx - 2), idx + 1).join(' ');
+}
+
+/**
  * Recover the owner's address when the "5." marker was lost — OCR often drops the dot ("5." → "5 "),
  * so the address bleeds into field 4 and field 5 reads noise. Anchor on "TUMANI"/"KO'CHASI"/"MAHALLASI"
  * (a district/street term the certificate's PRINTED viloyat-list lacks — so no false match from that
@@ -274,6 +287,11 @@ export function extractTexFromFields(
   // from the security pattern is dropped.
   if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 2)));
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
+  // If the name doesn't end in a patronymic (field 4 was garbled), recover a patronymic-anchored name.
+  if (!/(OVICH|EVICH|O'?G'?LI|QIZI|OVNA|EVNA)$/.test((f.ownerName.split(' ').pop() ?? ''))) {
+    const rec = recoverOwner(frontText);
+    if (rec) f.ownerName = rec;
+  }
   // Address + issuer carry region/administrative terms — snap their OCR misreads to canonical Uzbek.
   if (front.get(5)) f.address = fixUzbekText(letters(cleanPhrase(front.get(5)!, 14)));
   // If the "5." marker was lost (address bled into field 4 → field 5 empty/noise), recover it.

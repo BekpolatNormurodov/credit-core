@@ -1,4 +1,4 @@
-import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType, formatUzPlate, recoverAddress } from './tex-fields.util';
+import { extractTexFields, numberedFields, texDateToIso, findSeries, findPlate, fixUzbekText, fixBodyType, formatUzPlate, recoverAddress, recoverOwner } from './tex-fields.util';
 
 // Transcribed roughly as the eng OCR reads the two sample certificates (Downloads/tex-1*.jpg).
 const FRONT_1 = `AVTOMOTOTRANSPORT VOSITASI
@@ -54,6 +54,15 @@ describe('fixUzbekText', () => {
   });
   it('leaves names, streets and house numbers untouched', () => {
     expect(fixUzbekText('FAROVON 23-UY IND')).toBe('FAROVON 23-UY IND');
+  });
+});
+
+describe('recoverOwner', () => {
+  it('recovers a name anchored on the patronymic', () => {
+    expect(recoverOwner('junk noise SHAKIROV VAXABJAN TEMIROVICH more')).toBe('SHAKIROV VAXABJAN TEMIROVICH');
+  });
+  it('returns empty when there is no patronymic', () => {
+    expect(recoverOwner('DCIMET MODELL RANDOM')).toBe('');
   });
 });
 
