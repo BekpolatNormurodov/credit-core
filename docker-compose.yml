@@ -84,8 +84,11 @@ services:
       migrate:
         condition: service_completed_successfully
 
-  # OCR worker — nginx routes /passport/* here. CPU-capped so a scan burst (8 tesseract threads) can
-  # never take the whole box: on 12 cores this leaves ≥4 for the API. Tune the cap via OCR_CPUS.
+  # OCR workers — nginx round-robins /passport/* across the replicas, so several operators can scan at
+  # once without blocking each other. Each replica is CPU-capped; on a 12-core box the default
+  # 3 replicas × 3 cores = 9 leaves ~3 for the API. Per replica: OCR_MAX_CONCURRENT=1 scan at a time,
+  # OCR_WORKERS tesseract workers (sized to the cap). Fewer/bigger replicas = faster single scans but
+  # less parallelism; more/smaller = more parallel but slower each. Tune OCR_REPLICAS/OCR_CPUS/OCR_WORKERS.
   ocr:
     image: credit-core-backend
     restart: unless-stopped
@@ -95,13 +98,15 @@ services:
       UPLOAD_DIR: /data/uploads
       BACKEND_PORT: 3000
       OCR_MAX_CONCURRENT: ${OCR_MAX_CONCURRENT:-1}
+      OCR_WORKERS: ${OCR_WORKERS:-4}
     volumes:
       - uploads:/data/uploads
     deploy:
+      replicas: 3
       resources:
         limits:
-          cpus: "${OCR_CPUS:-8}"
-          memory: ${OCR_MEM:-6g}
+          cpus: "${OCR_CPUS:-3}"
+          memory: ${OCR_MEM:-2500m}
     depends_on:
       mysql:
         condition: service_healthy

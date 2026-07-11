@@ -21,6 +21,9 @@ const ORIENTATIONS = [0, 270, 90, 180];
 // pool reads the two ID sides (or one passport page) in parallel. Bounded well under the host cores.
 const MRZ_POOL = 4;
 const TEXT_POOL = 2;
+// tex-passport eng pool size — one worker per parallel OCR pass. Sized to the OCR container's CPU cap
+// (OCR_WORKERS): with 3 replicas × 3 cores, 4 is a good match; a single big replica can go higher.
+const TEX_WORKERS = Math.max(1, Number(process.env.OCR_WORKERS) || 8);
 const MRZ_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<';
 // Dedicated OCR-B / MRZ model (BSD-3, DoubangoTelecom/tesseractMRZ). The general 'eng' model
 // misreads the MRZ font — '<' as K/C/L, A→4, Z→2 — so the header text wins; 'mrz' reads it cleanly.
@@ -289,9 +292,9 @@ export class PassportService {
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     }
     return ocrGate.run(async () => {
-      // An 8-worker eng pool so both sides' 4 rotation checks (8 jobs) run fully in parallel; front +
-      // back are scanned concurrently. The gate ensures only one such burst runs at a time.
-      const eng = await this.makeScheduler('eng', 8);
+      // eng pool (OCR_WORKERS) so the parallel OCR passes run concurrently; front + back are scanned
+      // together. The gate ensures only one such burst runs at a time per replica.
+      const eng = await this.makeScheduler('eng', TEX_WORKERS);
       try {
         const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr, 1800), this.bestTexFields(back, eng.ocr, 1200)]);
         return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
