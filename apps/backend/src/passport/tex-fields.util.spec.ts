@@ -122,4 +122,11 @@ describe('extractTexFields', () => {
     const r = extractTexFields('2. - DAMAS', '');
     expect(r.fields.model).toBe('DAMAS');
   });
+  it('adds informational weights (12/13) to perField without inflating confidence', () => {
+    const r = extractTexFields('', '12. 1 310.00 (KG)\n13. 790.00 (KG)');
+    const byKey = Object.fromEntries(r.perField.map((p) => [p.key, p.value]));
+    expect(byKey.fullWeight).toBe('1310 kg');
+    expect(byKey.unladenWeight).toBe('790 kg');
+    expect(r.confidence).toBe(0); // weights are informational — they must not count toward confidence
+  });
 });

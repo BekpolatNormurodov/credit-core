@@ -238,14 +238,26 @@ export function extractTexFromFields(
   // Series is not numbered — search the back first (it prints there), then the front.
   f.techPassportNo = findSeries(backText) || findSeries(frontText);
 
-  // Confidence = share of the key vehicle fields that came through.
+  // Confidence = share of the key vehicle fields that came through. (Weights/reg-no are informational
+  // and NOT counted — they don't affect the collateral, so they must not inflate the score.)
   const key = [f.stateNumber, f.model, f.year != null ? 'y' : '', f.bodyNo, f.engineNo, f.color];
   const got = key.filter(Boolean).length;
   const confidence = Math.round((got / key.length) * 100);
 
-  const perField = Object.entries(f)
-    .filter(([, v]) => v !== '' && v != null)
-    .map(([key, v]) => ({ key, value: String(v) }));
+  // Informational fields shown in the scan review but NOT stored on the collateral (no such field):
+  // registration number (8) and the two weights (12 full, 13 unladen) — "1 310.00 (KG)" → "1310 kg".
+  const digitsOf = (raw?: string): string => (raw ?? '').split(/[.,(]/)[0].replace(/[^\d]/g, '');
+  const weight = (raw?: string): string => { const n = digitsOf(raw); return n ? `${Number(n)} kg` : ''; };
+  const info: Array<{ key: string; value: string }> = [];
+  const regNo = digitsOf(back.get(8));
+  if (regNo.length >= 6) info.push({ key: 'regNumber', value: regNo });
+  const fullW = weight(back.get(12)); if (fullW) info.push({ key: 'fullWeight', value: fullW });
+  const unladenW = weight(back.get(13)); if (unladenW) info.push({ key: 'unladenWeight', value: unladenW });
+
+  const perField = [
+    ...Object.entries(f).filter(([, v]) => v !== '' && v != null).map(([k, v]) => ({ key: k, value: String(v) })),
+    ...info,
+  ];
 
   const warnings: string[] = [];
   if (got === 0) warnings.push('tex_not_found');
