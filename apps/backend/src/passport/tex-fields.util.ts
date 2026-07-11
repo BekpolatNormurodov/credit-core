@@ -28,7 +28,10 @@ const squish = (s: string): string => s.replace(/\s+/g, ' ').trim();
 const cleanPhrase = (s: string, max = 10): string => {
   const out: string[] = [];
   for (const t of s.split(/\s+/)) {
-    if (!/^[A-Z0-9][A-Z0-9'.\-]*$/.test(t)) break; // first lowercase / symbol token → stop
+    if (!/^[A-Z0-9][A-Z0-9'.\-]*$/.test(t)) {
+      if (out.length) break; // stop at the first lowercase/symbol token AFTER the value run
+      continue;              // …but skip a leading OCR junk token (a stray "-", ".", "|") before it
+    }
     out.push(t);
     if (out.length >= max) break;
   }
@@ -200,7 +203,9 @@ export function extractTexFromFields(
 
   // Plate: ONLY a clean Uzbek plate-format match — no garbage fallback (was surfacing "EE" etc.).
   f.stateNumber = findPlate(frontText);
-  if (front.get(2)) f.model = letters(cleanPhrase(front.get(2)!, 3));
+  // Model: ≥3 letters — every real model (DAMAS, SPARK, NEXIA, ONIX…) qualifies, but a 2-char OCR
+  // misread ("RF") is dropped rather than surfaced as a wrong model.
+  if (front.get(2)) { const m = letters(cleanPhrase(front.get(2)!, 3)); if (m.replace(/[^A-Za-z]/g, '').length >= 3) f.model = m; }
   if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 3)));
   if (front.get(4)) f.ownerName = letters(cleanPhrase(front.get(4)!));
   // Address + issuer carry region/administrative terms — snap their OCR misreads to canonical Uzbek.

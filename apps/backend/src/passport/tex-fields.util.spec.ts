@@ -108,4 +108,8 @@ describe('extractTexFields', () => {
     const r = extractTexFields('3. 00 BELODIMCHATIY', '');
     expect(r.fields.color).toMatch(/^OQ/);
   });
+  it('recovers a model prefixed by OCR junk ("- DAMAS" → "DAMAS")', () => {
+    const r = extractTexFields('2. - DAMAS', '');
+    expect(r.fields.model).toBe('DAMAS');
+  });
 });

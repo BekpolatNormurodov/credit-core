@@ -283,8 +283,9 @@ export class PassportService {
    */
   async scanTex(front: Buffer, back: Buffer, ocr?: OcrFn): Promise<TexScanResult> {
     [front, back] = await Promise.all([this.toImage(front), this.toImage(back)]);
+    // Front needs a higher-res orientation scout than the back (see bestTexFields).
     if (ocr) {
-      const [ff, bf] = await Promise.all([this.bestTexFields(front, ocr), this.bestTexFields(back, ocr)]);
+      const [ff, bf] = await Promise.all([this.bestTexFields(front, ocr, 1800), this.bestTexFields(back, ocr, 1200)]);
       return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
     }
     return ocrGate.run(async () => {
@@ -292,7 +293,7 @@ export class PassportService {
       // back are scanned concurrently. The gate ensures only one such burst runs at a time.
       const eng = await this.makeScheduler('eng', 8);
       try {
-        const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr), this.bestTexFields(back, eng.ocr)]);
+        const [ff, bf] = await Promise.all([this.bestTexFields(front, eng.ocr, 1800), this.bestTexFields(back, eng.ocr, 1200)]);
         return extractTexFromFields(ff.fields, bf.fields, ff.text, bf.text);
       } finally {
         await eng.terminate();
@@ -302,18 +303,19 @@ export class PassportService {
 
   /**
    * Two-phase:
-   *  (1) ROTATION CHECK — OCR all 4 orientations IN PARALLEL at low res (1200px) and keep the one that
-   *      reads the most numbered fields (they only line up when the side is upright). Verified locally:
-   *      1200 picks the correct angle reliably; a higher-res scout makes dense sides tie and mis-pick.
+   *  (1) ROTATION CHECK — OCR all 4 orientations IN PARALLEL at `scoutWidth` and keep the one that reads
+   *      the most numbered fields (they only line up when the side is upright).
    *  (2) REFINE — at the winning orientation, OCR 4 size/threshold variants and merge. Different variants
    *      recover different fields (model / colour / owner), so the union is the fullest read.
-   * NOTE: a badly rotated + glare photo can still be un-orientable (no angle yields clean fields) — that
-   * is a photo-quality limit, not fixable here; the confident-only gates then leave those fields blank.
+   * Scout width matters and differs by side (verified locally): the DENSE back (fields 9–19) orients
+   * reliably at 1200px and TIES/mis-picks at higher res; the SPARSE front (fields 1–8, over a denser
+   * security pattern) needs 1800px to pick the right angle — at 1200 it mis-picks and drops the whole
+   * side. So scanTex passes front=1800, back=1200 (tex-2: 33% → 67%, tex-1 unchanged).
    */
-  private async bestTexFields(file: Buffer, ocr: OcrFn): Promise<{ fields: Map<number, string>; text: string }> {
+  private async bestTexFields(file: Buffer, ocr: OcrFn, scoutWidth = 1200): Promise<{ fields: Map<number, string>; text: string }> {
     // Score: numbered fields dominate (they only appear when upright); alnum count breaks near-ties.
     const score = (t: string) => numberedFields(t).size * 1000 + (t.match(/[A-Za-z0-9]/g)?.length ?? 0);
-    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ({ a, text: await ocr(await this.preprocessTex(file, a, 0, 1200)) })));
+    const scouts = await Promise.all(ORIENTATIONS.map(async (a) => ({ a, text: await ocr(await this.preprocessTex(file, a, 0, scoutWidth)) })));
     const best = scouts.reduce((b, s) => (score(s.text) > score(b.text) ? s : b));
     // Drop the old 2800px pass — verified to add ~nothing over these four while being the slowest.
     const variants: Array<[number, number]> = [[2600, 0], [2600, 150], [2400, 120], [2200, 175]];
