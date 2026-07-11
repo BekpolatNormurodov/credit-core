@@ -298,11 +298,10 @@ export function extractTexFromFields(
   f.stateNumber = formatUzPlate(findPlate(frontText));
   // Model: ≥3 letters — every real model (DAMAS, SPARK, NEXIA, ONIX…) qualifies, but a 2-char OCR
   // misread ("RF") is dropped rather than surfaced as a wrong model.
-  if (front.get(2)) { const m = letters(cleanPhrase(front.get(2)!, 3)); if (m.replace(/[^A-Za-z]/g, '').length >= 3) f.model = m; }
-  // A KNOWN model word anywhere on the front beats a field-2 read that isn't one — so OCR garbage in
-  // field 2 (e.g. "VOIY") never blocks the real model ("…OLET SPARK…" → SPARK).
-  const modelHint = findModelHint(frontText);
-  if (modelHint && !MODEL_HINTS.some((h) => f.model.toUpperCase().includes(h))) f.model = modelHint;
+  // Model: a KNOWN model word (from field 2's line or anywhere on the front) — DAMAS, SPARK, NEXIA…
+  // A field-2 garbage read ("VOIY") is not a known model, so it's never emitted; unknown/unreadable
+  // leaves the field empty for the operator to pick from the dropdown (safer than a wrong model).
+  f.model = findModelHint(frontText);
   // Colour is 1–2 words (OQ · OQ BELIY · QORA · KULRANG); cap at 2 so a garbage tail ("OQ BELIY OAS")
   // from the security pattern is dropped.
   if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 2)));

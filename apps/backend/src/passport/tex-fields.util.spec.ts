@@ -162,6 +162,9 @@ describe('extractTexFields', () => {
     const r = extractTexFields('1. OLET SPARK\n2. VOIY', '');
     expect(r.fields.model).toBe('SPARK');
   });
+  it('leaves the model empty when field 2 is garbage and no known model is present', () => {
+    expect(extractTexFields('2. VOIY', '').fields.model).toBe('');
+  });
   it('drops a garbage issuer that has no region/admin anchor', () => {
     expect(extractTexFields('7. GERI', '').fields.issuer).toBe('');
     expect(extractTexFields("7. QASHQADARYO VILOYATI RO' VA IOB", '').fields.issuer).toContain('QASHQADARYO');
