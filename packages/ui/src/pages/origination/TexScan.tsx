@@ -168,9 +168,12 @@ export function TexScan({ storeKey, onExtract, onScanImages }: {
             const applied = result.perField.filter((pf) => APPLIED_KEYS.has(pf.key));
             const info = result.perField.filter((pf) => !APPLIED_KEYS.has(pf.key));
             const cell = (pf: { key: string; value: string }) => {
-              // Colour cell: show the canonical colour name + a small swatch (nice, glanceable).
+              // Show the same canonical values that "Qo'llash" applies: full model ("SPARK" → "Chevrolet
+              // Spark") and canonical colour ("OQ BELIY" → "Oq") + a swatch. So the review matches the form.
               const isColor = pf.key === 'color';
-              const value = isColor ? (matchCarColor(pf.value) ?? pf.value) : pf.value;
+              const value = pf.key === 'model'
+                ? (matchCarModel(pf.value) ?? pf.value)
+                : isColor ? (matchCarColor(pf.value) ?? pf.value) : pf.value;
               const hex = isColor ? colorHex(value) : undefined;
               return (
                 <div key={pf.key} className="min-w-0">
