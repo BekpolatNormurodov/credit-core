@@ -27,7 +27,7 @@ const FIELD_LABEL: Record<string, string> = {
   stateNumber: 'Davlat raqami', model: 'Model', color: 'Rangi', ownerName: 'Egasi', address: 'Manzil',
   techPassportDate: 'Berilgan sana', issuer: 'Bergan bo‘lim', year: 'Yili', bodyType: 'Kuzov turi',
   bodyNo: 'Kuzov / VIN', chassis: 'Shassi', engineNo: 'Dvigatel raqami', techPassportNo: 'Guvohnoma seriyasi',
-  regNumber: 'Ro‘yxat raqami', fullWeight: 'To‘la vazn', unladenWeight: 'Bo‘sh vazn',
+  regNumber: 'Ro‘yxat raqami', fullWeight: 'To‘la vazn', unladenWeight: 'Bo‘sh vazn', fuelType: 'Yoqilg‘i turi',
 };
 
 // The fields that are actually written to the collateral (and worth reviewing) — owner/address/issuer

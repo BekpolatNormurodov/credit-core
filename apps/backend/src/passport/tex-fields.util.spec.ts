@@ -139,4 +139,8 @@ describe('extractTexFields', () => {
     expect(byKey.unladenWeight).toBe('790 kg');
     expect(r.confidence).toBe(0); // weights are informational — they must not count toward confidence
   });
+  it('adds the fuel type (field 16), snapped to canonical', () => {
+    const r = extractTexFields('', '16. BENZN');
+    expect(Object.fromEntries(r.perField.map((p) => [p.key, p.value])).fuelType).toBe('BENZIN');
+  });
 });

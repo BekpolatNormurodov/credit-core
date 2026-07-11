@@ -83,6 +83,8 @@ const UZ_FLAT = toFlat(UZ_CANON);
 // Vehicle body types printed in field 10 ("kuzov turi") — a small closed set, so an OCR misread
 // ("SEOAN", "UNVERSAL") snaps to the canonical spelling.
 const BODY_FLAT = toFlat(['YENGIL', 'YUK', 'AVTOBUS', 'SEDAN', 'UNIVERSAL', 'XETCHBEK', 'MINIVEN', 'FURGON', 'SIDELKA', 'PIKAP', 'KUPE', 'MOTOTSIKL', 'TRAKTOR', 'PRITSEP']);
+// Fuel / power type printed in field 16 ("yoqilg'i turi") — a small closed set.
+const FUEL_FLAT = toFlat(['BENZIN', 'DIZEL', 'GAZ', 'METAN', 'PROPAN', 'ELEKTR', 'GIBRID', 'GBA']);
 
 /** Snap a token to the closest canonical value (exact or close misread), else keep it as-is. */
 function snapToken(tok: string, list: Canon[], minLen: number): string {
@@ -108,6 +110,11 @@ export function fixUzbekText(s: string): string {
 /** Correct the vehicle body type (field 10) — snap "YENGIL SEOAN" → "YENGIL SEDAN" etc. */
 export function fixBodyType(s: string): string {
   return s.split(/\s+/).map((t) => (/[A-Za-z]/.test(t) ? snapToken(t, BODY_FLAT, 3) : t)).join(' ').trim();
+}
+
+/** Correct the fuel/power type (field 16) — snap "BENZN" → "BENZIN", "DIZ EL" → "DIZEL". */
+export function fixFuelType(s: string): string {
+  return s.split(/\s+/).map((t) => (/[A-Za-z]/.test(t) ? snapToken(t, FUEL_FLAT, 3) : t)).join(' ').trim();
 }
 
 /** Merge the numbered fields from several OCR passes — per field keep the value with the most
@@ -280,6 +287,8 @@ export function extractTexFromFields(
   if (regNo.length >= 6) info.push({ key: 'regNumber', value: regNo });
   const fullW = weight(back.get(12)); if (fullW) info.push({ key: 'fullWeight', value: fullW });
   const unladenW = weight(back.get(13)); if (unladenW) info.push({ key: 'unladenWeight', value: unladenW });
+  const fuel = back.get(16) ? fixFuelType(letters(cleanPhrase(back.get(16)!, 2))) : ''; // 16 = yoqilg'i turi
+  if (fuel) info.push({ key: 'fuelType', value: fuel });
 
   const perField = [
     ...Object.entries(f).filter(([, v]) => v !== '' && v != null).map(([k, v]) => ({ key: k, value: String(v) })),
