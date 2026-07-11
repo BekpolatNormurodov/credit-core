@@ -299,8 +299,10 @@ export function extractTexFromFields(
   // Model: ≥3 letters — every real model (DAMAS, SPARK, NEXIA, ONIX…) qualifies, but a 2-char OCR
   // misread ("RF") is dropped rather than surfaced as a wrong model.
   if (front.get(2)) { const m = letters(cleanPhrase(front.get(2)!, 3)); if (m.replace(/[^A-Za-z]/g, '').length >= 3) f.model = m; }
-  // Fallback: field 2 garbled → look for a known model word anywhere on the front (e.g. "…OLET SPARK…").
-  if (!f.model) f.model = findModelHint(frontText);
+  // A KNOWN model word anywhere on the front beats a field-2 read that isn't one — so OCR garbage in
+  // field 2 (e.g. "VOIY") never blocks the real model ("…OLET SPARK…" → SPARK).
+  const modelHint = findModelHint(frontText);
+  if (modelHint && !MODEL_HINTS.some((h) => f.model.toUpperCase().includes(h))) f.model = modelHint;
   // Colour is 1–2 words (OQ · OQ BELIY · QORA · KULRANG); cap at 2 so a garbage tail ("OQ BELIY OAS")
   // from the security pattern is dropped.
   if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 2)));
@@ -321,6 +323,9 @@ export function extractTexFromFields(
   f.ownerName = dropNoise(f.ownerName);
   f.address = dropNoise(f.address);
   f.issuer = dropNoise(f.issuer);
+  // The issuing office is always "<region> VILOYATI/SHAHRI … RO' VA IOB" — if the read carries no
+  // region or admin anchor, it's OCR noise ("GERI", "TOSH SARIN"), so drop it rather than show garbage.
+  if (f.issuer && !/VILOYAT|SHAHR|SHAHAR|\bIOB\b|\bIIB\b|QASHQADARYO|SURXONDARYO|ANDIJON|NAMANGAN|FARG|SAMARQAND|BUXORO|NAVOIY|JIZZAX|SIRDARYO|TOSHKENT|XORAZM|QORAQALPOG/i.test(f.issuer)) f.issuer = '';
 
   // Year: field 9, or field 8 (a common "9"→"8" OCR misread), or the smallest standalone year in the
   // back text (manufacture year is older than the inspection date, e.g. 2019 vs 2025-11-05).

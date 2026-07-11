@@ -157,6 +157,15 @@ describe('extractTexFields', () => {
     const r = extractTexFields('1. 10Z310GB\n2. RF\n3. OQ\nOLET SPARK', '');
     expect(r.fields.model).toBe('SPARK');
   });
+  it('prefers a known model word over a garbled field-2 value ("VOIY" → SPARK)', () => {
+    // Field 2 reads garbage "VOIY"; the real model word "SPARK" is elsewhere on the front.
+    const r = extractTexFields('1. OLET SPARK\n2. VOIY', '');
+    expect(r.fields.model).toBe('SPARK');
+  });
+  it('drops a garbage issuer that has no region/admin anchor', () => {
+    expect(extractTexFields('7. GERI', '').fields.issuer).toBe('');
+    expect(extractTexFields("7. QASHQADARYO VILOYATI RO' VA IOB", '').fields.issuer).toContain('QASHQADARYO');
+  });
   it('adds informational weights (12/13) to perField without inflating confidence', () => {
     const r = extractTexFields('', '12. 1 310.00 (KG)\n13. 790.00 (KG)');
     const byKey = Object.fromEntries(r.perField.map((p) => [p.key, p.value]));
