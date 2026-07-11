@@ -204,6 +204,22 @@ function splitVin(raw: string): { bodyNo: string; chassis: string } {
   return { bodyNo: joinCode(body, 17), chassis: chassisPart ? squish(chassisPart) : '' };
 }
 
+// Distinctive car-model words. When field 2 (model) reads garbage, the model word often still survives
+// elsewhere on the front ("…OLET SPARK…"); this recovers it. The frontend snaps it to a full model.
+const MODEL_HINTS = [
+  'SPARK', 'NEXIA', 'DAMAS', 'MATIZ', 'COBALT', 'GENTRA', 'LACETTI', 'MALIBU', 'ONIX', 'TRACKER',
+  'CAPTIVA', 'ORLANDO', 'EQUINOX', 'TRAILBLAZER', 'TRAVERSE', 'TAHOE', 'MONZA', 'LABO', 'TICO',
+  'EPICA', 'AVEO', 'GRANTA', 'VESTA', 'LARGUS', 'PRIORA', 'CERATO', 'OPTIMA', 'SPORTAGE', 'SORENTO',
+  'SELTOS', 'ACCENT', 'ELANTRA', 'SONATA', 'SOLARIS', 'CRETA', 'TUCSON', 'COROLLA', 'CAMRY',
+  'FORTUNER', 'PRADO', 'TIGGO', 'ARRIZO', 'JOLION', 'COOLRAY', 'EMGRAND', 'MONJARO', 'ATLAS',
+];
+
+/** Find a known model word anywhere in the front OCR text (fallback when field 2 is garbled). */
+export function findModelHint(frontText: string): string {
+  const up = frontText.toUpperCase();
+  return MODEL_HINTS.find((h) => new RegExp(`\\b${h}\\b`).test(up)) ?? '';
+}
+
 /** Build the result from already-merged numbered fields (+ the raw texts, for the un-numbered series). */
 export function extractTexFromFields(
   front: Map<number, string>, back: Map<number, string>, frontText: string, backText: string,
@@ -223,6 +239,8 @@ export function extractTexFromFields(
   // Model: ≥3 letters — every real model (DAMAS, SPARK, NEXIA, ONIX…) qualifies, but a 2-char OCR
   // misread ("RF") is dropped rather than surfaced as a wrong model.
   if (front.get(2)) { const m = letters(cleanPhrase(front.get(2)!, 3)); if (m.replace(/[^A-Za-z]/g, '').length >= 3) f.model = m; }
+  // Fallback: field 2 garbled → look for a known model word anywhere on the front (e.g. "…OLET SPARK…").
+  if (!f.model) f.model = findModelHint(frontText);
   // Colour is 1–2 words (OQ · OQ BELIY · QORA · KULRANG); cap at 2 so a garbage tail ("OQ BELIY OAS")
   // from the security pattern is dropped.
   if (front.get(3)) f.color = letters(fixColor(cleanPhrase(front.get(3)!, 2)));
