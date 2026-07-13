@@ -719,7 +719,7 @@ export class CreditCasesService {
     const insMonths = ins?.policyTermMonths != null ? Math.min(Number(ins.policyTermMonths), INSURANCE_MAX_MONTHS) : null;
     const insLoan = insured ? amountPolis : (ins?.loanUnderPolicy != null ? Number(ins.loanUnderPolicy) : null);
     const insRate = insured ? insurancePremiumRate(insMonths) : null;
-    const d = originationPersistedValues({ amountTotal, loanUnderPolicy: insLoan, insuranceRate: insRate, policyTermMonths: insMonths });
+    const d = originationPersistedValues({ amountTotal, loanUnderPolicy: insLoan, insuranceRate: insRate, policyTermMonths: insMonths, requiredInsuredAmount: c.creditLine.requiredInsuredAmount != null ? Number(c.creditLine.requiredInsuredAmount) : null });
     const old = { amountAuto: Number(c.creditLine.amountAuto ?? 0), amountPolis: Number(c.creditLine.amountPolis ?? 0) };
     await this.prisma.creditLine.update({
       where: { caseId: id },
