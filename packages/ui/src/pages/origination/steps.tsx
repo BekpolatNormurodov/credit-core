@@ -187,7 +187,11 @@ export function Step3({ f }: { f: OriginationForm }) {
     if (!l.lineDate) patch.lineDate = new Date().toISOString().slice(0, 10);
     if (!l.lineMaturity && (l.lineDate || patch.lineDate) && l.termMonths) {
       const base = new Date(l.lineDate ?? patch.lineDate!);
+      const day = base.getDate();
+      base.setDate(1); // shift month on the 1st to avoid day-of-month overflow (e.g. Jan 31 + 1 oy)
       base.setMonth(base.getMonth() + l.termMonths);
+      const lastDay = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+      base.setDate(Math.min(day, lastDay)); // clamp to the target month's length
       patch.lineMaturity = base.toISOString().slice(0, 10);
     }
     if (Object.keys(patch).length) setLine(patch);
