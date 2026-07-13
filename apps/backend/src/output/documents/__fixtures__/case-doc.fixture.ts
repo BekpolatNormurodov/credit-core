@@ -236,6 +236,39 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
 
     incomeCertificate: null,
 
+    documents: [
+      {
+        id: 'doc-1',
+        caseId: 'case-1',
+        collateralId: null,
+        title: 'КАТМ ҳисоботи',
+        description: null,
+        type: 'OTHER',
+        fileName: 'katm-report.pdf',
+        storagePath: '/files/katm-report.pdf',
+        mimeType: 'application/pdf',
+        isGenerated: false,
+        uploadedById: 'user-1',
+        messageId: null,
+        createdAt: new Date('2026-01-07T00:00:00.000Z'),
+      },
+      {
+        id: 'doc-2',
+        caseId: 'case-1',
+        collateralId: null,
+        title: 'Гаров шартномаси (нотариал тасдиқ)',
+        description: null,
+        type: 'NOTARY',
+        fileName: 'notary-pledge.pdf',
+        storagePath: '/files/notary-pledge.pdf',
+        mimeType: 'application/pdf',
+        isGenerated: false,
+        uploadedById: 'user-1',
+        messageId: null,
+        createdAt: new Date('2026-01-07T00:00:00.000Z'),
+      },
+    ],
+
     organization: {
       id: 'default',
       nameMixed: 'Ishonch Moliya MCHJ',

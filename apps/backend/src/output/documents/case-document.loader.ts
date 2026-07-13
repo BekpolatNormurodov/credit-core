@@ -13,6 +13,7 @@ export async function loadCaseForDocs(prisma: PrismaService, id: string) {
       creditHistory: true,
       scoring: { include: { factors: true } },
       incomeCertificate: { include: { months: true } },
+      documents: true,
     },
   });
   if (!c) return null;
