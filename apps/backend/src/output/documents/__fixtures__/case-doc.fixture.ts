@@ -1,0 +1,299 @@
+import type { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
+import type { CaseDocData } from '../case-document.loader';
+
+/** Recursive "every field optional, nested objects too" helper for building fixture overrides. */
+export type DeepPartial<T> = T extends (infer U)[]
+  ? DeepPartial<U>[]
+  : T extends object
+    ? { [K in keyof T]?: DeepPartial<T[K]> }
+    : T;
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v) && !(v instanceof Date);
+}
+
+/**
+ * Deep-merge `overrides` onto `base`. Arrays and primitives in `overrides` fully replace the base
+ * value. Deliberately untyped internally (Prisma's `Decimal` fields make a fully-generic `DeepPartial`
+ * merge unwieldy to typecheck) — the public `mockCaseDoc` signature is what keeps callers honest.
+ */
+function deepMerge(base: unknown, overrides: unknown): unknown {
+  if (overrides === undefined) return base;
+  if (Array.isArray(overrides)) return overrides;
+  if (isPlainObject(base) && isPlainObject(overrides)) {
+    const out: Record<string, unknown> = { ...base };
+    for (const key of Object.keys(overrides)) {
+      out[key] = deepMerge(base[key], overrides[key]);
+    }
+    return out;
+  }
+  return overrides;
+}
+
+/**
+ * A realistic, structurally-complete loaded case for exercising document templates in tests.
+ * Pass `overrides` to flip a single field (e.g. `{ scoring: { verdict: 'FAILED_INCOME' } }`)
+ * without having to reconstruct the whole object.
+ */
+export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
+  const base = {
+    id: 'case-1',
+    number: 'A-000123',
+    productType: 'AUTO',
+    status: 'DIRECTOR_REVIEW',
+    amount: 150_000_000,
+    termMonths: 24,
+    katmPrice: null,
+    contractNumber: '2012 MFL 1320 PS',
+    createdAt: new Date('2026-01-10T00:00:00.000Z'),
+    updatedAt: new Date('2026-01-10T00:00:00.000Z'),
+
+    branch: {
+      id: 'branch-1',
+      name: 'Марказий филиал',
+      symbol: 'PS',
+      region: 'Toshkent',
+    },
+
+    borrower: {
+      id: 'borrower-1',
+      caseId: 'case-1',
+      fullName: 'ЖЎЛДИБАЕВ РУСЛАН',
+      passportSeries: 'AD',
+      passportNumber: '1234567',
+      pinfl: '52101901234567',
+      birthDate: new Date('1990-05-12T00:00:00.000Z'),
+      address: 'Тошкент ш., Чилонзор тумани',
+      phone: '+998901234567',
+      gender: 'MALE',
+      citizenship: "O'zbekiston",
+      regAddress: 'Тошкент ш., Чилонзор тумани, 12-уй',
+      entrepreneurType: 'Якка тартибдаги тадбиркор',
+      entrepreneurCertNo: '00114455',
+    },
+
+    collaterals: [
+      {
+        id: 'collateral-1',
+        caseId: 'case-1',
+        type: 'REAL_ESTATE',
+        agreedValue: 200_000_000,
+        agreedValueWords: null,
+        realtyKind: 'HOUSE',
+        address: 'Тошкент ш., Юнусобод тумани, 5-уй',
+        registryNo: 'REG-0001',
+        cadastreNo: 'CAD-0001',
+        totalAreaM2: 120,
+        livingAreaM2: 90,
+        roomCount: 4,
+        roomNames: 'зал, ошхона, 2 та ётоқхона',
+        owners: [
+          {
+            id: 'owner-1',
+            collateralId: 'collateral-1',
+            fullName: 'ЖЎЛДИБАЕВ РУСЛАН',
+            passportSeries: 'AD',
+            passportNumber: '1234567',
+            sharePercent: 100,
+            isBorrowerOwner: true,
+          },
+        ],
+      },
+      {
+        id: 'collateral-2',
+        caseId: 'case-1',
+        type: 'AUTO',
+        agreedValue: 180_000_000,
+        agreedValueWords: null,
+        model: 'Chevrolet Cobalt',
+        techPassportNo: 'TP-998877',
+        techPassportDate: new Date('2023-03-01T00:00:00.000Z'),
+        stateNumber: '01 A 123 BC',
+        color: 'Оқ',
+        year: 2022,
+        owners: [
+          {
+            id: 'owner-2',
+            collateralId: 'collateral-2',
+            fullName: 'ЖЎЛДИБАЕВ РУСЛАН',
+            passportSeries: 'AD',
+            passportNumber: '1234567',
+            sharePercent: 100,
+            isBorrowerOwner: true,
+          },
+        ],
+      },
+    ],
+
+    creditLine: {
+      id: 'line-1',
+      caseId: 'case-1',
+      lineNumber: 'РКЛ-0042',
+      loanType: 'MICROCREDIT',
+      amountAuto: 150_000_000,
+      amountPolis: 10_000_000,
+      amountTotal: 150_000_000,
+      requiredCollateralAmount: null,
+      requiredInsuredAmount: null,
+      termMonths: 24,
+      lineDate: new Date('2026-01-05T00:00:00.000Z'),
+      lineMaturity: new Date('2028-01-05T00:00:00.000Z'),
+      interestRate: 0.55,
+      penaltyRate: 1.05,
+      orderNumber: 'ORD-0042',
+      tranches: [
+        {
+          id: 'tranche-1',
+          creditLineId: 'line-1',
+          trancheNo: 1,
+          applicationNo: 'APP-0001',
+          applicationDate: new Date('2026-01-06T00:00:00.000Z'),
+          contractNo: 'CN-0001',
+          contractDate: new Date('2026-01-06T00:00:00.000Z'),
+          principal: 150_000_000,
+          termMonths: 24,
+          maturity: new Date('2028-01-06T00:00:00.000Z'),
+          scheduleType: 'ANNUITY',
+          monthlyPayment: 7_500_000,
+          paymentDay: 6,
+          insurancePayment: 300_000,
+        },
+      ],
+      insurance: {
+        id: 'insurance-1',
+        creditLineId: 'line-1',
+        insured: true,
+        company: '"Kafolat" sugʻurta',
+        genAgreementNo: 'GA-0001',
+        genAgreementDate: new Date('2026-01-05T00:00:00.000Z'),
+        policyNo: 'POL-0001',
+        policyIssueDate: new Date('2026-01-06T00:00:00.000Z'),
+        policyTermMonths: 24,
+        policyExpiry: new Date('2028-01-06T00:00:00.000Z'),
+        loanUnderPolicy: 150_000_000,
+        insuredSum: 10_000_000,
+        insuranceRate: 0.02,
+        premium: 3_000_000,
+      },
+    },
+
+    affordability: {
+      id: 'afford-1',
+      caseId: 'case-1',
+      avgMonthlyIncome: 12_000_000,
+      mainActivityIncome: 10_000_000,
+      secondaryIncome: 2_000_000,
+      familyIncome: 0,
+      otherIncome: 0,
+      newLoanPayment: 7_500_000,
+      utilitiesExpense: 800_000,
+      familyExpense: 1_500_000,
+      existingCreditBurden: 0,
+      otherExpense: 200_000,
+      totalIncome: 12_000_000,
+      totalCreditPayments: 7_500_000,
+      totalExpenses: 2_500_000,
+      dtiRatio: 0.625,
+      surplus: 2_000_000,
+      netAfterDebt: 2_000_000,
+      computedAt: new Date('2026-01-08T00:00:00.000Z'),
+    },
+
+    creditHistory: {
+      id: 'history-1',
+      caseId: 'case-1',
+      repaidLoansCount: 3,
+      activeLoansCount: 1,
+      overdueSubstandardFlag: 0,
+      otherObligations: 0,
+      loansOver5MFlag: "Yo'q",
+      priorMfiPawnshopFlag: "Yo'q",
+      totalOutstandingDebt: 5_000_000,
+      avgMonthlyPaymentExisting: 500_000,
+      committeeProtocolRef: null,
+      committeeDecisionDate: null,
+    },
+
+    scoring: {
+      id: 'scoring-1',
+      caseId: 'case-1',
+      totalScore: 82,
+      maxScore: 100,
+      verdict: 'APPROVED',
+      age: 36,
+      monthlyTranches: 7_500_000,
+      monthlyIncome: 12_000_000,
+      monthlyExpenses: 2_500_000,
+      surplus: 2_000_000,
+      netAfterDebt: 2_000_000,
+      computedAt: new Date('2026-01-09T00:00:00.000Z'),
+      factors: [
+        { id: 'factor-1', resultId: 'scoring-1', factorNo: 1, name: 'Ёши', points: 8, maxPoints: 10 },
+        { id: 'factor-2', resultId: 'scoring-1', factorNo: 2, name: 'Даромад барқарорлиги', points: 18, maxPoints: 20 },
+        { id: 'factor-3', resultId: 'scoring-1', factorNo: 3, name: 'Кредит тарихи', points: 15, maxPoints: 15 },
+      ],
+    },
+
+    incomeCertificate: null,
+
+    organization: {
+      id: 'default',
+      nameMixed: 'Ishonch Moliya MCHJ',
+      nameUpper: 'ИШОНЧ МОЛИЯ МЧЖ',
+      nameSuffix: 'МЧЖ',
+      directorShort: 'А. Каримов',
+      directorFull: 'Каримов Азиз Абдуллаевич',
+      legalBasis: 'Низом',
+      address: 'Тошкент ш., Мирзо Улуғбек тумани, 10-уй',
+      bankAccount: '20208000900123456789',
+      bankMfo: '00450',
+      bankName: '"Ipoteka bank" ATB',
+      inn: '123456789',
+      licenseNo: 'LIC-0001',
+      licenseDate: new Date('2020-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    },
+  };
+
+  return deepMerge(base, overrides) as unknown as CaseDocData;
+}
+
+/**
+ * Recursively walk a pdfmake document definition's `content` tree and collect every string
+ * (from `.text`, table `.body` cells, `.stack`, `.columns`, and plain arrays) into one
+ * space-joined string, so tests can assert `.toContain(...)` / `.not.toContain(...)`.
+ */
+export function flattenDocText(def: TDocumentDefinitions): string {
+  const out: string[] = [];
+
+  function walk(node: unknown): void {
+    if (node == null) return;
+    if (typeof node === 'string') {
+      out.push(node);
+      return;
+    }
+    if (typeof node === 'number' || typeof node === 'boolean') {
+      out.push(String(node));
+      return;
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item);
+      return;
+    }
+    if (typeof node !== 'object') return;
+
+    const n = node as Record<string, unknown>;
+
+    if (n.text !== undefined) walk(n.text);
+    if (n.stack !== undefined) walk(n.stack);
+    if (n.columns !== undefined) walk(n.columns);
+    if (n.ul !== undefined) walk(n.ul);
+    if (n.ol !== undefined) walk(n.ol);
+    if (n.table !== undefined && isPlainObject(n.table) && (n.table as Record<string, unknown>).body !== undefined) {
+      walk((n.table as Record<string, unknown>).body);
+    }
+  }
+
+  walk((def as unknown as { content: Content }).content);
+  return out.join(' ');
+}
