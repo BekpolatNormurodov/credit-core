@@ -64,7 +64,7 @@ Extend `loadCaseForDocs` (`case-document.loader.ts`) — several documents are i
 New fields / models:
 - **Disbursement bank requisites** (doc #14) — new `DisbursementDto`/fields: `holderName`, `cardNumber` (16), `accountNumber` (Х/Р, 20), `bankMfo` (МФО), `holderInn` (ИНН), `bankName`. Defaulted from borrower **only when the holder is the borrower** (the real bundle's pledgor was a third party — never assume borrower = account holder).
 - **`loanPurpose`** field on `CreditCase`/`CreditLine` (application + contract need "kredit maqsadi"; no field today).
-- **35/20/15 amounts** — an amount split (kredit summasi / mol-mulk / sug'urta), sourced from the line split (`amountAuto`/`amountPolis`) + insured sum. Confirm exact 3 lines (§11). Likely no new column if derived from existing amounts; add explicit fields only if the split is entered independently.
+- **35/20/15 amounts** — an amount split (kredit summasi / mol-mulk / sug'urta), **derived** from the line split (`amountTotal`/`amountAuto`/`amountPolis` + insured sum). **No new columns** (resolved: computed from existing amounts).
 - **Monitoring** — no heavy new model; the only captured datum is the base date (`applicationDate`), the 3 dates are derived (+0/+6/+12 mo). Manual findings/signature are print-time blanks. (A `MonitoringAct` model can be added later if inspector/findings must be stored.)
 - **`amount-in-words`** for the loan — add `principalWords` (or generate at render via `sumToWordsUz`); today only collateral value has a `*Words` field (wrong quantity).
 
@@ -95,8 +95,8 @@ The real bundle shows the same blocks repeated verbatim across every document. M
 - **#2 Bosh kelishuv:** author missing clauses (2.5-2.7, 3.2-3.3, 5.2/5.4, force-majeure/notices); fix the insurance clause-numbering collision; drive insurance text from `InsurancePolicy`; enrich collateral clauses + owners; fill requisites; add guarantors + notary attestation + watermark.
 - **#4 Akt soglasovaniya:** load `ValuationAct`; use real `actNo/actDate/agreedValue/agreedValueWords` (not hardcoded `№1`/today/recomputed total); per-collateral agreed-value rows; de-hardcode city (`branch.region`); enrich collateral tech + all owners; identify parties by passport/PINFL; add notary block. (The excel "Garov" sheet is the collateral register that feeds this act.)
 - **#5 Prikaz:** number from `orderNumber/lineNumber` (not contractNumber); Cyrillic date + stop "yil/йил" duplication + no today() fallback; de-hardcode director/org + rate/term; add borrower passport/PINFL/address, collateral agreedValue + owners, legal-basis recital, place of issue, control/execution clause, seal/register/acquaintance rows.
-- **#7 Kreditniy zayavka:** **not generated** — replaced by the mandatory KATM upload (§2b). (Keep the existing `credit-application.ts` only if a separate internal application form is still wanted — user chose "upload KATM"; confirm whether to also keep a generated form.)
-- **protokol.ts:** not in the 14. Has a bug (prints real-estate rows for AUTO collateral, hardcodes "КЎП ҚАВАТЛИ УЙ"). Default: **drop from the generated set**; if kept, fix the type-branch bug. Confirm.
+- **#7 KATM (resolved):** **not a generated document.** The KATM data is *filled* by the operator in the wizard (Step5 `creditHistory`, exists) and the **KATM report is uploaded (mandatory, blocks submit)**. The standalone generated `credit-application.ts` form is **retired** from the document set (remove its registry entry; keep the file only if still referenced elsewhere).
+- **protokol.ts (resolved — keep + fix):** stays in the generated set. Fix the type-branch bug (it prints real-estate rows for AUTO collateral and hardcodes "КЎП ҚАВАТЛИ УЙ" ignoring `realtyKind`), add collateral `agreedValue`, real protocol number, and de-hardcode term/rate/city/today.
 
 ## 7. New documents (build templates)
 
@@ -106,7 +106,7 @@ The real bundle shows the same blocks repeated verbatim across every document. M
 - **#11 Dalolatnoma** — ⚠️ content pending sample (§11). Baseline: header + parties + statement-of-fact body + signatures.
 - **#13 Cheklist** — required-documents list (define canonically in code) cross-referenced with generated set + uploaded `Document` rows (present/absent + who/when). Include the 3 scanned uploads + notary copies as line items.
 - **#14 Disbursement ariza** — beneficiary bank block (holder name, 16-digit card, Х/Р, МФО, holder ИНН, bank name) + amount + amount-in-words + case/contract ref + signature. Requires the new disbursement fields (§3).
-- **35/20/15 sheet** — amount split (≈35 mln kredit / 20 mln mol-mulk / rest sug'urta), from the line split + insured sum. Exact lines in §11.
+- **35/20/15 sheet (resolved)** — amounts (not %), **derived from the Liniya split** — kredit summasi (`amountTotal`) / mol-mulk (`amountAuto`) / sug'urta (`amountPolis` → insured sum). **No new fields** — computed from existing line data. (Confirm the exact 3 source mappings at build.)
 
 ## 8. Accountant packet (Buxgalteriya)
 
@@ -125,12 +125,12 @@ Sent by the **moderator** after approval: (a) the disbursement ariza (#14), (b) 
 - **Shared:** `dto.ts` (DisbursementDto, loanPurpose, principalWords), `sum-to-words.util.ts` (reuse).
 - **Frontend:** `CaseView.tsx` `GeneratedDocsPanel` (list the full set, consecutive monitoring group, notary/upload/accountant sections, per-role print), upload UI for KATM (mandatory) + 3 scanned slots.
 
-## 11. Open items (confirm during review)
+## 11. Open items
 
-1. **#11 Dalolatnoma content** — which dalolatnoma is it (field-inspection / handover / other)? A sample would let me spec it exactly. Until then it's a header+parties+fact-body+signatures skeleton.
-2. **35/20/15 exact lines** — confirmed as amounts (not %). Please confirm the exact three: is it `kredit summasi` / `mol-mulk (garov)` / `sug'urta` and are these the same as the Liniya `amountAuto`/`amountPolis`/insured sum, or entered separately on this sheet?
-3. **protokol.ts** — drop from the generated set, or keep (bug-fixed)?
-4. **credit-application.ts** — since #7 is now an upload, do we also keep a generated internal application form, or remove it?
+1. **#11 Dalolatnoma content — STILL OPEN.** Which dalolatnoma is it (field-inspection / handover / other)? A sample would let me spec it exactly. Until then it is a header + parties + statement-of-fact body + signatures skeleton.
+2. ~~35/20/15 exact lines~~ — **resolved:** amounts derived from the Liniya split (kredit/mol-mulk/sug'urta), no new fields (§3, §7).
+3. ~~protokol.ts~~ — **resolved:** keep + fix the type-branch bug (§6).
+4. ~~credit-application.ts~~ — **resolved:** #7 is KATM (filled in Step5 + mandatory upload); the generated form is retired (§6).
 
 ## 12. Testing
 
