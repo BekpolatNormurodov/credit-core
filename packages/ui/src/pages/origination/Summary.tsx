@@ -13,6 +13,7 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
     utilitiesExpense: af?.utilitiesExpense, familyExpense: af?.familyExpense, otherExpense: af?.otherExpense, existingCreditBurden: af?.existingCreditBurden,
     newLoanPayment: form.creditLine?.tranche?.monthlyPayment,
     loanUnderPolicy: ins?.loanUnderPolicy, insuranceRate: ins?.insuranceRate, policyTermMonths: ins?.policyTermMonths,
+    requiredInsuredAmount: form.creditLine?.requiredInsuredAmount,
     amountTotal, collateralTotal,
   });
   const loanType = loanTypeFor(amountTotal);

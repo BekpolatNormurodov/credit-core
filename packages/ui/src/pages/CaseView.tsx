@@ -947,6 +947,7 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
     mainActivityIncome: af?.mainActivityIncome, secondaryIncome: af?.secondaryIncome, familyIncome: af?.familyIncome, otherIncome: af?.otherIncome,
     utilitiesExpense: af?.utilitiesExpense, familyExpense: af?.familyExpense, otherExpense: af?.otherExpense, existingCreditBurden: af?.existingCreditBurden,
     newLoanPayment: line?.tranche?.monthlyPayment,
+    requiredInsuredAmount: line?.requiredInsuredAmount,
     amountTotal: line?.amountTotal ?? c.amount, collateralTotal: c.collaterals.reduce((s, col) => s + (col.agreedValue ?? 0), 0),
   });
   const canEdit = (role === Role.OPERATOR || role === Role.ADMIN) && c.status === CaseStatus.DRAFT;
