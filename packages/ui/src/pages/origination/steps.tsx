@@ -181,6 +181,18 @@ export function Step3({ f }: { f: OriginationForm }) {
     f.patch({ creditLine: { ...merged, amountTotal, insurance, loanType: loanTypeFor(amountTotal), penaltyRate: merged.penaltyRate ?? 1.05 } });
   };
   const amountTotal = l.amountTotal ?? null;
+  // Liniya sanasi defaults to today (optional, editable); maturity auto-derives = lineDate + termMonths.
+  useEffect(() => {
+    const patch: Partial<Line> = {};
+    if (!l.lineDate) patch.lineDate = new Date().toISOString().slice(0, 10);
+    if (!l.lineMaturity && (l.lineDate || patch.lineDate) && l.termMonths) {
+      const base = new Date(l.lineDate ?? patch.lineDate!);
+      base.setMonth(base.getMonth() + l.termMonths);
+      patch.lineMaturity = base.toISOString().slice(0, 10);
+    }
+    if (Object.keys(patch).length) setLine(patch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [l.lineDate, l.termMonths]);
   return (
     <div className="space-y-6">
       <Card className="space-y-4">
@@ -217,6 +229,20 @@ export function Step3({ f }: { f: OriginationForm }) {
           <Field label="Liniya sanasi"><DatePicker value={l.lineDate ?? null} onChange={(iso) => setLine({ lineDate: iso })} /></Field>
         </div>
         {f.attempted && f.errors.amountTotal && <p className="text-xs font-medium text-error-600 dark:text-error-500">{f.errors.amountTotal}</p>}
+      </Card>
+      <Card className="space-y-4">
+        <div>
+          <h2 className="font-semibold text-gray-800 dark:text-white">Kerakli qoplama</h2>
+          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Bu maydonlar ixtiyoriy — hisoblangan qiymat avtomatik ishlatiladi, keyinroq ham tahrirlashingiz mumkin.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Garov qoplami — mol-mulk ×140%" hint={l.amountAuto ? `hisoblangan: ${formatMoney(l.amountAuto * COLLATERAL_COVERAGE_TARGET)}` : 'summa kiriting'}>
+            <MoneyInput value={l.requiredCollateralAmount ?? null} onChange={(v) => setLine({ requiredCollateralAmount: v })} placeholder={l.amountAuto ? formatMoney(l.amountAuto * COLLATERAL_COVERAGE_TARGET) : '—'} />
+          </Field>
+          <Field label="Sug‘urta summasi — polis ×130%" hint={l.amountPolis ? `hisoblangan: ${formatMoney(l.amountPolis * 1.3)}` : 'polis summasini kiriting'}>
+            <MoneyInput value={l.requiredInsuredAmount ?? null} onChange={(v) => setLine({ requiredInsuredAmount: v })} placeholder={l.amountPolis ? formatMoney(l.amountPolis * 1.3) : '—'} />
+          </Field>
+        </div>
       </Card>
     </div>
   );
