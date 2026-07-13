@@ -48,7 +48,7 @@ export class PdfService {
   /** Build the "Garov baholash akti" (valuation act) PDF for a case. */
   async valuationAct(c: CreditCaseDto): Promise<Buffer> {
     const totalCollateral = c.collaterals.reduce((s, x) => s + (x.agreedValue ?? 0), 0);
-    const value = totalCollateral || c.amount || 0;
+    const value = totalCollateral; // collateral total only — never fall back to the loan amount
     const words = value ? sumToWordsUz(value) : '—';
 
     const row = (label: string, val: string) => [

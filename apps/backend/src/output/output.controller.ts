@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
+import { ConflictException, Controller, Get, Param, Post, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { DocumentType, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +30,7 @@ export class OutputController {
     @Res() res: Response,
   ) {
     const c = await this.cases.getOne(id);
+    if (!c.collaterals.length) throw new ConflictException('Garovsiz arizaga hujjat yaratib bo‘lmaydi');
     const buffer = await this.pdf.valuationAct(c);
     const fileName = `Akt_${c.number}.pdf`;
     const stored = await this.storage.save(buffer, fileName, 'application/pdf', `${id}/generated`);
@@ -53,6 +54,7 @@ export class OutputController {
   @Get(':id/excel')
   async exportExcel(@Param('id') id: string, @Res() res: Response) {
     const c = await this.cases.getOne(id);
+    if (!c.collaterals.length) throw new ConflictException('Garovsiz arizani eksport qilib bo‘lmaydi');
     const buffer = await exportCaseToExcel(c);
     res.setHeader(
       'Content-Type',
