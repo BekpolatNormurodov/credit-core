@@ -5,6 +5,7 @@ import {
   SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
   INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP, insurancePremiumRate,
+  collateralComplete, collateralErrors,
   monthlyPaymentFor, termCapFor, isTermValid, paymentDayFor, DocumentType, type RepaymentMethod,
   type UpsertCasePayload,
 } from '@credit-core/shared';
@@ -231,7 +232,7 @@ export function StepSugurta({ f }: { f: OriginationForm }) {
   // not entered. Term capped at 48 months (4 years) for the effective bracket.
   const policyMonths = Math.min(ins.policyTermMonths ?? 0, INSURANCE_MAX_MONTHS) || null;
   const bracketRate = insurancePremiumRate(policyMonths);
-  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, policyTermMonths: policyMonths });
+  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, policyTermMonths: policyMonths, requiredInsuredAmount: l.requiredInsuredAmount });
   const termTooLong = (ins.policyTermMonths ?? 0) > INSURANCE_MAX_MONTHS;
   return (
     <Card className="space-y-4">
@@ -273,10 +274,7 @@ export function StepGarov({ f }: { f: OriginationForm }) {
   const qc = useQueryClient();
   const [activeCol, setActiveCol] = useState(0);
   const cols = f.form.collaterals;
-  const active = Math.min(activeCol, cols.length - 1);
-  // A collateral is "complete" (green tab) once its required fields are filled: value + identity.
-  const isColComplete = (c: (typeof cols)[number]) =>
-    (c.agreedValue ?? 0) > 0 && (c.type === ProductType.AUTO ? !!c.model : !!c.address);
+  const active = cols.length ? Math.min(activeCol, cols.length - 1) : 0; // never -1 on empty
   const addCol = (t: ProductType) => { f.addCol(t); setActiveCol(cols.length); };
   const l = f.form.creditLine ?? ({} as Line);
   const ins = l.insurance ?? ({} as Ins);
@@ -284,7 +282,7 @@ export function StepGarov({ f }: { f: OriginationForm }) {
   const amountAuto = l.amountAuto ?? null;
   const amountTotal = l.amountTotal ?? null;
   const policyMonths = Math.min(ins.policyTermMonths ?? 0, INSURANCE_MAX_MONTHS) || null;
-  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, policyTermMonths: policyMonths });
+  const calc = originationCalc({ loanUnderPolicy: ins.loanUnderPolicy, policyTermMonths: policyMonths, requiredInsuredAmount: l.requiredInsuredAmount });
   return (
     <div className="space-y-6">
       <div>
@@ -301,7 +299,7 @@ export function StepGarov({ f }: { f: OriginationForm }) {
             Only the selected collateral is shown below. */}
         <ol className="mb-3 flex flex-wrap gap-2">
           {cols.map((c, i) => {
-            const done = isColComplete(c);
+            const done = collateralComplete(c);
             const cur = active === i;
             return (
               <li key={i}>
@@ -326,11 +324,21 @@ export function StepGarov({ f }: { f: OriginationForm }) {
             );
           })}
         </ol>
-        {cols[active] && (
+        {cols.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/60 p-8 text-center dark:border-gray-700 dark:bg-white/5">
+            <p className="font-medium text-gray-700 dark:text-gray-200">Hali garov qo‘shilmagan</p>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Yuqoridagi tugmalar bilan <b>Uy-joy</b> yoki <b>Avto</b> garov qo‘shing — kamida bittasi to‘liq to‘ldirilishi shart.</p>
+            <div className="mt-4 flex justify-center gap-2">
+              <Button variant="secondary" onClick={() => addCol(ProductType.REAL_ESTATE)}><Plus className="h-4 w-4" /><House className="h-4 w-4" /> Uy-joy</Button>
+              <Button variant="secondary" onClick={() => addCol(ProductType.AUTO)}><Plus className="h-4 w-4" /><Car className="h-4 w-4" /> Avto</Button>
+            </div>
+          </div>
+        ) : cols[active] && (
           <CollateralCard
             key={active}
             index={active}
             c={cols[active]}
+            errors={f.attempted ? collateralErrors(cols[active]) : undefined}
             onChange={(p) => f.setCol(active, p)}
             onRemove={() => { f.removeCol(active); setActiveCol(Math.max(0, active - 1)); }}
             canRemove={cols.length > 1}
@@ -352,9 +360,11 @@ export function StepGarov({ f }: { f: OriginationForm }) {
       </div>
       {(amountAuto || amountTotal) != null && (
         <div className="space-y-1 text-sm text-gray-500 dark:text-gray-400">
-          {amountAuto != null && amountAuto > 0 && (
-            <p>Garov qoplami (mol-mulk qismi): <b className={`nums ${collateralTotal >= amountAuto * COLLATERAL_COVERAGE_TARGET ? 'text-gray-800 dark:text-white' : 'text-error-600 dark:text-error-500'}`}>{((collateralTotal / amountAuto) * 100).toFixed(0)}%</b> (maqsad ≥ 140%)</p>
-          )}
+          {amountAuto != null && amountAuto > 0 && (() => {
+            const requiredCollateral = l.requiredCollateralAmount ?? amountAuto * COLLATERAL_COVERAGE_TARGET;
+            const ok = collateralTotal >= requiredCollateral;
+            return <p>Garov qoplami (mol-mulk qismi): <b className={`nums ${ok ? 'text-gray-800 dark:text-white' : 'text-error-600 dark:text-error-500'}`}>{((collateralTotal / amountAuto) * 100).toFixed(0)}%</b> (kerak: {formatMoney(requiredCollateral)})</p>;
+          })()}
           {(l.amountPolis ?? 0) > 0 && (
             <p>Sug‘urta qoplami (polis qismi): <b className="nums text-gray-800 dark:text-white">130%</b> → sug‘urta summasi {formatMoney(calc.insuredSum)}</p>
           )}
