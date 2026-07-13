@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
   ProductType, RepaymentMethod, loanTypeFor, isTermValid, termCapFor, LINE_TERM_CAP,
+  collateralComplete, collateralMissing,
   type UpsertCasePayload, type CaseSectionKey, type CollateralDto,
 } from '@credit-core/shared';
 
@@ -20,7 +21,7 @@ const newCollateral = (type: ProductType): CollateralDto => ({
 
 const emptyForm: UpsertCasePayload = {
   amount: null, termMonths: null, borrower: { ...emptyBorrower }, guarantors: [],
-  collaterals: [newCollateral(ProductType.REAL_ESTATE)],
+  collaterals: [],
   employment: null, affordability: null, creditLine: null, creditHistory: null,
 };
 
@@ -82,7 +83,7 @@ export function useOriginationForm(id?: string) {
       const loaded: UpsertCasePayload = {
         amount: c.amount, termMonths: c.termMonths,
         borrower: c.borrower ? { ...c.borrower, closeContacts } : { ...emptyBorrower }, guarantors: c.guarantors,
-        collaterals: c.collaterals.length ? c.collaterals : [newCollateral(ProductType.REAL_ESTATE)],
+        collaterals: c.collaterals,
         employment: c.employment, affordability: c.affordability, creditLine: c.creditLine, creditHistory: c.creditHistory,
       };
       // Add-to-draft: apply the "Hujjatlar tekshirish" prefill on top of the loaded draft, once.
@@ -123,13 +124,20 @@ export function useOriginationForm(id?: string) {
   const tr = line?.tranche;
   const method = tr?.scheduleType as RepaymentMethod | undefined;
   const amountTotal = line?.amountTotal ?? form.amount ?? null;
-  const hasValuedCollateral = form.collaterals.some((c) => (c.agreedValue ?? 0) > 0);
   const validContacts = (b.closeContacts ?? []).filter((c) => c.fullName?.trim() && c.phone?.trim());
   const h = form.creditHistory;
   const katmFilled = !!h
     && h.repaidLoansCount != null && h.activeLoansCount != null && h.overdueSubstandardFlag != null
     && h.otherObligations != null && !!h.loansOver5MFlag && !!h.priorMfiPawnshopFlag
     && h.totalOutstandingDebt != null && h.avgMonthlyPaymentExisting != null;
+  const collateralError = (() => {
+    const cs = form.collaterals;
+    if (cs.length === 0) return 'Kamida 1 ta garov qo‘shing';
+    const i = cs.findIndex((c) => !collateralComplete(c));
+    return i >= 0
+      ? `Garov ${i + 1}: ${collateralMissing(cs[i]).map((m) => m.label).join(', ')} majburiy`
+      : undefined;
+  })();
   const errors = {
     fullName: b.fullName.trim() ? undefined : 'F.I.O majburiy',
     contacts: validContacts.length >= 2 ? undefined : 'Kamida 2 ta yaqin kishi (ism + telefon) majburiy',
@@ -143,7 +151,7 @@ export function useOriginationForm(id?: string) {
       : line.termMonths > LINE_TERM_CAP
         ? `Liniya muddati ${LINE_TERM_CAP} oydan oshmasligi kerak`
         : undefined,
-    collateral: hasValuedCollateral ? undefined : 'Kamida 1 garov (kelishilgan qiymat) majburiy',
+    collateral: collateralError,
     scheduleType: method ? undefined : 'Jadval turini tanlang',
     trancheTerm: !method
       ? 'Avval jadval turini tanlang'
