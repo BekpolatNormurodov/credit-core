@@ -4,6 +4,24 @@ import { CaseDocData } from '../case-document.loader';
 import { orgHeader } from '../doc-layout';
 import { lineTerms, collateralDetails } from './_shared';
 
+/** Latin month word (as produced by `dateToUzbekWords`) → its Uzbek Cyrillic equivalent. */
+const LAT_TO_CYR_MONTH: Record<string, string> = {
+  yanvar: 'январ', fevral: 'феврал', mart: 'март', aprel: 'апрель', may: 'май',
+  iyun: 'июнь', iyul: 'июль', avgust: 'август', sentabr: 'сентябр',
+  oktabr: 'октябр', noyabr: 'ноябр', dekabr: 'декабр',
+};
+
+/**
+ * Cyrillic "<day> <month> <year> йилдаги" phrase for the order header — reuses
+ * `dateToUzbekWords` for the day/month/year, then transliterates its Latin month word to
+ * Cyrillic and appends a single "йил" morpheme (never both the Latin "yil" from
+ * `dateToUzbekWords` AND a Cyrillic "йил" suffix).
+ */
+function issueDateCyr(d: Date): string {
+  const [day, month, year] = dateToUzbekWords(d).split(' ');
+  return `${day} ${LAT_TO_CYR_MONTH[month] ?? month} ${year} йилдаги`;
+}
+
 /**
  * Приказ на сделку (buyruq) — the executive director's order allocating the microfinance line.
  * Faithful transcription (Uzbek Cyrillic) with placeholders merged: contract number, director,
@@ -13,8 +31,8 @@ export function prikazTemplate(c: CaseDocData): TDocumentDefinitions {
   const line = c.creditLine;
   const b = c.borrower;
   const director = c.organization?.directorFull ?? 'Ижрочи директор';
-  const contractNo = c.contractNumber ?? c.number;
-  const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : dateToUzbekWords(new Date());
+  const contractNo = c.creditLine?.orderNumber ?? c.creditLine?.lineNumber ?? c.contractNumber ?? c.number;
+  const dateStr = line?.lineDate ? issueDateCyr(line.lineDate) : '—';
 
   return {
     defaultStyle: { font: 'Roboto', fontSize: 10 },
@@ -23,7 +41,7 @@ export function prikazTemplate(c: CaseDocData): TDocumentDefinitions {
       orgHeader(c.organization),
       { text: `«${c.organization?.nameUpper ?? 'ММТ'}»`, alignment: 'center', bold: true },
       { text: 'Ижрочи директорининг', alignment: 'center', margin: [0, 2, 0, 2] },
-      { text: `${dateStr} йилдаги №${contractNo} БУЙРУҒИ`, alignment: 'center', bold: true, fontSize: 12, margin: [0, 0, 0, 12] },
+      { text: `${dateStr} №${contractNo} БУЙРУҒИ`, alignment: 'center', bold: true, fontSize: 12, margin: [0, 0, 0, 12] },
       { text: `Мен, ${director}, «${c.organization?.nameMixed ?? 'ММТ'}» ижрочи директори, фуқаро ${b?.fullName ?? '—'}га қуйидаги шартларда микроқарз/микрокредит ажратилишини буюраман:`, alignment: 'justify', margin: [0, 0, 0, 8] },
       ...lineTerms(c),
       { text: '5. Микромолия линияси таъминоти:', margin: [0, 3, 0, 3] },

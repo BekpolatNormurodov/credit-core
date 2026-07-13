@@ -14,10 +14,10 @@ export function petitionTemplate(c: CaseDocData): TDocumentDefinitions {
   const name = b?.fullName ?? '—';
   const amount = Number(line?.amountTotal ?? c.amount ?? 0);
   const amountStr = `${new Intl.NumberFormat('ru-RU').format(amount)},00 (${amount ? sumToWordsUz(amount) : '—'})`;
-  const term = line?.termMonths ?? 60;
-  const ratePct = line?.interestRate != null ? Math.round(Number(line.interestRate) * 100) : 55;
-  const penaltyPct = line?.penaltyRate != null ? Math.round(Number(line.penaltyRate) * 100) : 105;
-  const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : dateToUzbekWords(new Date());
+  const termText = line?.termMonths != null ? `${line.termMonths} ой` : '—';
+  const rateText = line?.interestRate != null ? `${Math.round(Number(line.interestRate) * 100)}%` : '—';
+  const penaltyText = line?.penaltyRate != null ? `${Math.round(Number(line.penaltyRate) * 100)}%` : '—';
+  const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
   const ins = line?.insurance;
 
   const collateralItems: Content[] = c.collaterals.map((col) => ({
@@ -41,8 +41,8 @@ export function petitionTemplate(c: CaseDocData): TDocumentDefinitions {
       p('Сиздан қуйидаги шартлар асосида микроқарз/микрокредитлар олиш учун қуйидаги шартларда Микромолиявий линия (ММЛ) очиб бериш масаласини кўриб чиқишингизни сўрайман:'),
       p('1. Микромолия линияси доирасида ажратиладиган Микроқарз/микрокредит шакли: нақд ёки пул ўтказиш йўли билан (Мижоз ихтиёрига кўра);'),
       p(`2. Микромолия линия лимит суммаси: ${amountStr} сўмгача;`),
-      p(`3. Микромолия линия муддати: ${term} ой;`),
-      p(`4. Микромолия линияси доирасида ажратиладиган микроқарз/микрокредитларнинг фоиз ставкаси: йиллик ${ratePct}% фоиздан кредит миқдорининг қолдиқ суммасига нисбатан хисобланади. Тўлаш жадвалига мувофиқ асосий қарз бўйича навбатдаги тўлов бузилган ҳолларда муддати ўтган микроқарз/микрокредитнинг асосий қарз суммаси бўйича йиллик ${penaltyPct}% фоиз миқдорида фоизлар ҳисоблайди.`),
+      p(`3. Микромолия линия муддати: ${termText};`),
+      p(`4. Микромолия линияси доирасида ажратиладиган микроқарз/микрокредитларнинг фоиз ставкаси: йиллик ${rateText} фоиздан кредит миқдорининг қолдиқ суммасига нисбатан хисобланади. Тўлаш жадвалига мувофиқ асосий қарз бўйича навбатдаги тўлов бузилган ҳолларда муддати ўтган микроқарз/микрокредитнинг асосий қарз суммаси бўйича йиллик ${penaltyText} фоиз миқдорида фоизлар ҳисоблайди.`),
       { text: '5. Микромолия линияси таъминоти:', margin: [0, 3, 0, 3] },
       ...collateralItems,
       p(`${name} қуйидагилардан хабардор қилинган ва розилигини билдирган:`),

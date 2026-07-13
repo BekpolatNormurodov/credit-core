@@ -14,14 +14,14 @@ export function amountWords(amount: number): string {
 export function lineTerms(c: CaseDocData): Content[] {
   const line = c.creditLine;
   const amount = Number(line?.amountTotal ?? c.amount ?? 0);
-  const term = line?.termMonths ?? 60;
-  const ratePct = line?.interestRate != null ? Math.round(Number(line.interestRate) * 100) : 55;
-  const penaltyPct = line?.penaltyRate != null ? Math.round(Number(line.penaltyRate) * 100) : 105;
+  const termText = line?.termMonths != null ? `${line.termMonths} ой` : '—';
+  const rateText = line?.interestRate != null ? `${Math.round(Number(line.interestRate) * 100)}%` : '—';
+  const penaltyText = line?.penaltyRate != null ? `${Math.round(Number(line.penaltyRate) * 100)}%` : '—';
   return [
     p('1. Микромолия линияси доирасида ажратиладиган Микроқарз/микрокредит шакли: нақд ёки пул ўтказиш йўли билан (Мижоз ихтиёрига кўра);'),
     p(`2. Микромолия линия лимит суммаси: ${amountWords(amount)} сўмгача;`),
-    p(`3. Микромолия линия муддати: ${term} ой;`),
-    p(`4. Микромолия линияси доирасида ажратиладиган микроқарз/микрокредитларнинг фоиз ставкаси: йиллик ${ratePct}% фоиздан кредит миқдорининг қолдиқ суммасига нисбатан хисобланади. Тўлаш жадвалига мувофиқ асосий қарз бўйича навбатдаги тўлов бузилган ҳолларда муддати ўтган микроқарз/микрокредитнинг асосий қарз суммаси бўйича йиллик ${penaltyPct}% фоиз миқдорида фоизлар ҳисоблайди.`),
+    p(`3. Микромолия линия муддати: ${termText};`),
+    p(`4. Микромолия линияси доирасида ажратиладиган микроқарз/микрокредитларнинг фоиз ставкаси: йиллик ${rateText} фоиздан кредит миқдорининг қолдиқ суммасига нисбатан хисобланади. Тўлаш жадвалига мувофиқ асосий қарз бўйича навбатдаги тўлов бузилган ҳолларда муддати ўтган микроқарз/микрокредитнинг асосий қарз суммаси бўйича йиллик ${penaltyText} фоиз миқдорида фоизлар ҳисоблайди.`),
   ];
 }
 
