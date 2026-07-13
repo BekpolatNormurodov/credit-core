@@ -1,7 +1,7 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader } from '../doc-layout';
+import { money, orgHeader } from '../doc-layout';
 import { amountWords, collateralDetails, p } from './_shared';
 
 /**
@@ -13,7 +13,7 @@ export function actTemplate(c: CaseDocData): TDocumentDefinitions {
   const b = c.borrower;
   const name = b?.fullName ?? '—';
   const contractNo = c.contractNumber ?? c.number;
-  const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : dateToUzbekWords(new Date());
+  const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
   const total = c.collaterals.reduce((s, x) => s + Number(x.agreedValue ?? 0), 0);
   const totalStr = amountWords(total);
 
@@ -22,11 +22,12 @@ export function actTemplate(c: CaseDocData): TDocumentDefinitions {
     pageMargins: [45, 50, 45, 50],
     content: [
       orgHeader(c.organization),
-      { text: 'ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ №1', bold: true, alignment: 'center', fontSize: 12 },
+      { text: `ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ № ${contractNo}`, bold: true, alignment: 'center', fontSize: 12 },
       { text: `Тошкент ш. · ${dateStr}`, alignment: 'center', margin: [0, 2, 0, 10] },
       p(`Ушбу далолатнома «${c.organization?.nameMixed ?? 'ММТ'}» (1 тараф) ижрочи директори ${c.organization?.directorFull ?? '—'} ва «Қарз олувчи»/«Гаровга қўювчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${name} иштирокида, ${dateStr} йилдаги № ${contractNo} сонли микромолиялаш линияси очиш тўғрисидаги Бош келишув юзасидан тузилди.`),
       p(`Микромолия линияси гаров таъминоти сифатида ${name}га тегишли қуйидаги мулк тақдим этилади:`),
       ...collateralDetails(c),
+      ...c.collaterals.map((col) => p(`${col.type === 'AUTO' ? 'Автотранспорт' : 'Уй-жой'} гаровининг келишилган қиймати: ${money(col.agreedValue)}.`)),
       p(`Тарафлар келишувига кўра юқоридаги мулк «${c.organization?.nameMixed ?? 'ММТ'}» томонидан Қарз олувчи ва Гаровга қўювчи розилиги асосида ${totalStr} сўм баҳоланди.`),
       p(`Гаров предметининг келишилган гаров қиймати ${totalStr} сўмни ташкил қилади.`),
       { columns: [
