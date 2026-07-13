@@ -70,6 +70,12 @@ Placed beside the amount fields they override, threaded end-to-end:
 - `Step3` gains the "Kerakli qoplama" card with two rows (computed value + optional override `MoneyInput`) and the helper message.
 - The override setters live on `creditLine` via the existing `setLine` patch pattern.
 
+### Liniya sanasi + muddat (maturity) defaults (added on review)
+
+- `Step3` `lineDate` field: **default to today** on mount when empty — mirror `Step4`'s `applicationDate` pattern (`useEffect` that sets `lineDate` to `new Date().toISOString().slice(0,10)` only if it is currently empty). Stays **optional**, editable, never blocks a step.
+- `Step3` `lineMaturity`: **auto-derive = `lineDate` + `termMonths`** whenever both are present (skip if already set). It exists in `CreditLineDto` (`dto.ts:183`) and is read by the Bosh kelishuv / РКЛ Ген document (`rkl-gen.ts:22` → line end-date) but is **never set today**, so that document currently prints "—" for the maturity. No UI field needed — derived like the tranche's payment day; stays optional (null until both inputs exist).
+- `orderNumber` (РКЛ order №) is intentionally **left to Spec C** — the Kredit arizasi reads `c.contractNumber ?? line.orderNumber` (`credit-application.ts:24`), so `contractNumber` already fills it; no Spec A change.
+
 ---
 
 ## Task 3 — Garov step: empty start + strict per-collateral validation
@@ -184,3 +190,13 @@ Required:
 
 - Document overhaul (14 docs + notary + scanned uploads + accountant) — **Spec C**. The empty-collateral template rendering is only *guarded* here, not redesigned.
 - Upload-by-all-roles and the director=final / admin-invisible workflow — **Spec B**.
+
+### Reference-form findings deferred to Spec C (2026-07-13 doc analysis)
+
+The three Downloads reference forms were analyzed. Two (`ариза.pdf`, `Ариза_МИКРОКАРЗ`) are the **microloan disbursement application** ("пул ўтказиш аризаси" — the borrower asks the director to transfer the contracted amount to a bank account); one (`Чек лист`) is the deal checklist. The wizard captures identity/economics correctly, but the disbursement payload — **where the money goes** — is entirely uncaptured. These belong to Spec C's accountant/disbursement flow:
+
+- **Destination account block:** Х/Р (20-digit account №), МФО (bank BIC), account-holder ИНН, 16-digit card №, holder name → a structured `DisbursementDto`, surfaced in a new "Ariza reqvizitlari" step or appended to Step4.
+- **Loan amount in words** (e.g. "(бир юз ўттиз миллион сум)") — only collateral value has a `*Words` field today (the wrong quantity); add `principalWords` or generate at render.
+- **СКАН №** (passport-scan reference in the org system) on the borrower.
+- **Latent bug:** reusing `BorrowerDto.inn` for the account-block ИНН is wrong when the disbursement account belongs to a third party — the account-holder ИНН must be its own field, defaulted from the borrower only when the holder IS the borrower.
+- **Checklist** acknowledgment initials are signing artifacts, not origination capture.
