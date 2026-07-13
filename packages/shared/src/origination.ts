@@ -146,6 +146,7 @@ export interface OriginationCalcInput {
   policyTermMonths?: number | null;
   amountTotal?: number | null;
   collateralTotal?: number | null;
+  requiredInsuredAmount?: number | null; // manual override of the ×1.3 insured sum
 }
 
 export interface OriginationCalc {
@@ -171,8 +172,8 @@ export function originationCalc(i: OriginationCalcInput): OriginationCalc {
   const dtiRatio = totalIncome > 0 ? totalCreditPayments / totalIncome : 0;
   const surplus = totalIncome - totalExpenses;
   const minRequiredIncome = roundUpTo((n(i.existingCreditBurden) + n(i.newLoanPayment)) * 2.2, 1000);
-  const insuredSum = roundUpTo(n(i.loanUnderPolicy) * 1.3, 1); // exact ×1.3
-  // Flat premium by term bracket (≤2 yil → 2%, 2–4 yil → 4%) of the insured sum — not per-year.
+  const insuredSum = i.requiredInsuredAmount ?? roundUpTo(n(i.loanUnderPolicy) * 1.3, 1); // override ?? ×1.3
+  // Flat premium by term bracket (≤2 yil → 2%, 2–4 yil → 4%) of the effective insured sum.
   const premium = roundUpTo(insuredSum * insurancePremiumRate(i.policyTermMonths), 1);
   const coverageRatio = i.amountTotal ? n(i.collateralTotal) / n(i.amountTotal) : 0;
   const affordabilityOk = totalIncome > 0 && surplus >= 0 && totalIncome >= minRequiredIncome;
@@ -184,6 +185,7 @@ export interface PersistedInput {
   loanUnderPolicy?: number | null;
   insuranceRate?: number | null;
   policyTermMonths?: number | null;
+  requiredInsuredAmount?: number | null;
   trancheMonthlyPayment?: number | null;
 }
 export interface PersistedDerived {
@@ -200,6 +202,7 @@ export function originationPersistedValues(i: PersistedInput): PersistedDerived 
     loanUnderPolicy: i.loanUnderPolicy,
     insuranceRate: i.insuranceRate,
     policyTermMonths: i.policyTermMonths,
+    requiredInsuredAmount: i.requiredInsuredAmount,
   });
   return {
     loanType: loanTypeFor(i.amountTotal),

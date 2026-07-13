@@ -178,6 +178,8 @@ export interface CreditLineDto {
   amountAuto: number | null;
   amountPolis: number | null;
   amountTotal: number | null;
+  requiredCollateralAmount: number | null; // override for amountAuto × 140% (null → computed)
+  requiredInsuredAmount: number | null;    // override for amountPolis × 130% insured sum (null → computed)
   termMonths: number | null;
   lineDate: string | null;
   lineMaturity: string | null;
