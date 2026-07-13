@@ -1,5 +1,5 @@
 import type { Content } from 'pdfmake/interfaces';
-import { sumToWordsUz } from '../../../common/sum-to-words.util';
+import { sumToWordsUz, dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 
 /** Justified body paragraph. */
@@ -34,7 +34,7 @@ export function collateralDetails(c: CaseDocData): Content[] {
     if (col.type === 'AUTO') {
       out.push(p(`Мулк номи: ${col.model ?? '—'}`));
       out.push({ text: `* Автомототранспорт воситаси эгаси: ${owner}`, margin: [0, 1, 0, 1] });
-      out.push({ text: `* техник паспорт рақами: ${[col.techPassportNo, col.techPassportDate].filter(Boolean).join(' от ') || '—'}`, margin: [0, 1, 0, 1] });
+      out.push({ text: `* техник паспорт рақами: ${[col.techPassportNo, col.techPassportDate ? dateToUzbekWords(col.techPassportDate) : null].filter(Boolean).join(' от ') || '—'}`, margin: [0, 1, 0, 1] });
       out.push({ text: `* давлат рақами: ${col.stateNumber ?? '—'}`, margin: [0, 1, 0, 1] });
     } else {
       out.push(p(`Ушбу ${col.realtyKind === 'HOUSE' ? 'ҲОВЛИ' : 'кўчмас мулк'} объектнинг таркиби ва таснифи:`));
