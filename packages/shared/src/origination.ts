@@ -1,5 +1,6 @@
-import { LoanType, RepaymentMethod } from './enums';
+import { LoanType, ProductType, RepaymentMethod } from './enums';
 import { pmt } from './loan';
+import type { CollateralDto } from './dto';
 
 /** Insurance partners currently on-boarded (the "Kompaniya" dropdown). */
 export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as const;
@@ -207,4 +208,35 @@ export function originationPersistedValues(i: PersistedInput): PersistedDerived 
     premium: calc.premium,
     newLoanPayment: i.trancheMonthlyPayment ?? null,
   };
+}
+
+/** The collateral fields the Garov step gates on (per type). realtyKind is intentionally excluded
+ *  — it always defaults to APARTMENT, so requiring it could never fail. */
+export type CollateralField = 'agreedValue' | 'address' | 'cadastreNo' | 'model' | 'stateNumber' | 'techPassportNo';
+
+/** Missing required fields for one collateral, as {field, Uz label}. Single source of truth for
+ *  both the wizard submit gate and the per-collateral tab colour. */
+export function collateralMissing(c: CollateralDto): { field: CollateralField; label: string }[] {
+  const out: { field: CollateralField; label: string }[] = [];
+  const need = (ok: boolean, field: CollateralField, label: string) => { if (!ok) out.push({ field, label }); };
+  need((c.agreedValue ?? 0) > 0, 'agreedValue', 'Kelishilgan qiymat');
+  if (c.type === ProductType.AUTO) {
+    need(!!c.model?.trim(), 'model', 'Model');
+    need(!!c.stateNumber?.trim(), 'stateNumber', 'Davlat raqami');
+    need(!!c.techPassportNo?.trim(), 'techPassportNo', 'Tex passport №');
+  } else {
+    need(!!c.address?.trim(), 'address', 'Manzil');
+    need(!!c.cadastreNo?.trim(), 'cadastreNo', 'Kadastr №');
+  }
+  return out;
+}
+
+/** A collateral is complete when it has no missing required fields. */
+export const collateralComplete = (c: CollateralDto): boolean => collateralMissing(c).length === 0;
+
+/** Per-field error map for the CollateralCard (field → "<Label> majburiy"). */
+export function collateralErrors(c: CollateralDto): Partial<Record<CollateralField, string>> {
+  const out: Partial<Record<CollateralField, string>> = {};
+  for (const { field, label } of collateralMissing(c)) out[field] = `${label} majburiy`;
+  return out;
 }
