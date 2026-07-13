@@ -3,7 +3,7 @@ import {
   Plus, Trash2, House, Car, IdCard, Hashtag, Location,
   Money, Clock, Ruler, Tag, Calendar, Palette, Upload, FileText, Check,
 } from '../lib/icons';
-import { ProductType, DocumentType, type CollateralDto } from '@credit-core/shared';
+import { ProductType, DocumentType, type CollateralDto, type CollateralField } from '@credit-core/shared';
 import { Button, Card, Field, Input } from '../components/primitives';
 import { MoneyInput, DatePicker, PassportInput, PlateInput, KadastrInput, Select, digitsOnly } from '../components/forms';
 import { CAR_MODELS } from '../lib/cars';
@@ -56,8 +56,8 @@ function KadastrCard({ cadastreNo }: { cadastreNo: string }) {
 // A per-collateral staged attachment (image/file + name + free text), bound by collateral index.
 export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
 
-export function CollateralCard({ index, c, error, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot, texSlot }: {
-  index: number; c: CollateralDto; error?: string; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
+export function CollateralCard({ index, c, errors, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot, texSlot }: {
+  index: number; c: CollateralDto; errors?: Partial<Record<CollateralField, string>>; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
   docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
   onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;
   /** In the wizard, photos/videos are attached in the case view after saving (needs a collateral id). */
@@ -88,12 +88,12 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
         <>
         {texSlot ?? <TexScan storeKey={`tex:col:${index}`} onExtract={onChange} />}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Model (markasi)" required icon={Car} error={error}>
+          <Field label="Model (markasi)" required icon={Car} error={errors?.model}>
             <Select<string> value={c.model ?? ''} onChange={(v) => onChange({ model: v })} searchable placeholder="— mashinani tanlang —"
               options={CAR_MODELS.map((m) => ({ value: m, label: m }))} />
           </Field>
-          <Field label="Davlat raqami" icon={Hashtag}><PlateInput value={c.stateNumber ?? null} onChange={(v) => onChange({ stateNumber: v })} /></Field>
-          <Field label="Tex passport (AAS №)" icon={IdCard}><Input value={c.techPassportNo ?? ''} onChange={(e) => onChange({ techPassportNo: e.target.value })} /></Field>
+          <Field label="Davlat raqami" required icon={Hashtag} error={errors?.stateNumber}><PlateInput value={c.stateNumber ?? null} onChange={(v) => onChange({ stateNumber: v })} /></Field>
+          <Field label="Tex passport (AAS №)" required icon={IdCard} error={errors?.techPassportNo}><Input value={c.techPassportNo ?? ''} onChange={(e) => onChange({ techPassportNo: e.target.value })} /></Field>
           <Field label="Kuzov turi" icon={Car}><Input value={c.bodyType ?? ''} onChange={(e) => onChange({ bodyType: e.target.value })} placeholder="YENGIL SEDAN" /></Field>
           <Field label="Kuzov №" icon={Hashtag}><Input value={c.bodyNo ?? ''} onChange={(e) => onChange({ bodyNo: e.target.value })} /></Field>
           <Field label="Dvigatel №" icon={Hashtag}><Input value={c.engineNo ?? ''} onChange={(e) => onChange({ engineNo: e.target.value })} /></Field>
@@ -122,9 +122,9 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
             ))}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Manzil" required className="sm:col-span-2" icon={Location} error={error}><Input value={c.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} /></Field>
+            <Field label="Manzil" required className="sm:col-span-2" icon={Location} error={errors?.address}><Input value={c.address ?? ''} onChange={(e) => onChange({ address: e.target.value })} /></Field>
             <Field label="Reestr №" icon={Hashtag}><Input value={c.registryNo ?? ''} onChange={(e) => onChange({ registryNo: e.target.value })} /></Field>
-            <Field label="Kadastr №" icon={Hashtag} hint="10:01:05:03:01:1234"><KadastrInput value={c.cadastreNo ?? null} onChange={(v) => onChange({ cadastreNo: v })} /></Field>
+            <Field label="Kadastr №" required icon={Hashtag} hint="10:01:05:03:01:1234" error={errors?.cadastreNo}><KadastrInput value={c.cadastreNo ?? null} onChange={(v) => onChange({ cadastreNo: v })} /></Field>
             <KadastrCard cadastreNo={c.cadastreNo ?? ''} />
             <Field label="Mulk turi" icon={House}><Input value={c.propertyType ?? ''} onChange={(e) => onChange({ propertyType: e.target.value })} placeholder={(c.realtyKind ?? 'APARTMENT') === 'HOUSE' ? "YAKKA TARTIBDAGI TURAR JOY" : "KO'P QAVATLI UYDAGI XONADON"} /></Field>
             <Field label="Ko'chirma sanasi" icon={Calendar}><DatePicker value={c.registrationDate ?? null} onChange={(iso) => onChange({ registrationDate: iso })} /></Field>
@@ -145,7 +145,7 @@ export function CollateralCard({ index, c, error, onChange, onRemove, canRemove,
       )}
 
       <div className="grid gap-4 border-t border-gray-200 pt-4 dark:border-gray-800 sm:grid-cols-2">
-        <Field label="Kelishilgan garov qiymati" required icon={Money}><MoneyInput value={c.agreedValue ?? null} onChange={(v) => onChange({ agreedValue: v })} /></Field>
+        <Field label="Kelishilgan garov qiymati" required icon={Money} error={errors?.agreedValue}><MoneyInput value={c.agreedValue ?? null} onChange={(v) => onChange({ agreedValue: v })} /></Field>
         <Field label="Qiymat (prописью)" icon={Tag}><Input value={c.agreedValueWords ?? ''} onChange={(e) => onChange({ agreedValueWords: e.target.value })} /></Field>
       </div>
 
