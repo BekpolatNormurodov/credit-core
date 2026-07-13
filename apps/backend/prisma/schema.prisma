@@ -434,6 +434,8 @@ model CreditLine {
   amountAuto   Decimal?         @db.Decimal(18, 2)
   amountPolis  Decimal?         @db.Decimal(18, 2)
   amountTotal  Decimal?         @db.Decimal(18, 2)
+  requiredCollateralAmount Decimal? @db.Decimal(18, 2) // mol-mulk (amountAuto) × 140% override; null = computed
+  requiredInsuredAmount    Decimal? @db.Decimal(18, 2) // polis (amountPolis) × 130% insured-sum override
   termMonths   Int?
   lineDate     DateTime?
   lineMaturity DateTime?

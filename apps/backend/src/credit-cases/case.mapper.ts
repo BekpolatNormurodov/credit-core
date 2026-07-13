@@ -77,6 +77,7 @@ function toCreditLine(l: CaseWithRelations['creditLine']) {
     lineNumber: l.lineNumber, loanType: l.loanType, amountAuto: num(l.amountAuto), amountPolis: num(l.amountPolis),
     amountTotal: num(l.amountTotal), termMonths: l.termMonths, lineDate: iso(l.lineDate), lineMaturity: iso(l.lineMaturity),
     interestRate: num(l.interestRate), penaltyRate: num(l.penaltyRate), orderNumber: l.orderNumber,
+    requiredCollateralAmount: num(l.requiredCollateralAmount), requiredInsuredAmount: num(l.requiredInsuredAmount),
     insurance: l.insurance
       ? { insured: l.insurance.insured, company: l.insurance.company, genAgreementNo: l.insurance.genAgreementNo, genAgreementDate: iso(l.insurance.genAgreementDate), policyNo: l.insurance.policyNo, policyIssueDate: iso(l.insurance.policyIssueDate), policyTermMonths: l.insurance.policyTermMonths, policyExpiry: iso(l.insurance.policyExpiry), loanUnderPolicy: num(l.insurance.loanUnderPolicy), insuredSum: num(l.insurance.insuredSum), insuranceRate: num(l.insurance.insuranceRate), premium: num(l.insurance.premium) }
       : null,

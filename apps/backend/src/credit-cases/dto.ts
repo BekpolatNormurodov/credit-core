@@ -172,6 +172,8 @@ export class CreditLineInput {
   @IsOptional() @IsNumber() @Min(0) amountAuto?: number | null;
   @IsOptional() @IsNumber() @Min(0) amountPolis?: number | null;
   @IsOptional() @IsNumber() @Min(0) amountTotal?: number | null;
+  @IsOptional() @IsNumber() @Min(0) requiredCollateralAmount?: number | null;
+  @IsOptional() @IsNumber() @Min(0) requiredInsuredAmount?: number | null;
   @IsOptional() @IsInt() @Min(1) @Max(600) termMonths?: number | null;
   @IsOptional() @IsString() lineDate?: string | null;
   @IsOptional() @IsString() lineMaturity?: string | null;
