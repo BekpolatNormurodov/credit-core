@@ -22,6 +22,14 @@ const uploadTypes: DocumentType[] = [
   DocumentType.PASSPORT, DocumentType.NOTARY, DocumentType.SCAN, DocumentType.COLLATERAL_PHOTO, DocumentType.TECH_PASSPORT,
 ];
 
+// Externally-produced scans attached only after the director has approved the case — each is a
+// single named slot matched by DocumentDto.title, not a new DocumentType or a document category.
+const SCAN_SLOTS = [
+  { title: 'Гаров шартномаси' },
+  { title: 'Тақиқ карточкаси' },
+  { title: 'Умумий иш (Опшая дела)' },
+] as const;
+
 const decisionLabel: Record<WorkflowDecision, string> = {
   [WorkflowDecision.SUBMIT]: 'Yuborish', [WorkflowDecision.APPROVE]: 'Tasdiqlash',
   [WorkflowDecision.RETURN]: 'Qaytarish', [WorkflowDecision.FINALIZE]: 'Yakunlash',
@@ -152,6 +160,10 @@ export function CaseView() {
   const isAdminFinalize = role === Role.ADMIN && c.status === CaseStatus.ADMIN_FINALIZE;
   const canUpload = isOperatorDraft || isDirectorReview;
   const canManageDocs = canUpload || role === Role.ADMIN;
+  // Post-director-approval scan slots (collateral contract / encumbrance card / general file) —
+  // uploaded by operator/moderator/director once the case reaches ADMIN_FINALIZE or FINALIZED.
+  const showScanSlots = c.status === CaseStatus.ADMIN_FINALIZE || c.status === CaseStatus.FINALIZED;
+  const canUploadScans = role === Role.OPERATOR || role === Role.MODERATOR || role === Role.DIRECTOR;
   const currentUploadTypes = isDirectorReview ? [DocumentType.DIRECTOR_FINAL] : uploadTypes;
   // The controlled uploadType can be stale for the context (e.g. still NOTARY while a director may
   // only attach DIRECTOR_FINAL); fall back to the first allowed type so the doc is filed correctly.
@@ -294,6 +306,24 @@ export function CaseView() {
               />
             </div>
           </Card>
+
+          {showScanSlots && (
+            <Card className="space-y-3">
+              <h2 className="font-semibold text-gray-800 dark:text-white">Сканер ҳужжатлар (директор тасдиғидан кейин)</h2>
+              <div className="space-y-2">
+                {SCAN_SLOTS.map((slot) => (
+                  <ScanSlotRow
+                    key={slot.title}
+                    caseId={c.id}
+                    title={slot.title}
+                    doc={c.documents.find((d) => d.title === slot.title)}
+                    canUpload={canUploadScans}
+                    canManage={canUploadScans}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
@@ -625,6 +655,54 @@ function DocActions({ doc, canManage }: { doc: DocumentDto; canManage: boolean }
           <button onClick={() => replaceRef.current?.click()} disabled={rep.isPending} aria-label="Almashtirish" title="Almashtirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 focus-visible:ring-2 focus-visible:ring-brand-600/30 disabled:opacity-50 dark:text-gray-400 dark:hover:bg-white/10"><Upload className="h-[18px] w-[18px]" /></button>
           <button onClick={() => del.mutate()} disabled={del.isPending} aria-label="O‘chirish" title="O‘chirish" className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400 outline-none transition hover:bg-error-50 hover:text-error-600 focus-visible:ring-2 focus-visible:ring-error-600/30 disabled:opacity-50 dark:hover:bg-error-500/10"><Trash2 className="h-[18px] w-[18px]" /></button>
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One named post-approval scan slot: shows the view/download/replace controls (via DocActions)
+ * once a document with a matching title exists, otherwise an upload button that files it under
+ * DocumentType.SCAN with that title so the slot flips to "uploaded" on the next refetch.
+ */
+function ScanSlotRow({
+  caseId, title, doc, canUpload, canManage,
+}: { caseId: string; title: string; doc: DocumentDto | undefined; canUpload: boolean; canManage: boolean }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const upload = useMutation({
+    mutationFn: (file: File) => api.uploadDocument(caseId, DocumentType.SCAN, file, { title }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['case', caseId] }); toast.success('Yuklandi', title); },
+    onError: () => toast.error('Xatolik', 'Yuklanmadi'),
+  });
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
+      <div className="flex min-w-0 items-center gap-2.5 text-sm">
+        <FileText className="h-5 w-5 shrink-0 text-gray-400" />
+        <div className="min-w-0">
+          <p className="truncate font-medium text-gray-700 dark:text-gray-200">{title}</p>
+          {doc ? (
+            <p className="truncate text-xs text-gray-400 dark:text-gray-500">
+              {doc.fileName} · {new Date(doc.uploadedAt).toLocaleString('ru-RU')}
+              {doc.uploadedByName ? ` · ${doc.uploadedByName}` : ''}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500">Hali yuklanmagan</p>
+          )}
+        </div>
+      </div>
+      {doc ? (
+        <DocActions doc={doc} canManage={canManage} />
+      ) : canUpload ? (
+        <>
+          <input ref={fileRef} type="file" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload.mutate(f); e.target.value = ''; }} />
+          <Button variant="secondary" loading={upload.isPending} onClick={() => fileRef.current?.click()}>
+            <Upload className="h-5 w-5" /> Yuklash
+          </Button>
+        </>
+      ) : (
+        <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">—</span>
       )}
     </div>
   );
