@@ -14,6 +14,30 @@ export function watermarkForStatus(status: string): { text: string; color: strin
   return null;
 }
 
+/**
+ * The status badge shown next to a document in the UI. Mirrors the watermark, but as a labelled
+ * tone the frontend can colour: pending (grey) while under review, approved (green) once the director
+ * has signed (FINALIZED / legacy ADMIN_FINALIZE), rejected (red) if the case was refused/cancelled.
+ * null for DRAFT (no documents yet).
+ */
+export type DocBadgeTone = 'pending' | 'approved' | 'rejected';
+export function docBadgeForStatus(status: string): { label: string; tone: DocBadgeTone } | null {
+  switch (status) {
+    case 'FINALIZED':
+    case 'ADMIN_FINALIZE':
+      return { label: 'Tasdiqlangan', tone: 'approved' };
+    case 'MODERATION':
+    case 'DIRECTOR_REVIEW':
+      return { label: 'Tasdiqlanmagan', tone: 'pending' };
+    case 'REJECTED':
+      return { label: 'Rad etilgan', tone: 'rejected' };
+    case 'CANCELLED':
+      return { label: 'Bekor qilingan', tone: 'rejected' };
+    default:
+      return null;
+  }
+}
+
 export const money = (n: unknown): string =>
   n == null ? '—' : new Intl.NumberFormat('ru-RU').format(Number(n)) + " so'm";
 

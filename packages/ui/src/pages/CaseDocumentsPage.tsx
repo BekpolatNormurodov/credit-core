@@ -12,6 +12,13 @@ import { Select } from '../components/forms';
 import { useToast } from '../components/Toast';
 import { cn } from '../lib/cn';
 
+// Per-document status pill: grey while under review → green once the director signs → red if refused.
+const BADGE_TONE: Record<'pending' | 'approved' | 'rejected', string> = {
+  pending: 'bg-warning-50 text-warning-600 dark:bg-warning-500/10 dark:text-warning-500',
+  approved: 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400',
+  rejected: 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400',
+};
+
 // Same set offered on the case-overview upload control — kept identical so a document filed here
 // lands in the same place it would have from the old modal.
 const uploadTypes: DocumentType[] = [
@@ -231,8 +238,8 @@ function GeneratedDocList({
               <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
                 <Lock className="h-3 w-3 shrink-0" /> Direktor tasdiqlagach mavjud bo‘ladi
               </p>
-            ) : d.watermarked && (
-              <span className="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Tasdiqlanmagan</span>
+            ) : d.badge && (
+              <span className={cn('mt-0.5 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide', BADGE_TONE[d.badge.tone])}>{d.badge.label}</span>
             )}
           </div>
           {d.available ? (

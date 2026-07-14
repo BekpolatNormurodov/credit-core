@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { PdfService } from './pdf.service';
 import { loadCaseForDocs } from './documents/case-document.loader';
-import { watermarkForStatus } from './documents/doc-layout';
+import { docBadgeForStatus, watermarkForStatus } from './documents/doc-layout';
 import { DOC_REGISTRY } from './documents/registry';
 import { exportScheduleToExcel } from './excel-export.util';
 
@@ -17,12 +17,13 @@ export class CaseDocumentsController {
   async list(@Param('id') id: string) {
     const c = await this.prisma.creditCase.findUnique({ where: { id }, select: { status: true } });
     if (!c) throw new NotFoundException('case not found');
-    const wm = watermarkForStatus(c.status);
     // 'review' docs make sense as soon as the case leaves DRAFT; 'approved' docs (notary copies,
     // monitoring acts) only make sense once the director has signed off — FINALIZED, or the legacy
     // ADMIN_FINALIZE status that predates the current terminal-at-director-approval workflow.
     const reviewAvailable = c.status !== 'DRAFT';
     const approvedAvailable = c.status === 'FINALIZED' || (c.status as string) === 'ADMIN_FINALIZE';
+    // Badge shown per document: "Tasdiqlanmagan" under review → "Tasdiqlangan" once the director signs.
+    const badge = docBadgeForStatus(c.status);
     return Object.entries(DOC_REGISTRY).map(([key, d]) => {
       const available = d.stage === 'approved' ? approvedAvailable : reviewAvailable;
       return {
@@ -32,7 +33,7 @@ export class CaseDocumentsController {
         category: d.category,
         stage: d.stage,
         available,
-        watermarked: available && wm !== null,
+        badge: available ? badge : null,
       };
     });
   }

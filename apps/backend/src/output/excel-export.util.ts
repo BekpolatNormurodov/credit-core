@@ -2,6 +2,7 @@ import * as ExcelJS from 'exceljs';
 import { CreditCaseDto, CreditCaseListItem, PRODUCT_LABEL, STATUS_LABEL } from '@credit-core/shared';
 import { dateToUzbekWords } from '../common/sum-to-words.util';
 import type { CaseDocData } from './documents/case-document.loader';
+import { scheduleForCase } from './documents/schedule';
 
 /** Export the full case list (role-scoped) into one .xlsx table. */
 export async function exportCasesListToExcel(rows: CreditCaseListItem[]): Promise<Buffer> {
@@ -91,7 +92,7 @@ const SCHEDULE_HEADER = ['№', 'To‘lov sanasi', 'Boshlang‘ich qoldiq', 'Aso
 export async function exportScheduleToExcel(c: CaseDocData): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('График');
-  const sched = c.creditLine?.tranches?.[0]?.schedule ?? null;
+  const sched = scheduleForCase(c);
 
   ws.addRow(['Asosiy summa', sched ? Number(sched.principal) : '—']);
   ws.addRow(['Muddat', sched ? `${sched.termMonths} oy` : '—']);

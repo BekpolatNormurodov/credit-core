@@ -22,20 +22,23 @@ describe('grafikTemplate', () => {
     expect(text).not.toMatch(/\d\d:\d\d:\d\d/);
   });
 
-  it('renders the guard paragraph and does not crash when the tranche has no schedule', () => {
+  it('regenerates the schedule on-demand from tranche/line params when nothing is persisted', () => {
+    // No persisted schedule — but the tranche (principal/term) and line (rate) are filled, so the
+    // grafik must recompute the installments live instead of showing the "hisoblanmagan" guard.
     const c = mockCaseDoc({ creditLine: { tranches: [{ schedule: null }] as any } });
+    const text = flattenDocText(grafikTemplate(c));
+
+    expect(text).not.toContain('Тўлов жадвали ҳисобланмаган');
+    expect(text).toContain('ЖАМИ');
+    expect(text).toContain("so'm");
+    expect(text).not.toContain('NaN');
+  });
+
+  it('shows the guard paragraph only when inputs are insufficient (no line / amount / rate)', () => {
+    const c = mockCaseDoc({ creditLine: null as any, amount: null as any, termMonths: null as any });
     const text = flattenDocText(grafikTemplate(c));
 
     expect(text).toContain('Тўлов жадвали ҳисобланмаган');
     expect(text).not.toContain('NaN');
-  });
-
-  it('renders the guard paragraph when installments are empty', () => {
-    const c = mockCaseDoc({
-      creditLine: { tranches: [{ schedule: { installments: [] } }] as any },
-    });
-    const text = flattenDocText(grafikTemplate(c));
-
-    expect(text).toContain('Тўлов жадвали ҳисобланмаган');
   });
 });

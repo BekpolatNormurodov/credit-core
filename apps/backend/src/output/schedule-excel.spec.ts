@@ -47,8 +47,21 @@ describe('exportScheduleToExcel', () => {
     });
   });
 
-  it('returns a valid workbook (no crash) when the tranche has no schedule', async () => {
+  it('recomputes the schedule live when nothing is persisted (regenerates from tranche/line params)', async () => {
     const c = mockCaseDoc({ creditLine: { tranches: [{ schedule: null }] as any } });
+
+    const buffer = await exportScheduleToExcel(c);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+
+    const ws = wb.getWorksheet('График')!;
+    const values = allCellValues(ws);
+    expect(values).toContain('JAMI');
+    expect(values).not.toContain("To'lov jadvali hisoblanmagan");
+  });
+
+  it('returns the guard workbook (no crash) when inputs are insufficient', async () => {
+    const c = mockCaseDoc({ creditLine: null as any, amount: null as any, termMonths: null as any });
 
     const buffer = await exportScheduleToExcel(c);
     const wb = new ExcelJS.Workbook();
@@ -58,18 +71,5 @@ describe('exportScheduleToExcel', () => {
     expect(ws).toBeDefined();
     const values = allCellValues(ws!);
     expect(values).toContain("To'lov jadvali hisoblanmagan");
-  });
-
-  it('returns a valid workbook (no crash) when installments are empty', async () => {
-    const c = mockCaseDoc({
-      creditLine: { tranches: [{ schedule: { installments: [] } }] as any },
-    });
-
-    const buffer = await exportScheduleToExcel(c);
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
-
-    const ws = wb.getWorksheet('График');
-    expect(ws).toBeDefined();
   });
 });

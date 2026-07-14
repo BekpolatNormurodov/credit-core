@@ -2,6 +2,7 @@ import type { TDocumentDefinitions, TableCell } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { orgHeader, docTitle, kv, kvTable, money, gridTable } from '../doc-layout';
+import { scheduleForCase } from '../schedule';
 
 const HEADER_ROW: TableCell[] = [
   { text: '№', bold: true, alignment: 'center' },
@@ -20,7 +21,7 @@ const HEADER_ROW: TableCell[] = [
  */
 export function grafikTemplate(c: CaseDocData): TDocumentDefinitions {
   const contractNo = c.contractNumber ?? c.number ?? '—';
-  const sched = c.creditLine?.tranches?.[0]?.schedule ?? null;
+  const sched = scheduleForCase(c);
 
   const header = [orgHeader(c.organization), docTitle('ТЎЛОВ ЖАДВАЛИ (ГРАФИК)', `Иш № ${contractNo}`)];
 
