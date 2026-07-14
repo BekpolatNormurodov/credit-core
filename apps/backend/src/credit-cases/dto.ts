@@ -1,6 +1,5 @@
 import { Type } from 'class-transformer';
 import {
-  ArrayMinSize,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -211,11 +210,12 @@ export class UpsertCaseDto {
   @Type(() => GuarantorInput)
   guarantors?: GuarantorInput[];
 
-  // Optional so per-step autosave (which omits sections it isn't saving) validates;
-  // the ≥1-collateral requirement is enforced at the submit transition instead.
+  // Optional AND allowed to be empty during drafting: per-step autosave omits sections it isn't
+  // saving, and creating from step 1 sends collaterals: []. @IsOptional only skips null/undefined,
+  // so an empty array must pass @IsArray/@ValidateNested cleanly — do NOT add @ArrayMinSize here.
+  // The ≥1-collateral requirement is enforced at the submit transition (caseSubmitErrors) instead.
   @IsOptional()
   @IsArray()
-  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => CollateralInput)
   collaterals?: CollateralInput[];
