@@ -412,6 +412,7 @@ model Organization {
   nameMixed     String
   nameUpper     String
   nameSuffix    String
+  tradeMark     String? // Савдо белгиси, e.g. "PULMAKON" — printed on the generated forms
   directorShort String
   directorFull  String
   legalBasis    String    @default("Низом")

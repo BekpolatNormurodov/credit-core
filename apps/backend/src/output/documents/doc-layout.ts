@@ -41,6 +41,23 @@ export function docBadgeForStatus(status: string): { label: string; tone: DocBad
 export const money = (n: unknown): string =>
   n == null ? '—' : new Intl.NumberFormat('ru-RU').format(Number(n)) + " so'm";
 
+/**
+ * Shared document defaults — bumped line height (1.15, per the "kattaroq line orasi" request) so
+ * every rebuilt template reads like the Excel forms. Templates spread this into `defaultStyle`.
+ */
+export const DOC_DEFAULT_STYLE = { font: 'Roboto', fontSize: 10, lineHeight: 1.15 } as const;
+export const DOC_PAGE_MARGINS: [number, number, number, number] = [45, 50, 45, 50];
+
+/** Centered, bold, larger chapter/section heading (e.g. "1. КЕЛИШУВ ПРЕДМЕТИ"). */
+export function sectionTitle(text: string): Content {
+  return { text, bold: true, fontSize: 11.5, alignment: 'center', margin: [0, 10, 0, 6] };
+}
+
+/** Left-aligned bold sub-heading inside a form section. */
+export function subHeading(text: string): Content {
+  return { text, bold: true, fontSize: 11, margin: [0, 8, 0, 4] };
+}
+
 /** A two-column label/value row for a pdfmake table body. */
 export const kv = (label: string, val: string): TableCell[] => [
   { text: label, bold: true, margin: [0, 3, 0, 3] },
@@ -66,7 +83,7 @@ export function kvTable(rows: TableCell[][], labelWidth: number | string = 190):
 
 /** Centered document title (bold) with an optional subtitle line under it. */
 export function docTitle(title: string, subtitle?: string): Content {
-  const stack: Content[] = [{ text: title, bold: true, fontSize: 13, alignment: 'center' }];
+  const stack: Content[] = [{ text: title, bold: true, fontSize: 14, alignment: 'center' }];
   if (subtitle) stack.push({ text: subtitle, alignment: 'center', color: '#444', fontSize: 9.5, margin: [0, 2, 0, 0] });
   return { stack, margin: [0, 4, 0, 12] };
 }

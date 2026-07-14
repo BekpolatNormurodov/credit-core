@@ -7,9 +7,10 @@ async function main() {
   // Lender master data (id 'default') — document letterhead/requisites read this.
   await prisma.organization.upsert({
     where: { id: 'default' },
-    update: {},
+    update: { tradeMark: 'PULMAKON' }, // backfill the trademark on existing deployments
     create: {
       id: 'default',
+      tradeMark: 'PULMAKON',
       nameMixed: 'МЧЖ «CLEVER Mikromoliya Tashkiloti»',
       nameUpper: 'МЧЖ «CLEVER MIKROMOLIYA TASHKILOTI»',
       nameSuffix: '«CLEVER MIKROMOLIYA TASHKILOTI» МЧЖ',
