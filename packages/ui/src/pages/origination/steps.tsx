@@ -12,6 +12,7 @@ import {
 import { Button, Card, Field, Input } from '../../components/primitives';
 import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/forms';
 import { Toggle } from '../../components/Switches';
+import { ConfirmDialog } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
 import { House, Car, Plus, Trash, Check } from '../../lib/icons';
 import { cn, formatMoney } from '../../lib/cn';
@@ -303,6 +304,7 @@ export function StepSugurta({ f }: { f: OriginationForm }) {
 export function StepGarov({ f }: { f: OriginationForm }) {
   const qc = useQueryClient();
   const [activeCol, setActiveCol] = useState(0);
+  const [delIdx, setDelIdx] = useState<number | null>(null); // collateral pending delete-confirmation
   const cols = f.form.collaterals;
   const active = cols.length ? Math.min(activeCol, cols.length - 1) : 0; // never -1 on empty
   const addCol = (t: ProductType) => { f.addCol(t); setActiveCol(cols.length); };
@@ -355,8 +357,8 @@ export function StepGarov({ f }: { f: OriginationForm }) {
           })}
         </ol>
         {cols.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/60 p-8 text-center dark:border-gray-700 dark:bg-white/5">
-            <p className="font-medium text-gray-700 dark:text-gray-200">Hali garov qo‘shilmagan</p>
+          <div className="rounded-2xl border border-dashed border-error-300 bg-error-50/50 p-8 text-center dark:border-error-500/40 dark:bg-error-500/5">
+            <p className="font-medium text-error-700 dark:text-error-400">Hali garov qo‘shilmagan — majburiy</p>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Yuqoridagi tugmalar bilan <b>Uy-joy</b> yoki <b>Avto</b> garov qo‘shing — kamida bittasi to‘liq to‘ldirilishi shart.</p>
             <div className="mt-4 flex justify-center gap-2">
               <Button variant="secondary" onClick={() => addCol(ProductType.REAL_ESTATE)}><Plus className="h-4 w-4" /><House className="h-4 w-4" /> Uy-joy</Button>
@@ -370,8 +372,8 @@ export function StepGarov({ f }: { f: OriginationForm }) {
             c={cols[active]}
             errors={f.attempted ? collateralErrors(cols[active]) : undefined}
             onChange={(p) => f.setCol(active, p)}
-            onRemove={() => { f.removeCol(active); setActiveCol(Math.max(0, active - 1)); }}
-            canRemove={cols.length > 1}
+            onRemove={() => setDelIdx(active)}
+            canRemove
             mediaSlot={<>
               <CollateralAttachments f={f} colIndex={active} type={DocumentType.COLLATERAL_PHOTO} accept="image/*,video/*" title="Rasm / video" max={10} />
               <CollateralAttachments f={f} colIndex={active} type={DocumentType.GEN_DOVERNOST} accept="image/*,application/pdf" title="Ishonchnoma" max={5} />
@@ -400,6 +402,16 @@ export function StepGarov({ f }: { f: OriginationForm }) {
           )}
         </div>
       )}
+      <ConfirmDialog
+        open={delIdx !== null}
+        onClose={() => setDelIdx(null)}
+        onConfirm={() => { if (delIdx !== null) { f.removeCol(delIdx); setActiveCol(Math.max(0, delIdx - 1)); } setDelIdx(null); }}
+        title="Garovni o‘chirasizmi?"
+        message={delIdx !== null ? `Garov ${delIdx + 1} butunlay o‘chiriladi. Bu amalni qaytarib bo‘lmaydi.` : undefined}
+        confirmLabel="Ha, o‘chiraman"
+        cancelLabel="Bekor qilish"
+        tone="danger"
+      />
     </div>
   );
 }
