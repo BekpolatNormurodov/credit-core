@@ -66,9 +66,7 @@ export function OriginationWizard() {
             {STEPS.map((s, i) => {
               const current = i === f.step; // selected
               const complete = f.stepComplete(i); // has required fields AND all filled correctly
-              // Red when touched and still missing a required field — plus the Garov step (index 4) goes
-              // red as soon as there are 0 collaterals, even before a submit attempt (it's a hard requirement).
-              const invalid = (f.attempted || i === 1 || (i === 4 && f.form.collaterals.length === 0)) && f.stepHasErrors(i);
+              const invalid = f.attempted && f.stepHasErrors(i); // touched (submit attempted), still missing a required field
               return (
                 <li key={i}>
                   <button

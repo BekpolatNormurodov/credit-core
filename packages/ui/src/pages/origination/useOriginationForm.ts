@@ -180,8 +180,11 @@ export function useOriginationForm(id?: string) {
   };
   const stepHasErrors = (s: number) => (STEP_ERRORS[s] ?? []).some((k) => errors[k]);
   // A step is "complete" (green ✓) only when it actually HAS required fields and all are satisfied.
-  // Steps with no required fields (employment, KATM) are never "complete" — they aren't green.
-  const stepComplete = (s: number) => (STEP_ERRORS[s] ?? []).length > 0 && !stepHasErrors(s);
+  // Ish & daromad (step 1) is conditional (majburiy only for 100 mln+), so it goes green ONLY when the
+  // key fields are actually filled — never green by default on a blank form.
+  const employmentFilled = !!form.employment?.employer?.trim() && (form.affordability?.mainActivityIncome ?? 0) > 0;
+  const stepComplete = (s: number) =>
+    s === 1 ? employmentFilled : (STEP_ERRORS[s] ?? []).length > 0 && !stepHasErrors(s);
   const valid = (Object.keys(errors) as ErrKey[]).every((k) => !errors[k]);
 
   /** Persist one section (autosave). Creates the case first if it doesn't exist yet. */
