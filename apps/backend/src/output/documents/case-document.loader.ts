@@ -17,6 +17,7 @@ export async function loadCaseForDocs(prisma: PrismaService, id: string) {
           insurance: true,
         },
       },
+      employment: true,
       affordability: true,
       creditHistory: true,
       scoring: { include: { factors: true } },

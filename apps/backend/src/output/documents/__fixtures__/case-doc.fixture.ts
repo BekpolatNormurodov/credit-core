@@ -224,6 +224,18 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
       },
     },
 
+    employment: {
+      id: 'employment-1',
+      caseId: 'case-1',
+      employer: 'YAKKA TARTIBDAGI TADBIRKOR',
+      employerAddress: null,
+      sector: null,
+      sectorRiskCode: null,
+      position: 'Раҳбарият',
+      employedSince: null,
+      experienceBand: null,
+    },
+
     affordability: {
       id: 'afford-1',
       caseId: 'case-1',
