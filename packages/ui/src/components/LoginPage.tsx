@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
-import { motion, useMotionValue, useSpring } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { LogIn } from '../lib/icons';
 import { Role, ROLE_LABEL } from '@credit-core/shared';
 import { getErrorMessage } from '@credit-core/api-client';
@@ -7,9 +7,6 @@ import { useAuth } from '../lib/auth';
 import { Button, Input, Field, PasswordInput } from './primitives';
 import { LangSwitch, ThemeSwitch } from './Switches';
 import { LogoMark } from './Logo';
-import { SplineScene } from './SplineScene';
-
-const SPLINE_SCENE = 'https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode';
 
 export function LoginPage({ role, title }: { role: Role; title: string }) {
   const { login } = useAuth();
@@ -17,21 +14,6 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  // Cursor-following glow on the 3D panel.
-  const stageRef = useRef<HTMLDivElement>(null);
-  const [glowOn, setGlowOn] = useState(false);
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const gx = useSpring(mx, { stiffness: 150, damping: 22, mass: 0.4 });
-  const gy = useSpring(my, { stiffness: 150, damping: 22, mass: 0.4 });
-
-  const onMove = (e: React.MouseEvent) => {
-    const r = stageRef.current?.getBoundingClientRect();
-    if (!r) return;
-    mx.set(e.clientX - r.left);
-    my.set(e.clientY - r.top);
-  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,62 +39,30 @@ export function LoginPage({ role, title }: { role: Role; title: string }) {
         <ThemeSwitch />
       </div>
 
-      {/* Left: interactive 3D brand panel (lg+) */}
-      <div
-        ref={stageRef}
-        onMouseMove={onMove}
-        onMouseEnter={() => setGlowOn(true)}
-        onMouseLeave={() => setGlowOn(false)}
-        className="relative hidden overflow-hidden bg-gray-900 lg:block"
-      >
-        {/* dotted grid */}
+      {/* Left: clean static brand panel (lg+) — logo + tagline, no 3D scene */}
+      <div className="relative hidden overflow-hidden bg-gray-900 lg:flex lg:items-center lg:justify-center">
+        {/* subtle dotted grid */}
         <div
-          className="pointer-events-none absolute inset-0 z-[1] opacity-[0.16]"
+          className="pointer-events-none absolute inset-0 opacity-[0.14]"
           style={{
             backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.7) 1px, transparent 1px)',
             backgroundSize: '24px 24px',
-            maskImage: 'radial-gradient(70% 70% at 40% 45%, #000 30%, transparent 80%)',
-            WebkitMaskImage: 'radial-gradient(70% 70% at 40% 45%, #000 30%, transparent 80%)',
+            maskImage: 'radial-gradient(75% 75% at 50% 45%, #000 30%, transparent 82%)',
+            WebkitMaskImage: 'radial-gradient(75% 75% at 50% 45%, #000 30%, transparent 82%)',
           }}
         />
         {/* ambient corner glows */}
-        <div className="pointer-events-none absolute -right-24 -top-24 z-[1] h-72 w-72 rounded-full bg-brand-500/25 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-28 -left-20 z-[1] h-72 w-72 rounded-full bg-brand-700/20 blur-3xl" />
+        <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand-500/25 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-28 -left-20 h-72 w-72 rounded-full bg-brand-700/20 blur-3xl" />
 
-        {/* grounding glow pool under the robot */}
-        <div
-          className="pointer-events-none absolute bottom-[14%] left-1/2 z-[1] h-28 w-[460px] -translate-x-1/2 blur-2xl"
-          style={{
-            borderRadius: '50%',
-            background: 'radial-gradient(ellipse at center, rgba(56,189,248,0.22), rgba(56,189,248,0) 70%)',
-          }}
-        />
-
-        {/* 3D scene */}
-        <SplineScene scene={SPLINE_SCENE} className="absolute inset-0 z-[2] h-full w-full" />
-
-        {/* cursor-following glow */}
-        <motion.div
-          aria-hidden
-          className="pointer-events-none absolute z-[3] h-[400px] w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-full mix-blend-screen blur-[42px] transition-opacity duration-300"
-          style={{
-            left: gx,
-            top: gy,
-            opacity: glowOn ? 1 : 0,
-            background: 'radial-gradient(circle, rgba(56,189,248,0.55), rgba(14,165,233,0) 60%)',
-          }}
-        />
-
-        {/* centered logo lockup */}
-        <div className="absolute left-1/2 top-9 z-[4] flex -translate-x-1/2 items-center gap-2.5">
-          <LogoMark className="h-9 w-9" />
-          <span className="font-heading text-lg font-semibold tracking-tight text-white">credit-core</span>
-        </div>
-
-        {/* tagline */}
-        <div className="absolute bottom-12 left-10 right-10 z-[4]">
-          <h2 className="font-heading text-2xl font-semibold text-white">Garov kreditlari — yagona panelda.</h2>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-gray-300">
+        {/* centered logo + tagline */}
+        <div className="relative z-[2] px-12 text-center">
+          <div className="flex items-center justify-center gap-3">
+            <LogoMark className="h-14 w-14" />
+            <span className="font-heading text-3xl font-bold tracking-tight text-white">credit-core</span>
+          </div>
+          <h2 className="mt-9 font-heading text-2xl font-semibold text-white">Garov kreditlari — yagona panelda.</h2>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-gray-300">
             Arizalar, moderatsiya, tahlil va hisobotlar — bitta xavfsiz boshqaruv tizimida.
           </p>
         </div>
