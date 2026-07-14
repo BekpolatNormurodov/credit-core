@@ -11,6 +11,24 @@ describe('petitionTemplate', () => {
     expect(text).toContain('105%');
   });
 
+  it('binds the borrower name, amount, line number and applicant address', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(petitionTemplate(c));
+
+    expect(text).toContain(c.borrower!.fullName);
+    expect(text).toContain(new Intl.NumberFormat('ru-RU').format(150_000_000));
+    expect(text).toContain(c.creditLine!.lineNumber!);
+    expect(text).toContain(c.borrower!.regAddress!);
+  });
+
+  it('never leaks a raw datetime (toString/toISOString) into the rendered text', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(petitionTemplate(c));
+
+    expect(text).not.toContain('GMT');
+    expect(text).not.toMatch(/\d\d:\d\d:\d\d/);
+  });
+
   it('never fabricates a default 60-month/55%/105% term when the credit line lacks them (and never fabricates a today() date for a missing lineDate)', () => {
     const c = mockCaseDoc({
       creditLine: {
