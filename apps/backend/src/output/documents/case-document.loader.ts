@@ -8,7 +8,15 @@ export async function loadCaseForDocs(prisma: PrismaService, id: string) {
       branch: true,
       borrower: true,
       collaterals: { include: { owners: true } },
-      creditLine: { include: { tranches: { orderBy: { trancheNo: 'asc' } }, insurance: true } },
+      creditLine: {
+        include: {
+          tranches: {
+            orderBy: { trancheNo: 'asc' },
+            include: { schedule: { include: { installments: { orderBy: { seq: 'asc' } } } } },
+          },
+          insurance: true,
+        },
+      },
       affordability: true,
       creditHistory: true,
       scoring: { include: { factors: true } },
