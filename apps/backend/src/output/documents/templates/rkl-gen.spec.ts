@@ -47,4 +47,38 @@ describe('rklGenTemplate', () => {
     expect(text).not.toContain('2%');
     expect(text).not.toContain('йилига 2%');
   });
+
+  it('binds the borrower name, amount and line number from the case data', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(rklGenTemplate(c));
+
+    expect(text).toContain(c.borrower!.fullName);
+    expect(text).toContain("Bir yuz ellik million so'm");
+    expect(text).toContain('РКЛ-0042');
+  });
+
+  it('renders the full multi-clause body — several distinct section headings', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(rklGenTemplate(c));
+
+    expect(text).toContain('КЕЛИШУВ ПРЕДМЕТИ');
+    expect(text).toContain('МИКРОҚАРЗ/МИКРОКРЕДИТЛАР ГАРОВ ТАЪМИНОТИ');
+    expect(text).toContain('ТОМОНЛАРНИНГ ҲУҚУҚ ВА МАЖБУРИЯТЛАРИ');
+    expect(text).toContain('КЕЛИШУВНИНГ АМАЛ ҚИЛИШ МУДДАТИ');
+  });
+
+  it('does not leak a raw datetime (no GMT string, no HH:MM:SS)', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(rklGenTemplate(c));
+
+    expect(text).not.toContain('GMT');
+    expect(text).not.toMatch(/\d\d:\d\d:\d\d/);
+  });
+
+  it('appends the notarial-attestation block only when notary=true', () => {
+    const c = mockCaseDoc();
+
+    expect(flattenDocText(rklGenTemplate(c, true))).toContain('НОТАРИАЛ ТАСДИҚ');
+    expect(flattenDocText(rklGenTemplate(c))).not.toContain('НОТАРИАЛ ТАСДИҚ');
+  });
 });
