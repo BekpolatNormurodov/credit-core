@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X, Plus, Minus, Messages,
 } from '../lib/icons';
-import { api, downloadBlob, viewDocument, documentInlineUrl } from '@credit-core/api-client';
+import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage } from '@credit-core/api-client';
 import {
   CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role, ROLE_LABEL,
   TRANSITIONS, WorkflowDecision, type CreditCaseDto, type DocumentDto,
@@ -116,6 +116,9 @@ export function CaseView() {
         toast.success('Imzolandi', 'Hujjatlar generatsiya bo‘lyapti — «Hujjatlar» bo‘limidan ko‘ring');
       }
     },
+    // Surface the backend's reason — for submit-to-moderation this is the full list of incomplete
+    // required fields (e.g. "PINFL 14 raqam; Garov 1: Kadastr № majburiy; KATM …").
+    onError: (err) => toast.error('Yuborib bo‘lmadi', getErrorMessage(err)),
   });
 
   const upload = useMutation({

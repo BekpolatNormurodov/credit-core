@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { addBusinessDays, caseSubmitErrors, CaseStatus, DocumentType, formatContractNumber, hasDeadline, insurancePremiumRate, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -580,7 +580,9 @@ export class CreditCasesService {
     if (c.status === CaseStatus.DRAFT && rule.to === CaseStatus.MODERATION) {
       const full = await this.getOne(id);
       const problems = caseSubmitErrors(full);
-      if (problems.length) throw new ForbiddenException(problems.join('; '));
+      // 400 (not 403) so the client surfaces the field list — getErrorMessage returns a generic
+      // "Ruxsat yo'q" for any 403, but shows the server message body for a 400.
+      if (problems.length) throw new BadRequestException(problems.join('; '));
 
       // Photos/videos are optional (0..10 per collateral) — only the upper bound is enforced.
       const mediaByCol = new Map<string, number>();
@@ -592,7 +594,7 @@ export class CreditCasesService {
         }
       }
       if (c.collaterals.some((col) => (mediaByCol.get(col.id) ?? 0) > 10)) {
-        throw new ForbiddenException('Har bir garovga ko‘pi bilan 10 ta rasm yoki video biriktiriladi');
+        throw new BadRequestException('Har bir garovga ko‘pi bilan 10 ta rasm yoki video biriktiriladi');
       }
 
       // Assign the company-wide contract number exactly once, at submit. New client: consume a new
