@@ -1114,6 +1114,10 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
   );
 }
 
+/** 16-digit card grouped 4-4-4-4 ("5614 6818 1023 5717"); numeric fields keep digits only. */
+const formatCard = (v: string) => v.replace(/\D/g, '').slice(0, 16).match(/.{1,4}/g)?.join(' ') ?? '';
+const onlyDigits = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max);
+
 /** Beneficiary bank requisites for the disbursement application ("Пул ўтказиш аризаси"). */
 function DisbursementPanel({ c, onChange }: { c: CreditCaseDto; onChange: () => void }) {
   const toast = useToast();
@@ -1141,13 +1145,17 @@ function DisbursementPanel({ c, onChange }: { c: CreditCaseDto; onChange: () => 
   return (
     <Card className="space-y-3">
       <h2 className="font-semibold text-gray-800 dark:text-white">Pul o‘tkazish rekvizitlari</h2>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <Field label="Hisob egasi"><Input value={holderName} onChange={(e) => setHolderName(e.target.value)} /></Field>
-        <Field label="Karta raqami"><Input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} /></Field>
-        <Field label="Hisob raqami (X/R)"><Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} /></Field>
-        <Field label="MFO"><Input value={bankMfo} onChange={(e) => setBankMfo(e.target.value)} /></Field>
-        <Field label="INN"><Input value={holderInn} onChange={(e) => setHolderInn(e.target.value)} /></Field>
-        <Field label="Bank nomi"><Input value={bankName} onChange={(e) => setBankName(e.target.value)} /></Field>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Hisob egasi" className="sm:col-span-2"><Input value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="F.I.O" /></Field>
+        <Field label="Karta raqami" className="sm:col-span-2" hint="16 raqam">
+          <Input inputMode="numeric" maxLength={19} value={cardNumber} onChange={(e) => setCardNumber(formatCard(e.target.value))} placeholder="0000 0000 0000 0000" className="tracking-[0.2em]" />
+        </Field>
+        <Field label="Hisob raqami (X/R)" className="sm:col-span-2" hint="20 raqam">
+          <Input inputMode="numeric" maxLength={20} value={accountNumber} onChange={(e) => setAccountNumber(onlyDigits(e.target.value, 20))} placeholder="00000000000000000000" />
+        </Field>
+        <Field label="MFO" hint="5 raqam"><Input inputMode="numeric" maxLength={5} value={bankMfo} onChange={(e) => setBankMfo(onlyDigits(e.target.value, 5))} placeholder="00000" /></Field>
+        <Field label="INN" hint="9 raqam (STIR)"><Input inputMode="numeric" maxLength={9} value={holderInn} onChange={(e) => setHolderInn(onlyDigits(e.target.value, 9))} placeholder="000000000" /></Field>
+        <Field label="Bank nomi" className="sm:col-span-2"><Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="Bank nomi" /></Field>
       </div>
       <Button className="w-full" loading={save.isPending} onClick={() => save.mutate()}>Saqlash</Button>
     </Card>
