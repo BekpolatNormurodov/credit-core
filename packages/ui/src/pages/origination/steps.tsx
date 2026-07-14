@@ -122,9 +122,11 @@ export function Step2({ f }: { f: OriginationForm }) {
   const bigLoan = amountTotal > MICRO_THRESHOLD;
   return (
     <div className="space-y-6">
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+      <div className={cn('rounded-lg border px-3 py-2 text-sm', bigLoan
+        ? 'border-error-200 bg-error-50 text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400'
+        : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300')}>
         {bigLoan
-          ? 'Mikrokredit (100 mln+) — ish staji va daromad ma’lumotlarini to‘ldirish tavsiya etiladi (ixtiyoriy).'
+          ? 'Mikrokredit (100 mln+) — ish joyi va asosiy daromad MAJBURIY. To‘ldirilmasa ariza yakunlanmaydi.'
           : 'Mikroqarz (100 mln gacha) — bu bo‘lim shart emas (ixtiyoriy). Xohlasangiz to‘ldiring.'}
       </div>
       {bigLoan && (
@@ -139,7 +141,7 @@ export function Step2({ f }: { f: OriginationForm }) {
       <Card className="space-y-4">
         <h2 className="font-semibold text-gray-800 dark:text-white">Ish joyi</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Ish joyi"><Input value={e.employer ?? ''} onChange={(ev) => setEmp({ employer: ev.target.value })} /></Field>
+          <Field label="Ish joyi" required={bigLoan} error={bigLoan && f.attempted && !e.employer?.trim() ? 'Majburiy' : undefined}><Input value={e.employer ?? ''} onChange={(ev) => setEmp({ employer: ev.target.value })} /></Field>
           <Field label="Ish joyi manzili"><Input value={e.employerAddress ?? ''} onChange={(ev) => setEmp({ employerAddress: ev.target.value })} /></Field>
           <Field label="Soha" className="sm:col-span-2"><Select searchable value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })} options={SECTOR_RISK.map((s) => ({ value: s.label, label: s.label }))} /></Field>
           <Field label="Lavozim"><Input value={e.position ?? ''} onChange={(ev) => setEmp({ position: ev.target.value })} /></Field>
@@ -150,7 +152,7 @@ export function Step2({ f }: { f: OriginationForm }) {
       <Card className="space-y-4">
         <h2 className="font-semibold text-gray-800 dark:text-white">Daromad va xarajat</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Field label="Asosiy daromad"><MoneyInput value={a.mainActivityIncome ?? null} onChange={(v) => setAff({ mainActivityIncome: v })} /></Field>
+          <Field label="Asosiy daromad" required={bigLoan} error={bigLoan && f.attempted && !((a.mainActivityIncome ?? 0) > 0) ? 'Majburiy' : undefined}><MoneyInput value={a.mainActivityIncome ?? null} onChange={(v) => setAff({ mainActivityIncome: v })} /></Field>
           <Field label="Qo‘shimcha daromad"><MoneyInput value={a.secondaryIncome ?? null} onChange={(v) => setAff({ secondaryIncome: v })} /></Field>
           <Field label="Oila a'zolari daromadi"><MoneyInput value={a.familyIncome ?? null} onChange={(v) => setAff({ familyIncome: v })} /></Field>
           <Field label="Boshqa daromad"><MoneyInput value={a.otherIncome ?? null} onChange={(v) => setAff({ otherIncome: v })} /></Field>

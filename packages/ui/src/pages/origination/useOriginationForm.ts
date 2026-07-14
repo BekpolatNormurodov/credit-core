@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
-  ProductType, RepaymentMethod, loanTypeFor, isTermValid, termCapFor, LINE_TERM_CAP,
+  ProductType, RepaymentMethod, loanTypeFor, isTermValid, termCapFor, LINE_TERM_CAP, MICRO_THRESHOLD,
   collateralComplete, collateralMissing,
   type UpsertCasePayload, type CaseSectionKey, type CollateralDto,
 } from '@credit-core/shared';
@@ -145,6 +145,11 @@ export function useOriginationForm(id?: string) {
     passportSeries: (b.passportSeries ?? '').length === 2 ? undefined : 'Seriya majburiy (AA)',
     passportNumber: (b.passportNumber ?? '').length === 7 ? undefined : 'Raqam majburiy (7 raqam)',
     phone: b.phone ? undefined : 'Telefon majburiy',
+    // Mikrokredit (100 mln+) — ish joyi va asosiy daromad majburiy (mikroqarzda ixtiyoriy).
+    employment: (amountTotal ?? 0) > MICRO_THRESHOLD
+      && (!form.employment?.employer?.trim() || !((form.affordability?.mainActivityIncome ?? 0) > 0))
+      ? 'Mikrokredit (100 mln+) — ish joyi va asosiy daromad majburiy'
+      : undefined,
     amountTotal: amountTotal && amountTotal > 0 ? undefined : 'Jami summa majburiy',
     lineTerm: !line?.termMonths || line.termMonths <= 0
       ? 'Liniya muddati majburiy'
@@ -166,7 +171,7 @@ export function useOriginationForm(id?: string) {
   // Steps: 0 Qarz oluvchi · 1 Ish & daromad · 2 Liniya · 3 Sug‘urta · 4 Garov · 5 Transh · 6 KATM.
   const STEP_ERRORS: Record<number, ErrKey[]> = {
     0: ['fullName', 'pinfl', 'passportSeries', 'passportNumber', 'phone', 'contacts'],
-    1: [],
+    1: ['employment'],
     2: ['amountTotal', 'lineTerm'],
     3: [],
     4: ['collateral'],
