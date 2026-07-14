@@ -2,13 +2,16 @@ import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { money, orgHeader } from '../doc-layout';
-import { amountWords, collateralDetails, p } from './_shared';
+import { amountWords, collateralDetails, notaryBlock, p } from './_shared';
 
 /**
  * Акт согласования — the collateral valuation-agreement act. Faithful transcription (Uzbek Cyrillic)
  * with placeholders merged: parties, contract number, collateral details and total agreed value.
+ *
+ * @param notary When true, appends a notarial-attestation block (party ID + fill-in lines for the
+ * notary/registry/seal) as the last content item. Defaults to false so existing callers are unaffected.
  */
-export function actTemplate(c: CaseDocData): TDocumentDefinitions {
+export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinitions {
   const line = c.creditLine;
   const b = c.borrower;
   const name = b?.fullName ?? '—';
@@ -44,6 +47,7 @@ export function actTemplate(c: CaseDocData): TDocumentDefinitions {
           { text: '\n___________ ' + name },
         ] },
       ], columnGap: 16, margin: [0, 16, 0, 0] },
+      ...(notary ? [notaryBlock(c)] : []),
     ],
   };
 }

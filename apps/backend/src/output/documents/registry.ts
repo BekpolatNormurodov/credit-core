@@ -30,4 +30,7 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; bu
   monitoring1: { title: 'Мониторинг далолатномаси (бошланғич)', lang: 'uz', build: (c) => monitoringTemplate(c, 0) },
   monitoring2: { title: 'Мониторинг далолатномаси (6 ой)', lang: 'uz', build: (c) => monitoringTemplate(c, 6) },
   monitoring3: { title: 'Мониторинг далолатномаси (12 ой)', lang: 'uz', build: (c) => monitoringTemplate(c, 12) },
+  actNotary: { title: 'Акт согласования (нотариал нусха)', lang: 'uz', build: (c) => actTemplate(c, true) },
+  prikazNotary: { title: 'Приказ на сделку (нотариал нусха)', lang: 'uz', build: (c) => prikazTemplate(c, true) },
+  rklGenNotary: { title: 'Бош келишув — РКЛ Ген (нотариал нусха)', lang: 'uz', build: (c) => rklGenTemplate(c, true) },
 };

@@ -5,6 +5,7 @@ describe('DOC_REGISTRY', () => {
     expect(Object.keys(DOC_REGISTRY).sort()).toEqual([
       'accountantSplit',
       'act',
+      'actNotary',
       'cheklist',
       'contract',
       'creditApplication',
@@ -14,8 +15,10 @@ describe('DOC_REGISTRY', () => {
       'obloshka',
       'petition',
       'prikaz',
+      'prikazNotary',
       'protokol',
       'rklGen',
+      'rklGenNotary',
       'scoreReport',
     ]);
     for (const key of Object.keys(DOC_REGISTRY)) {

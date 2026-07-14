@@ -2,7 +2,7 @@ import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { orgHeader } from '../doc-layout';
-import { lineTerms, collateralDetails } from './_shared';
+import { lineTerms, collateralDetails, notaryBlock } from './_shared';
 
 /** Latin month word (as produced by `dateToUzbekWords`) → its Uzbek Cyrillic equivalent. */
 const LAT_TO_CYR_MONTH: Record<string, string> = {
@@ -26,8 +26,11 @@ function issueDateCyr(d: Date): string {
  * Приказ на сделку (buyruq) — the executive director's order allocating the microfinance line.
  * Faithful transcription (Uzbek Cyrillic) with placeholders merged: contract number, director,
  * client, line terms, collateral details.
+ *
+ * @param notary When true, appends a notarial-attestation block (party ID + fill-in lines for the
+ * notary/registry/seal) as the last content item. Defaults to false so existing callers are unaffected.
  */
-export function prikazTemplate(c: CaseDocData): TDocumentDefinitions {
+export function prikazTemplate(c: CaseDocData, notary = false): TDocumentDefinitions {
   const line = c.creditLine;
   const b = c.borrower;
   const director = c.organization?.directorFull ?? 'Ижрочи директор';
@@ -50,6 +53,7 @@ export function prikazTemplate(c: CaseDocData): TDocumentDefinitions {
         { width: '*', stack: [{ text: `«${c.organization?.nameMixed ?? 'ММТ'}»` }, { text: 'Ижрочи директори' }] },
         { width: 'auto', alignment: 'right', stack: [{ text: '\n' }, { text: director, bold: true }, { text: '_______________' }] },
       ], margin: [0, 24, 0, 0] },
+      ...(notary ? [notaryBlock(c)] : []),
     ],
   };
 }

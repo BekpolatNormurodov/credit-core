@@ -2,13 +2,16 @@ import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { orgHeader } from '../doc-layout';
-import { amountWords, p } from './_shared';
+import { amountWords, notaryBlock, p } from './_shared';
 
 /**
  * РКЛ Ген — Bosh kelishuv (master microfinance-line agreement). Faithful transcription (Uzbek
  * Cyrillic) of the official contract with placeholders merged from the case.
+ *
+ * @param notary When true, appends a notarial-attestation block (party ID + fill-in lines for the
+ * notary/registry/seal) as the last content item. Defaults to false so existing callers are unaffected.
  */
-export function rklGenTemplate(c: CaseDocData): TDocumentDefinitions {
+export function rklGenTemplate(c: CaseDocData, notary = false): TDocumentDefinitions {
   const line = c.creditLine;
   const b = c.borrower;
   const org = c.organization;
@@ -88,6 +91,7 @@ export function rklGenTemplate(c: CaseDocData): TDocumentDefinitions {
           { text: '\nҚарз олувчи ___________ ' + name },
         ] },
       ], columnGap: 16, margin: [0, 6, 0, 0] },
+      ...(notary ? [notaryBlock(c)] : []),
     ],
   };
 }

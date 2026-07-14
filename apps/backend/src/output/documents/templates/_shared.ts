@@ -25,6 +25,22 @@ export function lineTerms(c: CaseDocData): Content[] {
   ];
 }
 
+/** The notarial-attestation block appended to notary-variant documents (party ID + fill-in lines). */
+export function notaryBlock(c: CaseDocData): Content {
+  const b = c.borrower;
+  const passport = [b?.passportSeries, b?.passportNumber].filter(Boolean).join(' ') || '—';
+  return {
+    stack: [
+      { text: 'НОТАРИАЛ ТАСДИҚ', bold: true, alignment: 'center', margin: [0, 18, 0, 6] },
+      { text: `Тарафлар шахси аниқланди: ${b?.fullName ?? '—'}, паспорт: ${passport}, ЖШШИР: ${b?.pinfl ?? '—'}, манзил: ${b?.regAddress ?? b?.address ?? '—'}.`, margin: [0, 2, 0, 6] },
+      { text: 'Нотариус: ______________________________________', margin: [0, 4, 0, 2] },
+      { text: 'Реестр рақами: _____________   Сана: _____________   Жой: _____________', margin: [0, 2, 0, 2] },
+      { text: '\nНотариус имзоси ___________________     М.У. (муҳр)', margin: [0, 8, 0, 0] },
+    ],
+    margin: [0, 10, 0, 0],
+  };
+}
+
 /** Per-collateral details block (auto or real estate), verbatim style. */
 export function collateralDetails(c: CaseDocData): Content[] {
   const b = c.borrower;
