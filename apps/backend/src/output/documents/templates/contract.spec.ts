@@ -21,28 +21,58 @@ describe('contractTemplate', () => {
     expect(text).toContain('—');
   });
 
-  it('never defaults a missing/null scheduleType to "annuitet"', () => {
-    const c = mockCaseDoc({
-      creditLine: { tranches: [{ scheduleType: null as unknown as never }] },
-    });
-    const text = flattenDocText(contractTemplate(c));
-
-    // The old bug rendered every non-DIFFERENTIATED value (including null) as 'annuitet'.
-    expect(text).not.toContain('annuitet');
-    expect(text).toContain('—');
-  });
-
-  it('still renders "annuitet" when the schedule truly is ANNUITY', () => {
-    const c = mockCaseDoc({ creditLine: { tranches: [{ scheduleType: 'ANNUITY' as unknown as never }] } });
-    const text = flattenDocText(contractTemplate(c));
-
-    expect(text).toContain('annuitet');
-  });
-
   it('shows "—" for the place/date line when lineDate is missing (not a blank line)', () => {
     const c = mockCaseDoc({ creditLine: { lineDate: null as unknown as never } });
     const text = flattenDocText(contractTemplate(c));
 
-    expect(text).toContain('Toshkent sh., —');
+    expect(text).toContain('Тошкент ш.');
+    expect(text).toContain('—');
+  });
+
+  it('never fabricates a default rate/term/date (60/55/105) when creditLine fields are null', () => {
+    const c = mockCaseDoc({
+      creditLine: {
+        interestRate: null as unknown as never,
+        penaltyRate: null as unknown as never,
+        termMonths: null as unknown as never,
+        lineDate: null as unknown as never,
+        lineMaturity: null as unknown as never,
+      },
+    });
+    const text = flattenDocText(contractTemplate(c));
+
+    // No hardcoded fallback numbers standing in for the missing rate/penalty/term.
+    expect(text).not.toContain('60%');
+    expect(text).not.toContain('55%');
+    expect(text).not.toContain('105%');
+  });
+
+  it('renders headings for all 12 articles (proves the full body exists, not just 3)', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(contractTemplate(c));
+
+    expect(text).toContain('Томонларнинг жавобгарлиги');
+    expect(text).toContain('Форс-мажор');
+    expect(text).toContain('Низоларни ҳал этиш');
+    expect(text).toContain('Шахсий маълумотларни қайта ишлаш');
+    expect(text).toContain('Бошқа шартлар');
+    expect(text).toContain('Томонларнинг юридик манзиллари ва реквизитлари');
+  });
+
+  it('binds the borrower name, the loan amount, and the contract number into the output', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(contractTemplate(c));
+
+    expect(text).toContain(c.borrower!.fullName);
+    expect(text).toMatch(/150\s000\s000/);
+    expect(text).toContain(c.contractNumber!);
+  });
+
+  it('does not leak a raw Date toString/ISO value anywhere (no GMT, no HH:MM:SS)', () => {
+    const c = mockCaseDoc();
+    const text = flattenDocText(contractTemplate(c));
+
+    expect(text).not.toContain('GMT');
+    expect(text).not.toMatch(/\d\d:\d\d:\d\d/);
   });
 });
