@@ -23,6 +23,7 @@ export class CaseDocumentsController {
       key,
       title: d.title,
       lang: d.lang,
+      category: d.category,
       available,
       watermarked: available && wm !== null,
     }));

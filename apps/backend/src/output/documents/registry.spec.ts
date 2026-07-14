@@ -1,5 +1,7 @@
 import { DOC_REGISTRY } from './registry';
 
+const NOTARY_KEYS = ['actNotary', 'prikazNotary', 'rklGenNotary'];
+
 describe('DOC_REGISTRY', () => {
   it('exposes the first-slice documents with metadata', () => {
     expect(Object.keys(DOC_REGISTRY).sort()).toEqual([
@@ -28,6 +30,13 @@ describe('DOC_REGISTRY', () => {
       expect(typeof d.title).toBe('string');
       expect(['uz', 'ru']).toContain(d.lang);
       expect(typeof d.build).toBe('function');
+      expect(['main', 'notary']).toContain(d.category);
+      expect(d.category).toBe(NOTARY_KEYS.includes(key) ? 'notary' : 'main');
     }
+  });
+
+  it('categorizes exactly the 3 notary copies separately from the main set', () => {
+    const notaryKeys = Object.keys(DOC_REGISTRY).filter((k) => DOC_REGISTRY[k].category === 'notary').sort();
+    expect(notaryKeys).toEqual([...NOTARY_KEYS].sort());
   });
 });

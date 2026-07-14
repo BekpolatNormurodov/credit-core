@@ -17,24 +17,26 @@ import { disbursementTemplate } from './templates/disbursement';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
 
-export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; build: DocTemplate }> = {
-  contract: { title: 'Mikroqarz shartnomasi', lang: 'uz', build: contractTemplate },
-  petition: { title: 'Murojaatnoma (Ходатайство)', lang: 'uz', build: petitionTemplate },
-  creditApplication: { title: 'Kredit arizasi', lang: 'uz', build: creditApplicationTemplate },
-  prikaz: { title: 'Buyruq (Приказ на сделку)', lang: 'uz', build: prikazTemplate },
-  protokol: { title: 'Protokol (Протокол)', lang: 'uz', build: protokolTemplate },
-  scoreReport: { title: 'Score hisoboti (Score отчет)', lang: 'uz', build: scoreReportTemplate },
-  rklGen: { title: 'Bosh kelishuv (РКЛ Ген)', lang: 'uz', build: rklGenTemplate },
-  act: { title: 'Kelishuv akti (Акт согласования)', lang: 'uz', build: actTemplate },
-  obloshka: { title: 'Ish obloshkasi (Обложка)', lang: 'uz', build: obloshkaTemplate },
-  cheklist: { title: 'Hujjatlar ro\'yxati (Чек-лист)', lang: 'uz', build: cheklistTemplate },
-  accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', build: accountantSplitTemplate },
-  grafik: { title: 'Тўлов жадвали (график)', lang: 'uz', build: grafikTemplate },
-  disbursement: { title: 'Пул ўтказиш аризаси', lang: 'uz', build: disbursementTemplate },
-  monitoring1: { title: 'Мониторинг далолатномаси (бошланғич)', lang: 'uz', build: (c) => monitoringTemplate(c, 0) },
-  monitoring2: { title: 'Мониторинг далолатномаси (6 ой)', lang: 'uz', build: (c) => monitoringTemplate(c, 6) },
-  monitoring3: { title: 'Мониторинг далолатномаси (12 ой)', lang: 'uz', build: (c) => monitoringTemplate(c, 12) },
-  actNotary: { title: 'Акт согласования (нотариал нусха)', lang: 'uz', build: (c) => actTemplate(c, true) },
-  prikazNotary: { title: 'Приказ на сделку (нотариал нусха)', lang: 'uz', build: (c) => prikazTemplate(c, true) },
-  rklGenNotary: { title: 'Бош келишув — РКЛ Ген (нотариал нусха)', lang: 'uz', build: (c) => rklGenTemplate(c, true) },
+export type DocCategory = 'main' | 'notary';
+
+export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; category: DocCategory; build: DocTemplate }> = {
+  contract: { title: 'Mikroqarz shartnomasi', lang: 'uz', category: 'main', build: contractTemplate },
+  petition: { title: 'Murojaatnoma (Ходатайство)', lang: 'uz', category: 'main', build: petitionTemplate },
+  creditApplication: { title: 'Kredit arizasi', lang: 'uz', category: 'main', build: creditApplicationTemplate },
+  prikaz: { title: 'Buyruq (Приказ на сделку)', lang: 'uz', category: 'main', build: prikazTemplate },
+  protokol: { title: 'Protokol (Протокол)', lang: 'uz', category: 'main', build: protokolTemplate },
+  scoreReport: { title: 'Score hisoboti (Score отчет)', lang: 'uz', category: 'main', build: scoreReportTemplate },
+  rklGen: { title: 'Bosh kelishuv (РКЛ Ген)', lang: 'uz', category: 'main', build: rklGenTemplate },
+  act: { title: 'Kelishuv akti (Акт согласования)', lang: 'uz', category: 'main', build: actTemplate },
+  obloshka: { title: 'Ish obloshkasi (Обложка)', lang: 'uz', category: 'main', build: obloshkaTemplate },
+  cheklist: { title: 'Hujjatlar ro\'yxati (Чек-лист)', lang: 'uz', category: 'main', build: cheklistTemplate },
+  accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', category: 'main', build: accountantSplitTemplate },
+  grafik: { title: 'Тўлов жадвали (график)', lang: 'uz', category: 'main', build: grafikTemplate },
+  disbursement: { title: 'Пул ўтказиш аризаси', lang: 'uz', category: 'main', build: disbursementTemplate },
+  monitoring1: { title: 'Мониторинг далолатномаси (бошланғич)', lang: 'uz', category: 'main', build: (c) => monitoringTemplate(c, 0) },
+  monitoring2: { title: 'Мониторинг далолатномаси (6 ой)', lang: 'uz', category: 'main', build: (c) => monitoringTemplate(c, 6) },
+  monitoring3: { title: 'Мониторинг далолатномаси (12 ой)', lang: 'uz', category: 'main', build: (c) => monitoringTemplate(c, 12) },
+  actNotary: { title: 'Акт согласования (нотариал нусха)', lang: 'uz', category: 'notary', build: (c) => actTemplate(c, true) },
+  prikazNotary: { title: 'Приказ на сделку (нотариал нусха)', lang: 'uz', category: 'notary', build: (c) => prikazTemplate(c, true) },
+  rklGenNotary: { title: 'Бош келишув — РКЛ Ген (нотариал нусха)', lang: 'uz', category: 'notary', build: (c) => rklGenTemplate(c, true) },
 };
