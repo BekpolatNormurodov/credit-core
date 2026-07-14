@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowRight, Download, Eye, FileText, Lock, ShieldCheck, Trash2, Upload,
+  ArrowRight, Calculator, Download, Eye, FileText, Lock, ShieldCheck, Trash2, Upload,
 } from '../lib/icons';
 import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage, type CaseDocumentMeta } from '@credit-core/api-client';
 import { CaseStatus, DocumentType, DOCUMENT_LABEL, Role, type DocumentDto, PRODUCT_LABEL } from '@credit-core/shared';
@@ -76,6 +76,7 @@ export function CaseDocumentsPage() {
   const generalDocs = c.documents.filter((d) => !d.collateralId);
   const mainDocs = docs?.filter((d) => d.category === 'main') ?? [];
   const notaryDocs = docs?.filter((d) => d.category === 'notary') ?? [];
+  const accountantDocs = docs?.filter((d) => d.category === 'accountant') ?? [];
 
   return (
     <div className="space-y-6">
@@ -120,8 +121,24 @@ export function CaseDocumentsPage() {
       </Card>
 
       {c.status !== CaseStatus.DRAFT && (
+        <Card className="space-y-3 border-brand-200 bg-brand-50/30 dark:border-brand-500/20 dark:bg-brand-500/5">
+          <SectionHeading title="Buxgalteriya uchun hujjatlar" hint={`${accountantDocs.length} ta`} icon={Calculator} accent="brand" />
+          <p className="-mt-2 text-xs text-gray-500 dark:text-gray-400">
+            Mablag‘ taqsimoti va pul o‘tkazish (karta) rekvizitlari — «Pul o‘tkazish rekvizitlari» bo‘limida to‘ldiriladi.
+          </p>
+          {docsLoading ? (
+            <DocListSkeleton />
+          ) : accountantDocs.length === 0 ? (
+            <p className="text-sm text-gray-400 dark:text-gray-500">Hujjat yo‘q</p>
+          ) : (
+            <GeneratedDocList docs={accountantDocs} number={c.number} onOpen={openGenerated} caseId={c.id} />
+          )}
+        </Card>
+      )}
+
+      {c.status !== CaseStatus.DRAFT && (
         <Card className="space-y-3 border-warning-200 bg-warning-50/30 dark:border-warning-500/20 dark:bg-warning-500/5">
-          <SectionHeading title="Notarius uchun hujjatlar" hint={`${notaryDocs.length} ta`} icon={ShieldCheck} />
+          <SectionHeading title="Notarius uchun hujjatlar" hint={`${notaryDocs.length} ta`} icon={ShieldCheck} accent="warning" />
           {docsLoading ? (
             <DocListSkeleton />
           ) : notaryDocs.length === 0 ? (
@@ -168,11 +185,19 @@ export function CaseDocumentsPage() {
 }
 
 function SectionHeading({
-  title, hint, icon: Icon,
-}: { title: string; hint?: string; icon?: React.ComponentType<{ className?: string }> }) {
+  title, hint, icon: Icon, accent,
+}: {
+  title: string;
+  hint?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  accent?: 'warning' | 'brand';
+}) {
+  const iconColor = accent === 'brand'
+    ? 'text-brand-600 dark:text-brand-400'
+    : 'text-warning-600 dark:text-warning-500';
   return (
     <div className="flex items-center gap-2">
-      {Icon && <Icon className="h-4 w-4 shrink-0 text-warning-600 dark:text-warning-500" />}
+      {Icon && <Icon className={cn('h-4 w-4 shrink-0', iconColor)} />}
       <h2 className="font-semibold text-gray-800 dark:text-white">{title}</h2>
       {hint && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-gray-300">{hint}</span>}
     </div>

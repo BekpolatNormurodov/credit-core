@@ -83,7 +83,7 @@ http.interceptors.request.use((config) => {
   return config;
 });
 
-export type CaseDocumentMeta = { key: string; title: string; lang: 'uz' | 'ru'; category: 'main' | 'notary'; stage: 'review' | 'approved'; available: boolean; watermarked: boolean };
+export type CaseDocumentMeta = { key: string; title: string; lang: 'uz' | 'ru'; category: 'main' | 'notary' | 'accountant'; stage: 'review' | 'approved'; available: boolean; watermarked: boolean };
 export type Conversation = { kind: 'saved' | 'dm' | 'case'; key: string; title: string; lastText: string | null; lastAt: string | null; unread: number };
 
 export const api = {

@@ -1,7 +1,11 @@
 import { DOC_REGISTRY } from './registry';
 
 const NOTARY_KEYS = ['actNotary', 'prikazNotary', 'rklGenNotary'];
+const ACCOUNTANT_KEYS = ['accountantSplit', 'disbursement'];
 const APPROVED_STAGE_KEYS = ['monitoring1', 'monitoring2', 'monitoring3', ...NOTARY_KEYS];
+
+const expectedCategory = (key: string): 'main' | 'notary' | 'accountant' =>
+  NOTARY_KEYS.includes(key) ? 'notary' : ACCOUNTANT_KEYS.includes(key) ? 'accountant' : 'main';
 
 describe('DOC_REGISTRY', () => {
   it('exposes the first-slice documents with metadata', () => {
@@ -31,8 +35,8 @@ describe('DOC_REGISTRY', () => {
       expect(typeof d.title).toBe('string');
       expect(['uz', 'ru']).toContain(d.lang);
       expect(typeof d.build).toBe('function');
-      expect(['main', 'notary']).toContain(d.category);
-      expect(d.category).toBe(NOTARY_KEYS.includes(key) ? 'notary' : 'main');
+      expect(['main', 'notary', 'accountant']).toContain(d.category);
+      expect(d.category).toBe(expectedCategory(key));
       expect(['review', 'approved']).toContain(d.stage);
       expect(d.stage).toBe(APPROVED_STAGE_KEYS.includes(key) ? 'approved' : 'review');
     }
@@ -41,6 +45,11 @@ describe('DOC_REGISTRY', () => {
   it('categorizes exactly the 3 notary copies separately from the main set', () => {
     const notaryKeys = Object.keys(DOC_REGISTRY).filter((k) => DOC_REGISTRY[k].category === 'notary').sort();
     expect(notaryKeys).toEqual([...NOTARY_KEYS].sort());
+  });
+
+  it('categorizes the accountant (buxgalteriya) money documents into their own section', () => {
+    const accountantKeys = Object.keys(DOC_REGISTRY).filter((k) => DOC_REGISTRY[k].category === 'accountant').sort();
+    expect(accountantKeys).toEqual([...ACCOUNTANT_KEYS].sort());
   });
 
   it('gates notary copies + monitoring acts to the approved stage; everything else is available at review', () => {

@@ -17,7 +17,7 @@ import { disbursementTemplate } from './templates/disbursement';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
 
-export type DocCategory = 'main' | 'notary';
+export type DocCategory = 'main' | 'notary' | 'accountant';
 
 /**
  * Stage a document becomes relevant at:
@@ -38,9 +38,10 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; ca
   act: { title: 'Kelishuv akti (Акт согласования)', lang: 'uz', category: 'main', stage: 'review', build: actTemplate },
   obloshka: { title: 'Ish obloshkasi (Обложка)', lang: 'uz', category: 'main', stage: 'review', build: obloshkaTemplate },
   cheklist: { title: 'Hujjatlar ro\'yxati (Чек-лист)', lang: 'uz', category: 'main', stage: 'review', build: cheklistTemplate },
-  accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', category: 'main', stage: 'review', build: accountantSplitTemplate },
   grafik: { title: 'Тўлов жадвали (график)', lang: 'uz', category: 'main', stage: 'review', build: grafikTemplate },
-  disbursement: { title: 'Пул ўтказиш аризаси', lang: 'uz', category: 'main', stage: 'review', build: disbursementTemplate },
+  // Buxgalteriya uchun — the money-movement documents, grouped into their own section (like notary).
+  accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', category: 'accountant', stage: 'review', build: accountantSplitTemplate },
+  disbursement: { title: 'Пул ўтказиш аризаси (карта реквизитлари)', lang: 'uz', category: 'accountant', stage: 'review', build: disbursementTemplate },
   monitoring1: { title: 'Мониторинг далолатномаси (бошланғич)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 0) },
   monitoring2: { title: 'Мониторинг далолатномаси (6 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 6) },
   monitoring3: { title: 'Мониторинг далолатномаси (12 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 12) },
