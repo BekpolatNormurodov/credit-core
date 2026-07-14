@@ -243,6 +243,10 @@ export const api = {
     const { data } = await http.get(`/output/${id}/excel`, { responseType: 'blob' });
     return data as Blob;
   },
+  async exportScheduleExcel(id: string): Promise<Blob> {
+    const { data } = await http.get(`/cases/${id}/documents/grafik/xlsx`, { responseType: 'blob' });
+    return data as Blob;
+  },
 
   // ── Documents (authenticated download/view — fixes 401 from <a href>) ──
   async downloadDocument(id: string): Promise<Blob> {

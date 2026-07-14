@@ -6,6 +6,7 @@ import { PdfService } from './pdf.service';
 import { loadCaseForDocs } from './documents/case-document.loader';
 import { watermarkForStatus } from './documents/doc-layout';
 import { DOC_REGISTRY } from './documents/registry';
+import { exportScheduleToExcel } from './excel-export.util';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases/:id/documents')
@@ -51,6 +52,19 @@ export class CaseDocumentsController {
     const fileName = `${key}_${c.number}.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `${download === '1' ? 'attachment' : 'inline'}; filename="${fileName}"`);
+    res.send(buffer);
+  }
+
+  @Get('grafik/xlsx')
+  async getScheduleExcel(@Param('id') id: string, @Res() res: Response) {
+    const c = await loadCaseForDocs(this.prisma, id);
+    if (!c) throw new NotFoundException('case not found');
+    if (c.status === 'DRAFT') throw new ConflictException('hujjat hali mavjud emas (qoralama)');
+
+    const buffer = await exportScheduleToExcel(c);
+    const fileName = `Grafik_${c.number}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.send(buffer);
   }
 }

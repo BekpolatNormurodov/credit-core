@@ -932,6 +932,9 @@ function AdminPanel({
       <Button variant="secondary" className="w-full" onClick={async () => downloadBlob(await api.exportExcel(c.id), `Garov_${c.number}.xlsx`)}>
         <Download className="h-5 w-5" /> Excel eksport
       </Button>
+      <Button variant="secondary" className="w-full" onClick={async () => downloadBlob(await api.exportScheduleExcel(c.id), `Grafik_${c.number}.xlsx`)}>
+        <Download className="h-5 w-5" /> Grafik (Excel)
+      </Button>
     </Card>
   );
 }
