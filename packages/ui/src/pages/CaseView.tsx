@@ -161,7 +161,6 @@ export function CaseView() {
   const canPauseResume = (role === Role.MODERATOR || role === Role.DIRECTOR || role === Role.ADMIN) && (activeStep || !!c.pausedAt);
   const loan = appCfg ? computeLoan(c.amount, c.termMonths, appCfg) : null;
   const showFinance = role !== Role.OPERATOR;
-  const generalDocs = c.documents.filter((d) => !d.collateralId);
 
   // Cancel + reopen are routed through one "Bekor qilish" choice dialog, not direct buttons.
   const inlineTransitions = myTransitions.filter(
@@ -272,7 +271,7 @@ export function CaseView() {
               <LauncherTile
                 icon={FileDown}
                 label="Hujjatlar"
-                hint={c.status === CaseStatus.DRAFT ? 'Ariza yuborilgach shakllanadi' : `${generalDocs.length} ta yuklangan fayl`}
+                hint={c.status === CaseStatus.DRAFT ? 'Ariza yuborilgach shakllanadi' : 'Ko‘rish va yuklash'}
                 ariaLabel="Hujjatlar sahifasiga o‘tish"
                 onClick={() => navigate(`/cases/${c.id}/hujjatlar`)}
                 trailing={<ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-brand-600 dark:group-hover:text-brand-400" />}
