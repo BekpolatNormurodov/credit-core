@@ -6,19 +6,25 @@ import { amountWords, collateralDetails, notaryBlock, p } from './_shared';
 
 /**
  * Акт согласования — the collateral valuation-agreement act. Faithful transcription (Uzbek Cyrillic)
- * with placeholders merged: parties, contract number, collateral details and total agreed value.
+ * of the real 3-party form: lender (1 тараф), Қарз олувчи/borrower (2 тараф) and Гаровга қўювчи/pledgor
+ * (3 тараф) — the pledgor is the owner of the first listed collateral, and only equals the borrower
+ * when they are in fact the same person. Placeholders merged: parties, contract number, collateral
+ * details and total agreed value.
  *
  * @param notary When true, appends a notarial-attestation block (party ID + fill-in lines for the
  * notary/registry/seal) as the last content item. Defaults to false so existing callers are unaffected.
  */
 export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinitions {
+  const org = c.organization;
   const line = c.creditLine;
   const b = c.borrower;
-  const name = b?.fullName ?? '—';
+  const borrowerName = b?.fullName ?? '—';
+  const pledgorName = c.collaterals?.[0]?.owners?.[0]?.fullName ?? b?.fullName ?? '—';
   const contractNo = c.contractNumber ?? c.number;
+  const lineRefNo = line?.orderNumber ?? line?.lineNumber ?? contractNo ?? '—';
   const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
+  const amount = Number(line?.amountTotal ?? c.amount ?? 0);
   const total = c.collaterals.reduce((s, x) => s + Number(x.agreedValue ?? 0), 0);
-  const totalStr = amountWords(total);
 
   return {
     defaultStyle: { font: 'Roboto', fontSize: 10 },
@@ -27,26 +33,33 @@ export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinition
       orgHeader(c.organization),
       { text: `ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ № ${contractNo}`, bold: true, alignment: 'center', fontSize: 12 },
       { text: `Тошкент ш. · ${dateStr}`, alignment: 'center', margin: [0, 2, 0, 10] },
-      p(`Ушбу далолатнома «${c.organization?.nameMixed ?? 'ММТ'}» (1 тараф) ижрочи директори ${c.organization?.directorFull ?? '—'} ва «Қарз олувчи»/«Гаровга қўювчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${name} иштирокида, ${dateStr} йилдаги № ${contractNo} сонли микромолиялаш линияси очиш тўғрисидаги Бош келишув юзасидан тузилди.`),
-      p(`Микромолия линияси гаров таъминоти сифатида ${name}га тегишли қуйидаги мулк тақдим этилади:`),
+      p(`Ушбу далолатнома МЧЖ «${org?.nameMixed ?? '—'}» (1 тараф) ижрочи директори ${org?.directorFull ?? '—'}, «Қарз олувчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${borrowerName} ва «Гаровга қўювчи» (3 тараф) Ўзбекистон Республикаси фуқароси ${pledgorName} иштирокида ва хабардорлигида ${lineRefNo} сонли микромолиялаш линияси очиш тўғрисидаги Бош келишувига асосан ${amountWords(amount)} сўм миқдоридаги микроқарз/микрокредит гаров таъминоти сифатида тақдим этилаётган қуйидаги мулкни гаров қийматини аниқлаш учун мазкур далолатномани туздик.`),
+      p(`Микромолия линияси гаров таъминоти сифатида ${pledgorName}га тегишли қуйидаги мулк тақдим этилади:`),
       ...collateralDetails(c),
       ...c.collaterals.map((col) => p(`${col.type === 'AUTO' ? 'Автотранспорт' : 'Уй-жой'} гаровининг келишилган қиймати: ${money(col.agreedValue)}.`)),
-      p(`Тарафлар келишувига кўра юқоридаги мулк «${c.organization?.nameMixed ?? 'ММТ'}» томонидан Қарз олувчи ва Гаровга қўювчи розилиги асосида ${totalStr} сўм баҳоланди.`),
-      p(`Гаров предметининг келишилган гаров қиймати ${totalStr} сўмни ташкил қилади.`),
+      p(`Тарафлар келишувига кўра юқоридаги мулк МЧЖ «${org?.nameMixed ?? '—'}» томонидан Гаровга қўювчи розилиги асосида ${amountWords(total)} сўм баҳоланди ва «Қарз олувчи»га ажратилаётган ${lineRefNo} сонли микромолиялаш линияси очиш тўғрисидаги Бош келишувга асосан ${amountWords(amount)} сўм миқдоридаги кредит маблағлари гаров таъминоти сифатида гаровга олиш келишилди.`),
+      p('Хусусан, гаров предметининг келишилган гаров қиймати деганда ушбу мол-мулк гаров сифатида тақдим этиладиган/қабул қилинадиган қиймат тушунилади.'),
+      p(`Гаров предметининг келишилган гаров қиймати ${amountWords(total)} сўмни ташкил қилади.`),
       { columns: [
         { width: '*', stack: [
           { text: '1 - тарафдан:', bold: true },
-          { text: c.organization?.nameMixed ?? '—' },
+          { text: `МЧЖ «${org?.nameMixed ?? '—'}»` },
           { text: 'Ижрочи директори' },
-          { text: '\n___________ ' + (c.organization?.directorShort ?? '') },
+          { text: '\n___________ ' + (org?.directorShort ?? '—') },
         ] },
         { width: '*', stack: [
           { text: '2 - тарафдан:', bold: true },
           { text: 'Ўзбекистон Республикаси фуқароси' },
-          { text: name },
-          { text: '\n___________ ' + name },
+          { text: borrowerName },
+          { text: '\n___________ ' + borrowerName },
         ] },
-      ], columnGap: 16, margin: [0, 16, 0, 0] },
+        { width: '*', stack: [
+          { text: '3 - тарафдан:', bold: true },
+          { text: 'Ўзбекистон Республикаси фуқароси' },
+          { text: pledgorName },
+          { text: '\n___________ ' + pledgorName },
+        ] },
+      ], columnGap: 12, margin: [0, 16, 0, 0] },
       ...(notary ? [notaryBlock(c)] : []),
     ],
   };
