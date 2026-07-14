@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowRight, Download, Eye, FileText, Lock, ShieldCheck, Trash2, Upload,
@@ -31,6 +31,7 @@ const uploadTypes: DocumentType[] = [
  */
 export function CaseDocumentsPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const qc = useQueryClient();
   const toast = useToast();
@@ -78,12 +79,21 @@ export function CaseDocumentsPage() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to={`/cases/${c.id}`}
+      <button
+        type="button"
+        onClick={() => {
+          // Pop history back to the ariza detail we came from — pushing a fresh /cases/:id entry
+          // instead would leave a duplicate on the stack, so the detail page's own "Orqaga" would
+          // send the user right back into documents. Fall back to the case page on a deep-link/refresh
+          // where there's no in-app history to pop (react-router tracks position in history.state.idx).
+          const st = window.history.state as { idx?: number } | null;
+          if (st && typeof st.idx === 'number' && st.idx > 0) navigate(-1);
+          else navigate(`/cases/${c.id}`);
+        }}
         className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 -ml-2 text-sm font-medium text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-800 focus-visible:ring-2 focus-visible:ring-brand-600/30 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-100"
       >
         <ArrowRight className="h-4 w-4 rotate-180" /> Arizaga qaytish
-      </Link>
+      </button>
 
       <div>
         <div className="flex flex-wrap items-center gap-3">
