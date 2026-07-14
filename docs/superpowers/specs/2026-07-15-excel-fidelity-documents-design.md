@@ -43,6 +43,24 @@ Sheets NOT in our set (out of scope): `Д0–Д3`, `балл`, `b3`, `b4`, `до
 `Претензион`, `Справка`, `перечень` duplicates. `Претензион`/`Справка` may be added in
 a later cycle if requested.
 
+## Foundational helpers (Task 1 — everything depends on these)
+
+Local rendering of the current templates (see verification below) proved three gaps that
+appear in **every** document, so they are fixed first as shared helpers:
+
+1. **Cyrillic Uzbek sum-in-words** — the Excel spells amounts in Uzbek Cyrillic:
+   "Бир юз эллик миллион сўм 00 тийин", "Тўқсон саккиз миллион сўм". Our `sumToWordsUz`
+   returns Latin ("Bir yuz ellik million so'm"). Add `sumToWordsUzCyrillic(n)` (keep the
+   Latin one for the web UI). Documents use the Cyrillic variant everywhere.
+2. **Russian/Cyrillic-month dates** — the Excel prints "14 Июль 2026 й." (Russian month
+   in Cyrillic). `dateToUzbekWords` returns Latin Uzbek ("14 avgust 2026 yil"). Add
+   `dateToRuCyrillic(d)` → "14 Июль 2026 й." Documents use it.
+3. **Collateral value tables** — collateral is shown as a proper multi-column table
+   (auto: Мулк номи | Кузов тури/№ | Двигател/шасси № | Йили/ранги | Гаров қиймати;
+   real-estate: composition | яшаш майдони | ер майдони | келишилган қиймат), matching
+   the Excel — NOT the thin 3-line list the current templates emit. Add a shared
+   `collateralTable(collaterals)` helper so every form renders it identically.
+
 ## Global changes (shared, apply to every document)
 
 In `apps/backend/src/output/documents/doc-layout.ts`:
@@ -132,8 +150,13 @@ sums spelled with `sumToWordsUz` (e.g. "Тўқсон миллион сўм 00 т
   `Date`/GMT leak, null-safety when sections are missing.
 - `sumToWordsUz`/`dateToUzbekWords` reused (already tested).
 - Gate: full backend Jest suite green + all 4 web apps `tsc --noEmit` before each commit.
-- Manual: post-auth, not previewable locally — verification is the test suite + visual
-  diff of generated PDFs against the Excel sheets.
+- **Local PDF render loop (working)** — `render-harness.spec.ts` (gated on `RENDER_PDFS=1`)
+  renders every template for auto/kvartira/hovli fixtures to real `.pdf` files via the exact
+  PdfService font path. Each rebuilt document is rendered, opened, and **visually diffed
+  against its Excel sheet** before that task is considered done. No DB required (templates are
+  pure `CaseDocData → PDF`); a DB export can seed more realistic fixtures if needed.
+- Definition of done: **every** document matches its Excel sheet on layout, tables, full text,
+  and signatures — we do not stop while any one is off.
 
 ## Risks
 
