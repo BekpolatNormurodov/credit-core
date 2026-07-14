@@ -1,85 +1,92 @@
 import type { TDocumentDefinitions, TableCell } from 'pdfmake/interfaces';
-import { dateToUzbekWords } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, docTitle, kv, kvTable, money, gridTable } from '../doc-layout';
-import { scheduleForCase } from '../schedule';
+import {
+  orgHeader, docTitle, gridTable, plainMoney, shortDate, partyRequisites,
+  DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS,
+} from '../doc-layout';
+import { scheduleForCase, type DocInstallment } from '../schedule';
 
-const HEADER_ROW: TableCell[] = [
-  { text: '№', bold: true, alignment: 'center' },
-  { text: 'Тўлов санаси', bold: true },
-  { text: 'Бошланғич қолдиқ', bold: true, alignment: 'right' },
-  { text: 'Асосий қарз', bold: true, alignment: 'right' },
-  { text: 'Фоиз', bold: true, alignment: 'right' },
-  { text: 'Жами', bold: true, alignment: 'right' },
-  { text: 'Кунлар', bold: true, alignment: 'center' },
+// Compact schedule table matching the Excel: №, payment date (dd.mm.yyyy), opening balance,
+// principal, interest*, total* — no "Кунлар" column, plain numbers (no "so'm" suffix).
+const HEADER_TOP: TableCell[] = [
+  { text: '№', bold: true, alignment: 'center', rowSpan: 2 },
+  { text: 'Тўлов санаси', bold: true, alignment: 'center', rowSpan: 2 },
+  { text: 'Асосий қарз қолдиғи', bold: true, alignment: 'center', rowSpan: 2 },
+  { text: 'Тўлов суммаси, сўм', bold: true, alignment: 'center', colSpan: 3 },
+  {},
+  {},
+];
+const HEADER_SUB: TableCell[] = [
+  {}, {}, {},
+  { text: 'асосий қарз', bold: true, alignment: 'center' },
+  { text: 'фоизлар*', bold: true, alignment: 'center' },
+  { text: 'Жами*', bold: true, alignment: 'center' },
 ];
 
 /**
- * Тўлов жадвали (график) — the amortization/payment schedule for a tranche, one row per
- * installment plus a totals row. Null-safe: when no schedule has been generated for the tranche,
- * renders a guard paragraph instead of crashing or showing NaN.
+ * Тўлов жадвали (график) — the compact amortization schedule for a tranche, matching the Excel:
+ * a totals (ИТОГО) row, the 2.4-band footnote, and the two-party requisites + signature block.
+ * The schedule is computed on demand (scheduleForCase); a guard paragraph shows when inputs are
+ * insufficient.
  */
 export function grafikTemplate(c: CaseDocData): TDocumentDefinitions {
   const contractNo = c.contractNumber ?? c.number ?? '—';
   const sched = scheduleForCase(c);
 
-  const header = [orgHeader(c.organization), docTitle('ТЎЛОВ ЖАДВАЛИ (ГРАФИК)', `Иш № ${contractNo}`)];
+  const header = [orgHeader(c.organization), docTitle('ТЎЛОВ ЖАДВАЛИ', `Иш № ${contractNo}`)];
 
-  if (!sched || !sched.installments?.length) {
+  if (!sched || !sched.installments.length) {
     return {
-      defaultStyle: { font: 'Roboto', fontSize: 10 },
-      pageMargins: [45, 50, 45, 50],
+      defaultStyle: DOC_DEFAULT_STYLE,
+      pageMargins: DOC_PAGE_MARGINS,
       content: [...header, { text: 'Тўлов жадвали ҳисобланмаган.', bold: true, margin: [0, 12, 0, 0] }],
     };
   }
 
-  const installments = [...sched.installments].sort((a, b) => a.seq - b.seq);
-
-  const rows: TableCell[][] = installments.map((i) => [
+  const rows: TableCell[][] = sched.installments.map((i) => [
     { text: String(i.seq), alignment: 'center' },
-    { text: dateToUzbekWords(i.dueDate) },
-    { text: money(i.openingBalance), alignment: 'right' },
-    { text: money(i.principal), alignment: 'right' },
-    { text: money(i.interest), alignment: 'right' },
-    { text: money(i.total), alignment: 'right' },
-    { text: String(i.days), alignment: 'center' },
+    { text: shortDate(i.dueDate), alignment: 'center' },
+    { text: plainMoney(i.openingBalance), alignment: 'right' },
+    { text: plainMoney(i.principal), alignment: 'right' },
+    { text: plainMoney(i.interest), alignment: 'right' },
+    { text: plainMoney(i.total), alignment: 'right' },
   ]);
 
-  const totalPrincipal = installments.reduce((sum, i) => sum + Number(i.principal ?? 0), 0);
-  const totalInterest = installments.reduce((sum, i) => sum + Number(i.interest ?? 0), 0);
-  const totalAmount = installments.reduce((sum, i) => sum + Number(i.total ?? 0), 0);
-
+  const sum = (f: (n: DocInstallment) => number) =>
+    sched.installments.reduce((s, i) => s + f(i), 0);
   const totalsRow: TableCell[] = [
-    { text: '', border: [true, true, true, true] },
-    { text: 'ЖАМИ', bold: true },
-    { text: '' },
-    { text: money(totalPrincipal), bold: true, alignment: 'right' },
-    { text: money(totalInterest), bold: true, alignment: 'right' },
-    { text: money(totalAmount), bold: true, alignment: 'right' },
-    { text: '' },
+    { text: 'ИТОГО', bold: true, colSpan: 3, alignment: 'center' },
+    {},
+    {},
+    { text: plainMoney(sum((i) => i.principal)), bold: true, alignment: 'right' },
+    { text: plainMoney(sum((i) => i.interest)), bold: true, alignment: 'right' },
+    { text: plainMoney(sum((i) => i.total)), bold: true, alignment: 'right' },
   ];
 
   return {
-    defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [45, 50, 45, 50],
+    defaultStyle: DOC_DEFAULT_STYLE,
+    pageMargins: DOC_PAGE_MARGINS,
     content: [
       ...header,
-      kvTable([
-        kv('Асосий сумма', money(sched.principal)),
-        kv('Муддат', `${sched.termMonths} ой`),
-        kv('Йиллик фоиз', `${Math.round(Number(sched.annualRate) * 100)}%`),
-        kv('Бериш санаси', dateToUzbekWords(sched.disbursementDate)),
-        kv('Усул', sched.method === 'DIFFERENTIATED' ? 'Дифференциал' : 'Аннуитет'),
-      ]),
       {
+        fontSize: 8.5,
         table: {
-          headerRows: 1,
-          widths: [22, 80, '*', '*', '*', '*', 40],
-          body: [HEADER_ROW, ...rows, totalsRow],
+          headerRows: 2,
+          widths: [18, 58, '*', '*', '*', '*'],
+          body: [HEADER_TOP, HEADER_SUB, ...rows, totalsRow],
         },
         layout: gridTable,
-        margin: [0, 8, 0, 4],
+        margin: [0, 4, 0, 6],
       },
+      {
+        text:
+          '*Асосий қарзни тўлаш кечиктирилган тақдирда, фоизлар бўйича тўлов миқдори ўзгаради, чунки ' +
+          'фоизлар мазкур шартноманинг 2.4. бандига мувофиқ асосий қарзнинг ҳақиқий қолдиғига ҳисобланади.',
+        fontSize: 8,
+        italics: true,
+        margin: [0, 2, 0, 0],
+      },
+      partyRequisites(c),
     ],
   };
 }

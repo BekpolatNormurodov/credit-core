@@ -1,5 +1,6 @@
 import type { Content, TableCell } from 'pdfmake/interfaces';
 import type { CaseDocData } from './case-document.loader';
+import { dateToRuCyrillic } from '../../common/sum-to-words.util';
 
 /**
  * Diagonal watermark for a case status: the text + colour. Pending review → grey "TASDIQLANMAGAN";
@@ -56,6 +57,67 @@ export function sectionTitle(text: string): Content {
 /** Left-aligned bold sub-heading inside a form section. */
 export function subHeading(text: string): Content {
   return { text, bold: true, fontSize: 11, margin: [0, 8, 0, 4] };
+}
+
+/** Plain grouped number with 2 decimals, no "so'm" suffix — as the schedule prints amounts. */
+export const plainMoney = (n: unknown): string => {
+  if (n == null) return '';
+  const v = Number(n);
+  if (Number.isNaN(v)) return '';
+  return new Intl.NumberFormat('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    .format(v)
+    .replace(/\s/g, ' ');
+};
+
+/** Numeric date dd.mm.yyyy (UTC), as the schedule column prints it. */
+export const shortDate = (d: Date): string => {
+  const p = (x: number) => String(x).padStart(2, '0');
+  return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`;
+};
+
+/**
+ * The two-party «Микромолия ташкилоти» / «Қарздор» requisites + signature block that closes the
+ * schedule and the bosh kelishuv. Org details from the Organization record, borrower from the case.
+ */
+export function partyRequisites(c: CaseDocData): Content {
+  const org = c.organization;
+  const b = c.borrower;
+  const passport = [b?.passportSeries, b?.passportNumber ? `№${b.passportNumber}` : null].filter(Boolean).join(' ');
+  const passportLine = passport
+    ? `паспорт: ${passport}${b?.passportIssuer ? `, ${b.passportIssuer} томонидан` : ''}${b?.passportIssueDate ? ` ${dateToRuCyrillic(b.passportIssueDate)} берилган` : ''}`
+    : 'паспорт: —';
+  const mmt: Content[] = [
+    { text: '«Микромолия ташкилоти»', bold: true },
+    { text: org?.nameUpper ?? '—' },
+    { text: `Адрес: ${org?.address ?? '—'}` },
+    { text: `р/с: №${org?.bankAccount ?? '—'}` },
+    { text: `МФО: №${org?.bankMfo ?? '—'} в ${org?.bankName ?? '—'}` },
+    { text: `ИНН: ${org?.inn ?? '—'}` },
+    { text: ' ' },
+    { text: 'Ижрочи директор' },
+    { text: org?.directorShort ?? '—', bold: true },
+    { text: '________________', margin: [0, 6, 0, 0] },
+  ];
+  const debtor: Content[] = [
+    { text: '«Қарздор»', bold: true },
+    { text: b?.fullName ?? '—' },
+    { text: `Манзил: ${b?.regAddress ?? b?.address ?? '—'}` },
+    { text: passportLine },
+    { text: `Тел: ${b?.phone ?? '—'}` },
+    { text: ' ' },
+    { text: ' ' },
+    { text: ' ' },
+    { text: ' ' },
+    { text: '________________ (имзо)', margin: [0, 6, 0, 0] },
+  ];
+  return {
+    columns: [
+      { width: '*', stack: mmt, fontSize: 9 },
+      { width: '*', stack: debtor, fontSize: 9 },
+    ],
+    columnGap: 24,
+    margin: [0, 16, 0, 0],
+  };
 }
 
 /** A two-column label/value row for a pdfmake table body. */
