@@ -13,6 +13,7 @@ import { cheklistTemplate } from './templates/cheklist';
 import { accountantSplitTemplate } from './templates/accountant-split';
 import { monitoringTemplate } from './templates/monitoring';
 import { grafikTemplate } from './templates/grafik';
+import { disbursementTemplate } from './templates/disbursement';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
 
@@ -29,6 +30,7 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; bu
   cheklist: { title: 'Hujjatlar ro\'yxati (Чек-лист)', lang: 'uz', build: cheklistTemplate },
   accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', build: accountantSplitTemplate },
   grafik: { title: 'Тўлов жадвали (график)', lang: 'uz', build: grafikTemplate },
+  disbursement: { title: 'Пул ўтказиш аризаси', lang: 'uz', build: disbursementTemplate },
   monitoring1: { title: 'Мониторинг далолатномаси (бошланғич)', lang: 'uz', build: (c) => monitoringTemplate(c, 0) },
   monitoring2: { title: 'Мониторинг далолатномаси (6 ой)', lang: 'uz', build: (c) => monitoringTemplate(c, 6) },
   monitoring3: { title: 'Мониторинг далолатномаси (12 ой)', lang: 'uz', build: (c) => monitoringTemplate(c, 12) },

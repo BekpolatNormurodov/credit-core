@@ -167,6 +167,7 @@ model CreditCase {
   creditHistory     CreditHistory?
   scoring           ScoringResult?
   incomeCertificate IncomeCertificate?
+  disbursement      DisbursementDetail?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -628,6 +629,20 @@ model SalaryMonth {
   net           Decimal?          @db.Decimal(18, 2)
 
   @@index([certificateId])
+}
+
+/// Beneficiary bank requisites for the disbursement application (may be a third party's account).
+model DisbursementDetail {
+  id            String     @id @default(cuid())
+  case          CreditCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId        String     @unique
+  holderName    String?
+  cardNumber    String?
+  accountNumber String? // Х/Р (20-digit settlement account)
+  bankMfo       String? // МФО
+  holderInn     String? // account-holder ИНН (may differ from borrower.inn)
+  bankName      String?
+  updatedAt     DateTime   @updatedAt
 }
 
 // ── Audit trail (3 layers) ──────────────────────────────────────────────

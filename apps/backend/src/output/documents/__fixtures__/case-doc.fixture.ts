@@ -70,6 +70,7 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
       regAddress: 'Тошкент ш., Чилонзор тумани, 12-уй',
       entrepreneurType: 'Якка тартибдаги тадбиркор',
       entrepreneurCertNo: '00114455',
+      inn: '301456789',
     },
 
     collaterals: [
@@ -281,6 +282,18 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
     },
 
     incomeCertificate: null,
+
+    disbursement: {
+      id: 'disbursement-1',
+      caseId: 'case-1',
+      holderName: 'ЖЎЛДИБАЕВ РУСЛАН',
+      cardNumber: '5614681810235717',
+      accountNumber: '23120000800011438001',
+      bankMfo: '00083',
+      holderInn: '200242936',
+      bankName: '"Xalq banki" ATB',
+      updatedAt: new Date('2026-01-10T00:00:00.000Z'),
+    },
 
     documents: [
       {

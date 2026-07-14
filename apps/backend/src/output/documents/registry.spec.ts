@@ -9,6 +9,7 @@ describe('DOC_REGISTRY', () => {
       'cheklist',
       'contract',
       'creditApplication',
+      'disbursement',
       'grafik',
       'monitoring1',
       'monitoring2',
