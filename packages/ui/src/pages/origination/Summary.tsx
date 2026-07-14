@@ -46,7 +46,6 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
           shows the negative monthly payment, which is confusing. */}
       {calc.totalIncome > 0 && (
         <>
-          {row('DTI (qarz yuki)', `${(calc.dtiRatio * 100).toFixed(1)}%`)}
           {row('Surplus', formatMoney(calc.surplus), calc.surplus < 0)}
           {row('Min kerakli daromad', formatMoney(calc.minRequiredIncome))}
         </>

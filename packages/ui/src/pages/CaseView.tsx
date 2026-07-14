@@ -1083,7 +1083,6 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
       {row('Jami summa', (line?.amountTotal ?? c.amount) != null ? formatMoney((line?.amountTotal ?? c.amount)!) : '—')}
       {row('Yillik foiz', line?.interestRate != null ? `${Math.round(line.interestRate * 100)}%` : '—')}
       {row('Jami daromad', calc.totalIncome ? formatMoney(calc.totalIncome) : '—')}
-      {row('DTI', calc.totalIncome ? `${(calc.dtiRatio * 100).toFixed(1)}%` : '—')}
       {row('Aktiv kreditlar', c.creditHistory?.activeLoansCount != null ? String(c.creditHistory.activeLoansCount) : '—')}
       {row('Jadval turi', line?.tranche?.scheduleType ? (line.tranche.scheduleType === 'ANNUITY' ? 'Annuitet' : 'Differensial') : '—')}
 
