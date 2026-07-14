@@ -49,6 +49,11 @@ export class CaseDocumentsController {
     const c = await loadCaseForDocs(this.prisma, id);
     if (!c) throw new NotFoundException('case not found');
     if (c.status === 'DRAFT') throw new ConflictException('hujjat hali mavjud emas (qoralama)');
+    // Server-side stage gate (mirrors list()): 'approved' docs (notary copies, monitoring acts) can
+    // only be generated once the director has signed off — so a direct URL can't bypass the UI lock.
+    if (tpl.stage === 'approved' && c.status !== 'FINALIZED' && (c.status as string) !== 'ADMIN_FINALIZE') {
+      throw new ConflictException('Bu hujjat direktor tasdig‘idan keyin mavjud bo‘ladi');
+    }
 
     const def = tpl.build(c);
     const wm = watermarkForStatus(c.status);
