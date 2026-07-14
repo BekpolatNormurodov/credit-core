@@ -259,6 +259,16 @@ export class SetSplitDto {
   @IsOptional() @IsString() reason?: string;
 }
 
+/** Beneficiary bank requisites for the disbursement application (may be a third party's account). */
+export class DisbursementInput {
+  @IsOptional() @IsString() holderName?: string | null;
+  @IsOptional() @IsString() cardNumber?: string | null;
+  @IsOptional() @IsString() accountNumber?: string | null;
+  @IsOptional() @IsString() bankMfo?: string | null;
+  @IsOptional() @IsString() holderInn?: string | null;
+  @IsOptional() @IsString() bankName?: string | null;
+}
+
 export class CaseSectionDto {
   @IsIn(['borrower', 'employment', 'affordability', 'creditLine', 'creditHistory'])
   section!: 'borrower' | 'employment' | 'affordability' | 'creditLine' | 'creditHistory';

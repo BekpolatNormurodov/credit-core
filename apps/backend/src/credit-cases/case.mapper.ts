@@ -11,6 +11,7 @@ export const caseInclude = {
   affordability: true,
   creditHistory: true,
   creditLine: { include: { insurance: true, tranches: { orderBy: { trancheNo: 'asc' } } } },
+  disbursement: true,
   documents: { include: { uploadedBy: true }, orderBy: { createdAt: 'asc' } },
   events: { include: { actor: true }, orderBy: { createdAt: 'asc' } },
 } satisfies Prisma.CreditCaseInclude;
@@ -157,6 +158,16 @@ export function toCaseDto(c: CaseWithRelations): CreditCaseDto {
     affordability: toAffordability(c.affordability),
     creditLine: toCreditLine(c.creditLine),
     creditHistory: toCreditHistory(c.creditHistory),
+    disbursement: c.disbursement
+      ? {
+          holderName: c.disbursement.holderName,
+          cardNumber: c.disbursement.cardNumber,
+          accountNumber: c.disbursement.accountNumber,
+          bankMfo: c.disbursement.bankMfo,
+          holderInn: c.disbursement.holderInn,
+          bankName: c.disbursement.bankName,
+        }
+      : null,
     documents: c.documents.filter((d) => d.type !== 'CHAT').map((d) => ({
       id: d.id,
       type: d.type,

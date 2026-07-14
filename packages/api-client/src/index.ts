@@ -173,6 +173,18 @@ export const api = {
     const { data } = await http.put<CreditCaseDto>(`/cases/${id}/katm-price`, { katmPrice });
     return data;
   },
+  /** Save beneficiary bank requisites for the disbursement application ("Пул ўтказиш аризаси"). */
+  async saveDisbursement(id: string, body: {
+    holderName?: string | null;
+    cardNumber?: string | null;
+    accountNumber?: string | null;
+    bankMfo?: string | null;
+    holderInn?: string | null;
+    bankName?: string | null;
+  }): Promise<CreditCaseDto> {
+    const { data } = await http.put<CreditCaseDto>(`/cases/${id}/disbursement`, body);
+    return data;
+  },
   async pauseCase(id: string, days?: number): Promise<CreditCaseDto> {
     const { data } = await http.post<CreditCaseDto>(`/cases/${id}/pause`, days != null ? { days } : {});
     return data;

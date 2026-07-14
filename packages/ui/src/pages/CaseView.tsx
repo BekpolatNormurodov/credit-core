@@ -379,6 +379,7 @@ export function CaseView() {
 
           {isAdminFinalize && <AdminPanel c={c} onChange={refresh} katm={katm} setKatm={setKatm} />}
           <CapturePanel c={c} role={role} onChange={refresh} />
+          <DisbursementPanel c={c} onChange={refresh} />
         </div>
       </div>
 
@@ -1025,6 +1026,46 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
           <Button className="w-full" loading={split.isPending} disabled={splitTotal <= 0} onClick={() => split.mutate()}>Taqsimotni saqlash</Button>
         </div>
       )}
+    </Card>
+  );
+}
+
+/** Beneficiary bank requisites for the disbursement application ("Пул ўтказиш аризаси"). */
+function DisbursementPanel({ c, onChange }: { c: CreditCaseDto; onChange: () => void }) {
+  const toast = useToast();
+  const d = c.disbursement;
+  const [holderName, setHolderName] = useState(d?.holderName ?? '');
+  const [cardNumber, setCardNumber] = useState(d?.cardNumber ?? '');
+  const [accountNumber, setAccountNumber] = useState(d?.accountNumber ?? '');
+  const [bankMfo, setBankMfo] = useState(d?.bankMfo ?? '');
+  const [holderInn, setHolderInn] = useState(d?.holderInn ?? '');
+  const [bankName, setBankName] = useState(d?.bankName ?? '');
+
+  const save = useMutation({
+    mutationFn: () => api.saveDisbursement(c.id, {
+      holderName: holderName.trim() || null,
+      cardNumber: cardNumber.trim() || null,
+      accountNumber: accountNumber.trim() || null,
+      bankMfo: bankMfo.trim() || null,
+      holderInn: holderInn.trim() || null,
+      bankName: bankName.trim() || null,
+    }),
+    onSuccess: () => { onChange(); toast.success('Saqlandi', 'Pul ўtkazish rekvizitlari'); },
+    onError: () => toast.error('Xatolik', 'Rekvizitlarni saqlab bo‘lmadi'),
+  });
+
+  return (
+    <Card className="space-y-3">
+      <h2 className="font-semibold text-gray-800 dark:text-white">Pul o‘tkazish rekvizitlari</h2>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <Field label="Hisob egasi"><Input value={holderName} onChange={(e) => setHolderName(e.target.value)} /></Field>
+        <Field label="Karta raqami"><Input value={cardNumber} onChange={(e) => setCardNumber(e.target.value)} /></Field>
+        <Field label="Hisob raqami (X/R)"><Input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} /></Field>
+        <Field label="MFO"><Input value={bankMfo} onChange={(e) => setBankMfo(e.target.value)} /></Field>
+        <Field label="INN"><Input value={holderInn} onChange={(e) => setHolderInn(e.target.value)} /></Field>
+        <Field label="Bank nomi"><Input value={bankName} onChange={(e) => setBankName(e.target.value)} /></Field>
+      </div>
+      <Button className="w-full" loading={save.isPending} onClick={() => save.mutate()}>Saqlash</Button>
     </Card>
   );
 }

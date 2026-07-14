@@ -7,7 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { CreditCasesService } from './credit-cases.service';
 import { exportCasesListToExcel } from '../output/excel-export.util';
-import { CaseSectionDto, DeleteCaseDto, ReMflCreateDto, ReMflSearchDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
+import { CaseSectionDto, DeleteCaseDto, DisbursementInput, ReMflCreateDto, ReMflSearchDto, SetKatmPriceDto, SetRateDto, SetSplitDto, TransitionDto, UpsertCaseDto } from './dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases')
@@ -149,5 +149,13 @@ export class CreditCasesController {
   @Patch(':id/split')
   setSplit(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: SetSplitDto) {
     return this.service.setSplit(id, user, dto.amountAuto, dto.amountPolis, dto.reason);
+  }
+
+  /** Capture beneficiary bank requisites for the disbursement application ("Пул ўтказиш аризаси"). */
+  @UseGuards(RolesGuard)
+  @Roles(Role.OPERATOR, Role.MODERATOR, Role.DIRECTOR, Role.ADMIN)
+  @Put(':id/disbursement')
+  saveDisbursement(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: DisbursementInput) {
+    return this.service.saveDisbursement(id, user, dto);
   }
 }

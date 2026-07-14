@@ -367,6 +367,16 @@ export interface WorkflowEventDto {
   createdAt: string;
 }
 
+/** Beneficiary bank requisites for the disbursement application (may be a third party's account). */
+export interface DisbursementDto {
+  holderName: string | null;
+  cardNumber: string | null;
+  accountNumber: string | null;
+  bankMfo: string | null;
+  holderInn: string | null;
+  bankName: string | null;
+}
+
 export interface CreditCaseDto {
   id: string;
   number: string;
@@ -390,6 +400,8 @@ export interface CreditCaseDto {
   affordability: AffordabilityDto | null;
   creditLine: CreditLineDto | null;
   creditHistory: CreditHistoryDto | null;
+  /** Beneficiary bank requisites for the disbursement application (may be a third party's account). */
+  disbursement?: DisbursementDto | null;
   documents: DocumentDto[];
   events: WorkflowEventDto[];
   /** When the case entered its current step (null for DRAFT / terminal). */

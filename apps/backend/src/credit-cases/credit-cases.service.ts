@@ -8,7 +8,7 @@ import { WorkflowService } from './workflow.service';
 import { caseInclude, toCaseDto, toListItem } from './case.mapper';
 import {
   AffordabilityInput, BorrowerInput, CaseSectionDto, CollateralInput, CreditHistoryInput, CreditLineInput,
-  EmploymentInput, TransitionDto, UpsertCaseDto,
+  DisbursementInput, EmploymentInput, TransitionDto, UpsertCaseDto,
 } from './dto';
 import { isRateInBounds } from './rate.util';
 import { nextCounter } from './contract-counter';
@@ -731,6 +731,26 @@ export class CreditCasesService {
     // Keep the case-level amount (used by lists/stats/documents) in sync with the new total.
     await this.prisma.creditCase.update({ where: { id }, data: { amount: amountTotal } });
     await this.audit.splitChange(user, id, old, { amountAuto, amountPolis }, reason);
+    return this.getOne(id);
+  }
+
+  /**
+   * Capture beneficiary bank requisites for the disbursement application ("Пул ўтказиш аризаси").
+   * Any role that can see the case may record/update these — they're plain requisites, not a
+   * workflow decision, so no status gate or extra role check beyond the controller's guard.
+   */
+  async saveDisbursement(id: string, user: RequestUser, dto: DisbursementInput) {
+    const c = await this.prisma.creditCase.findUnique({ where: { id }, select: { id: true } });
+    if (!c) throw new NotFoundException('Ariza topilmadi');
+    const data = {
+      holderName: dto.holderName ?? null,
+      cardNumber: dto.cardNumber ?? null,
+      accountNumber: dto.accountNumber ?? null,
+      bankMfo: dto.bankMfo ?? null,
+      holderInn: dto.holderInn ?? null,
+      bankName: dto.bankName ?? null,
+    };
+    await this.prisma.disbursementDetail.upsert({ where: { caseId: id }, create: { caseId: id, ...data }, update: data });
     return this.getOne(id);
   }
 }
