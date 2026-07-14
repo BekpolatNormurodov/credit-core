@@ -2,9 +2,9 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, ShieldCheck, Trash2, X, Plus, Minus, Messages,
+  ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X, Plus, Minus, Messages,
 } from '../lib/icons';
-import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage, type CaseDocumentMeta } from '@credit-core/api-client';
+import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage } from '@credit-core/api-client';
 import {
   CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role, ROLE_LABEL,
   TRANSITIONS, WorkflowDecision, type CreditCaseDto, type DocumentDto,
@@ -17,10 +17,6 @@ import { Select, MoneyInput } from '../components/forms';
 import { CaseTimeline } from '../components/CaseTimeline';
 import { useToast } from '../components/Toast';
 import { cn, formatMoney } from '../lib/cn';
-
-const uploadTypes: DocumentType[] = [
-  DocumentType.PASSPORT, DocumentType.NOTARY, DocumentType.SCAN, DocumentType.COLLATERAL_PHOTO, DocumentType.TECH_PASSPORT,
-];
 
 // Externally-produced scans attached only after the director has approved the case — each is a
 // single named slot matched by DocumentDto.title, not a new DocumentType or a document category.
@@ -95,8 +91,6 @@ export function CaseView() {
   const [deleteReason, setDeleteReason] = useState('');
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseDays, setPauseDays] = useState(2);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadType, setUploadType] = useState<DocumentType>(DocumentType.NOTARY);
   const [activeSection, setActiveSection] = useState<null | 'history'>(null);
 
   const { data: c, isLoading } = useQuery({ queryKey: ['case', id], queryFn: () => api.case(id!) });
@@ -119,11 +113,6 @@ export function CaseView() {
     // Surface the backend's reason — for submit-to-moderation this is the full list of incomplete
     // required fields (e.g. "PINFL 14 raqam; Garov 1: Kadastr № majburiy; KATM …").
     onError: (err) => toast.error('Yuborib bo‘lmadi', getErrorMessage(err)),
-  });
-
-  const upload = useMutation({
-    mutationFn: ({ file, type }: { file: File; type: DocumentType }) => api.uploadDocument(id!, type, file),
-    onSuccess: refresh,
   });
 
   const { data: appCfg } = useQuery({ queryKey: ['app-config'], queryFn: () => api.getConfig() });
@@ -168,10 +157,6 @@ export function CaseView() {
   // uploaded by operator/moderator/director once the case reaches ADMIN_FINALIZE or FINALIZED.
   const showScanSlots = c.status === CaseStatus.ADMIN_FINALIZE || c.status === CaseStatus.FINALIZED;
   const canUploadScans = role === Role.OPERATOR || role === Role.MODERATOR || role === Role.DIRECTOR;
-  const currentUploadTypes = isDirectorReview ? [DocumentType.DIRECTOR_FINAL] : uploadTypes;
-  // The controlled uploadType can be stale for the context (e.g. still NOTARY while a director may
-  // only attach DIRECTOR_FINAL); fall back to the first allowed type so the doc is filed correctly.
-  const effectiveUploadType = currentUploadTypes.includes(uploadType) ? uploadType : currentUploadTypes[0];
   const activeStep = c.status === CaseStatus.MODERATION || c.status === CaseStatus.DIRECTOR_REVIEW || c.status === CaseStatus.ADMIN_FINALIZE;
   const canPauseResume = (role === Role.MODERATOR || role === Role.DIRECTOR || role === Role.ADMIN) && (activeStep || !!c.pausedAt);
   const loan = appCfg ? computeLoan(c.amount, c.termMonths, appCfg) : null;
@@ -284,18 +269,13 @@ export function CaseView() {
 
           <Card>
             <div className="flex flex-wrap gap-3">
-              <DocumentsPanel
-                caseId={c.id}
-                number={c.number}
-                status={c.status}
-                generalDocs={generalDocs}
-                canUpload={canUpload}
-                canManageDocs={canManageDocs}
-                effectiveUploadType={effectiveUploadType}
-                currentUploadTypes={currentUploadTypes}
-                setUploadType={setUploadType}
-                fileRef={fileRef}
-                onUpload={(file) => upload.mutate({ file, type: effectiveUploadType })}
+              <LauncherTile
+                icon={FileDown}
+                label="Hujjatlar"
+                hint={c.status === CaseStatus.DRAFT ? 'Ariza yuborilgach shakllanadi' : `${generalDocs.length} ta yuklangan fayl`}
+                ariaLabel="Hujjatlar sahifasiga o‘tish"
+                onClick={() => navigate(`/cases/${c.id}/hujjatlar`)}
+                trailing={<ArrowRight className="h-4 w-4 shrink-0 text-gray-400 transition group-hover:translate-x-0.5 group-hover:text-brand-600 dark:group-hover:text-brand-400" />}
               />
               <LauncherTile
                 icon={Clock}
@@ -1110,190 +1090,3 @@ function DisbursementPanel({ c, onChange }: { c: CreditCaseDto; onChange: () => 
   );
 }
 
-/**
- * All case documents in one place — a launcher tile + its own modal, sectioned into:
- *  1. «Umumiy hujjatlar»          — generated registry docs (category 'main').
- *  2. «Notarius uchun hujjatlar»  — the 3 notary copies (category 'notary'), kept apart on purpose
- *                                    so they never get mixed into the main packet.
- *  3. «Qo'shimcha hujjatlar»      — operator-attached uploads (the former "Umumiy hujjatlar" tile).
- * Owns its own open state because the generated-docs query lives here.
- */
-function DocumentsPanel({
-  caseId, number, status, generalDocs, canUpload, canManageDocs,
-  effectiveUploadType, currentUploadTypes, setUploadType, fileRef, onUpload,
-}: {
-  caseId: string;
-  number: string;
-  status: CaseStatus;
-  generalDocs: DocumentDto[];
-  canUpload: boolean;
-  canManageDocs: boolean;
-  effectiveUploadType: DocumentType;
-  currentUploadTypes: DocumentType[];
-  setUploadType: (t: DocumentType) => void;
-  fileRef: React.RefObject<HTMLInputElement>;
-  onUpload: (file: File) => void;
-}) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const { data: docs } = useQuery({
-    queryKey: ['case-docs', caseId],
-    queryFn: () => api.listCaseDocuments(caseId),
-    enabled: status !== CaseStatus.DRAFT,
-  });
-  const open = async (key: string) => {
-    const url = URL.createObjectURL(await api.caseDocumentBlob(caseId, key));
-    window.open(url, '_blank', 'noopener,noreferrer');
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
-  };
-  const mainDocs = docs?.filter((d) => d.category === 'main') ?? [];
-  const notaryDocs = docs?.filter((d) => d.category === 'notary') ?? [];
-  const count = (docs?.length ?? 0) + generalDocs.length;
-
-  const images = generalDocs.filter((d) => (d.mimeType ?? '').startsWith('image/'));
-  const files = generalDocs.filter((d) => !(d.mimeType ?? '').startsWith('image/'));
-
-  return (
-    <>
-      <LauncherTile
-        icon={FileDown}
-        label="Hujjatlar"
-        hint={`${count} ta hujjat`}
-        ariaLabel={`Hujjatlar (${count})`}
-        onClick={() => setModalOpen(true)}
-      />
-      <Modal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        size="xl"
-        title="Hujjatlar"
-        description="Generatsiya qilingan va biriktirilgan hujjatlar — bo‘limlar bo‘yicha."
-      >
-        <div className="space-y-5">
-          <DocSection title="Umumiy hujjatlar" hint={status !== CaseStatus.DRAFT ? `${mainDocs.length} ta` : undefined}>
-            {status === CaseStatus.DRAFT ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Ariza yuborilgach hujjatlar shakllanadi.</p>
-            ) : mainDocs.length === 0 ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Hujjat yo‘q</p>
-            ) : (
-              <GeneratedDocList docs={mainDocs} number={number} caseId={caseId} onOpen={open} />
-            )}
-          </DocSection>
-
-          {notaryDocs.length > 0 && (
-            <DocSection title="Notarius uchun hujjatlar" hint={`${notaryDocs.length} ta`} icon={ShieldCheck} tone="notary">
-              <GeneratedDocList docs={notaryDocs} number={number} caseId={caseId} onOpen={open} />
-            </DocSection>
-          )}
-
-          <DocSection
-            title="Qo‘shimcha hujjatlar"
-            hint={`${generalDocs.length} ta`}
-            description="Garovga bog‘lanmagan, operator tomonidan biriktirilgan hujjatlar (garov hujjatlari har bir garov ostida)."
-          >
-            {generalDocs.length === 0 && !canUpload ? (
-              <p className="text-sm text-gray-400 dark:text-gray-500">Hujjatlar yo‘q</p>
-            ) : (
-              <div className="space-y-3">
-                {images.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-                    {images.map((d) => <ImgThumb key={d.id} doc={d} canManage={canManageDocs} label={DOCUMENT_LABEL[d.type]} />)}
-                  </div>
-                )}
-                {files.length > 0 && (
-                  <ul className="space-y-2">
-                    {files.map((d) => (
-                      <li key={d.id} className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 px-3 py-2 dark:border-gray-800">
-                        <div className="flex min-w-0 items-center gap-2.5 text-sm">
-                          <FileText className="h-5 w-5 shrink-0 text-gray-400" />
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-gray-700 dark:text-gray-200">{DOCUMENT_LABEL[d.type]} <span className="font-normal text-gray-400 dark:text-gray-500">· {d.fileName}</span></p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500">
-                              {new Date(d.uploadedAt).toLocaleString('ru-RU')}
-                              {d.uploadedByName ? ` · ${d.uploadedByName}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                        <DocActions doc={d} canManage={canManageDocs} />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
-
-            {canUpload && (
-              <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-200 pt-4 dark:border-gray-800">
-                <div className="w-52">
-                  <Select<DocumentType> value={effectiveUploadType} onChange={(v) => setUploadType(v)}
-                    options={currentUploadTypes.map((t) => ({ value: t, label: DOCUMENT_LABEL[t] }))} />
-                </div>
-                <input ref={fileRef} type="file" className="hidden" onChange={(e) => e.target.files?.[0] && onUpload(e.target.files[0])} />
-                <Button variant="secondary" onClick={() => fileRef.current?.click()}>
-                  <Upload className="h-5 w-5" /> Hujjat yuklash
-                </Button>
-              </div>
-            )}
-          </DocSection>
-        </div>
-      </Modal>
-    </>
-  );
-}
-
-/** Heading + count badge + content wrapper for one documents section (Umumiy / Notarius / Qo'shimcha). */
-function DocSection({
-  title, hint, description, icon: Icon, tone, children,
-}: {
-  title: string;
-  hint?: string;
-  description?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  tone?: 'notary';
-  children: React.ReactNode;
-}) {
-  return (
-    <section className={cn(
-      'rounded-xl border p-4',
-      tone === 'notary'
-        ? 'border-warning-200 bg-warning-50/30 dark:border-warning-500/20 dark:bg-warning-500/5'
-        : 'border-gray-200 dark:border-gray-800',
-    )}>
-      <div className="flex items-center gap-2">
-        {Icon && <Icon className="h-4 w-4 shrink-0 text-warning-600 dark:text-warning-500" />}
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-white">{title}</h3>
-        {hint && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-white/10 dark:text-gray-300">{hint}</span>}
-      </div>
-      {description && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{description}</p>}
-      <div className="mt-3">{children}</div>
-    </section>
-  );
-}
-
-/** Row list for generated (registry) documents — shared by the Umumiy and Notarius sections. */
-function GeneratedDocList({
-  docs, number, caseId, onOpen,
-}: {
-  docs: CaseDocumentMeta[];
-  number: string;
-  caseId: string;
-  onOpen: (key: string) => void;
-}) {
-  return (
-    <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-      {docs.map((d) => (
-        <li key={d.key} className="flex items-center justify-between gap-3 py-2.5">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">{d.title}</p>
-            {d.watermarked && (
-              <span className="mt-0.5 inline-block rounded bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning-600 dark:bg-warning-500/10 dark:text-warning-500">Tasdiqlanmagan</span>
-            )}
-          </div>
-          <div className="flex shrink-0 gap-2">
-            <button onClick={() => onOpen(d.key)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/5">Ko‘rish</button>
-            <button onClick={async () => downloadBlob(await api.caseDocumentBlob(caseId, d.key), `${d.key}_${number}.pdf`)} className="inline-flex items-center gap-1 rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50 dark:border-gray-700 dark:text-brand-400 dark:hover:bg-brand-500/10"><Download className="h-3.5 w-3.5" /> Yuklab olish</button>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
