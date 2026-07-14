@@ -1,6 +1,6 @@
 import { LoanType, ProductType, RepaymentMethod } from './enums';
 import { pmt } from './loan';
-import type { CollateralDto } from './dto';
+import type { CollateralDto, CreditCaseDto } from './dto';
 
 /** Insurance partners currently on-boarded (the "Kompaniya" dropdown). */
 export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as const;
@@ -241,5 +241,59 @@ export const collateralComplete = (c: CollateralDto): boolean => collateralMissi
 export function collateralErrors(c: CollateralDto): Partial<Record<CollateralField, string>> {
   const out: Partial<Record<CollateralField, string>> = {};
   for (const { field, label } of collateralMissing(c)) out[field] = `${label} majburiy`;
+  return out;
+}
+
+/**
+ * Server-authoritative FULL required-field validation for the DRAFT → MODERATION submit gate.
+ * Single source of truth mirroring the wizard's `errors` (useOriginationForm) — so a half-filled
+ * draft can never reach the moderator, regardless of what the client sent. Returns the Uz messages
+ * for every unsatisfied requirement (empty array = ready to submit).
+ */
+export function caseSubmitErrors(c: CreditCaseDto): string[] {
+  const out: string[] = [];
+  const b = c.borrower;
+
+  if (!b?.fullName?.trim()) out.push('F.I.O majburiy');
+  if ((b?.pinfl ?? '').length !== 14) out.push('PINFL 14 raqam bo‘lishi kerak');
+  if ((b?.passportSeries ?? '').length !== 2) out.push('Pasport seriya majburiy');
+  if ((b?.passportNumber ?? '').length !== 7) out.push('Pasport raqami majburiy');
+  if (!b?.phone) out.push('Telefon majburiy');
+  const validContacts = (b?.closeContacts ?? []).filter((cc) => cc.fullName?.trim() && cc.phone?.trim());
+  if (validContacts.length < 2) out.push('Kamida 2 ta yaqin kishi majburiy');
+
+  const line = c.creditLine;
+  const amountTotal = line?.amountTotal ?? c.amount ?? null;
+  if (!amountTotal || amountTotal <= 0) out.push('Jami summa majburiy');
+
+  if (!line?.termMonths || line.termMonths <= 0 || line.termMonths > LINE_TERM_CAP) {
+    out.push(`Liniya muddati majburiy (1..${LINE_TERM_CAP})`);
+  }
+
+  const cs = c.collaterals;
+  if (cs.length === 0) {
+    out.push('Kamida 1 ta garov majburiy');
+  } else {
+    const i = cs.findIndex((col) => !collateralComplete(col));
+    if (i >= 0) out.push(`Garov ${i + 1}: ${collateralMissing(cs[i]).map((m) => m.label).join(', ')} majburiy`);
+  }
+
+  const tr = line?.tranche;
+  if (!tr?.scheduleType) out.push('Jadval turini tanlang');
+  if (!isTermValid((tr?.scheduleType ?? undefined) as RepaymentMethod, tr?.termMonths)) out.push('Transh muddati noto‘g‘ri');
+  if (!tr?.principal || tr.principal <= 0) out.push('Asosiy summa majburiy');
+
+  const h = c.creditHistory;
+  const katmFilled = !!h
+    && h.repaidLoansCount != null && h.activeLoansCount != null && h.overdueSubstandardFlag != null
+    && h.otherObligations != null && !!h.loansOver5MFlag && !!h.priorMfiPawnshopFlag
+    && h.totalOutstandingDebt != null && h.avgMonthlyPaymentExisting != null;
+  if (!katmFilled) out.push('KATM bo‘limi to‘liq to‘ldirilishi shart');
+
+  if ((amountTotal ?? 0) > MICRO_THRESHOLD) {
+    const employmentOk = !!c.employment?.employer?.trim() && (c.affordability?.mainActivityIncome ?? 0) > 0;
+    if (!employmentOk) out.push('Mikrokredit (100 mln+) — ish joyi va asosiy daromad majburiy');
+  }
+
   return out;
 }

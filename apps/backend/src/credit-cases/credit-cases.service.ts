@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { addBusinessDays, CaseStatus, DocumentType, formatContractNumber, hasDeadline, insurancePremiumRate, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
+import { addBusinessDays, caseSubmitErrors, CaseStatus, DocumentType, formatContractNumber, hasDeadline, insurancePremiumRate, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -573,10 +573,15 @@ export class CreditCasesService {
       documentTypes: c.documents.map((d) => d.type as DocumentType),
     });
 
-    // Submit-time (DRAFT → MODERATION) server-authoritative gate: complete loan data + term caps.
-    // Runs only for the actual submit, so other DRAFT decisions get the correct workflow error.
+    // Submit-time (DRAFT → MODERATION) server-authoritative gate: FULL required-field validation
+    // (single source of truth shared with the wizard) + the per-collateral media cap, so a
+    // half-filled draft can never reach the moderator. Runs only for the actual submit, so other
+    // DRAFT decisions get the correct workflow error.
     if (c.status === CaseStatus.DRAFT && rule.to === CaseStatus.MODERATION) {
-      if (!c.collaterals.length) throw new ForbiddenException('Kamida bitta garov kiritilishi shart');
+      const full = await this.getOne(id);
+      const problems = caseSubmitErrors(full);
+      if (problems.length) throw new ForbiddenException(problems.join('; '));
+
       // Photos/videos are optional (0..10 per collateral) — only the upper bound is enforced.
       const mediaByCol = new Map<string, number>();
       for (const d of c.documents) {
@@ -589,17 +594,6 @@ export class CreditCasesService {
       if (c.collaterals.some((col) => (mediaByCol.get(col.id) ?? 0) > 10)) {
         throw new ForbiddenException('Har bir garovga ko‘pi bilan 10 ta rasm yoki video biriktiriladi');
       }
-      const line = c.creditLine;
-      const tr = line?.tranches[0];
-      if (!line || line.amountTotal == null || tr?.scheduleType == null || tr?.termMonths == null) {
-        throw new ForbiddenException('Kredit liniyasi to‘liq emas (summa, muddat va jadval turi shart)');
-      }
-      const errs = loanRuleViolations({
-        scheduleType: tr.scheduleType as 'ANNUITY' | 'DIFFERENTIATED',
-        trancheTermMonths: tr.termMonths,
-        lineTermMonths: line.termMonths,
-      });
-      if (errs.length) throw new ForbiddenException(errs.join('; '));
 
       // Assign the company-wide contract number exactly once, at submit. New client: consume a new
       // global + yearly. Qayta MFL: consume a new global, reuse the source's yearly + branch.
