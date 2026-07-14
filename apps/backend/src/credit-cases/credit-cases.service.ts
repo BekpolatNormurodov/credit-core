@@ -340,9 +340,9 @@ export class CreditCasesService {
       where.status = mineOnly
         ? CaseStatus.DIRECTOR_REVIEW
         : { in: [CaseStatus.MODERATION, CaseStatus.DIRECTOR_REVIEW, CaseStatus.ADMIN_FINALIZE, CaseStatus.FINALIZED, CaseStatus.CANCELLED] };
-    } else if (user.role === Role.ADMIN && mineOnly) {
-      where.status = CaseStatus.ADMIN_FINALIZE;
     }
+    // ADMIN has no workflow step/inbox (Spec B) — it's a superset viewer with no status narrowing,
+    // same with or without `mineOnly` (there is nothing to scope an admin "inbox" down to).
 
     const cases = await this.prisma.creditCase.findMany({
       where,

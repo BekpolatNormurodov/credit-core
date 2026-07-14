@@ -157,8 +157,9 @@ export function CaseView() {
   const canDeleteDraft = c.status === CaseStatus.DRAFT && !isArchived && (role === Role.OPERATOR || role === Role.ADMIN);
   const canRestore = isArchived && (role === Role.OPERATOR || role === Role.ADMIN);
   const isDirectorReview = role === Role.DIRECTOR && c.status === CaseStatus.DIRECTOR_REVIEW;
-  const isAdminFinalize = role === Role.ADMIN && c.status === CaseStatus.ADMIN_FINALIZE;
-  const canUpload = isOperatorDraft || isDirectorReview;
+  // Any authenticated role (operator/moderator/director/admin) may attach a document in any
+  // non-archived state — the document list is already visible to all.
+  const canUpload = !isArchived;
   const canManageDocs = canUpload || role === Role.ADMIN;
   // Post-director-approval scan slots (collateral contract / encumbrance card / general file) —
   // uploaded by operator/moderator/director once the case reaches ADMIN_FINALIZE or FINALIZED.
@@ -407,7 +408,9 @@ export function CaseView() {
             </Card>
           )}
 
-          {isAdminFinalize && <AdminPanel c={c} onChange={refresh} katm={katm} setKatm={setKatm} />}
+          {/* KATM price (+ finalize doc exports) moves to the director's review step — director
+              approval is now the terminal action, mirroring canSetSplit's DIRECTOR_REVIEW gate. */}
+          {isDirectorReview && <AdminPanel c={c} onChange={refresh} katm={katm} setKatm={setKatm} />}
           <CapturePanel c={c} role={role} onChange={refresh} />
           <DisbursementPanel c={c} onChange={refresh} />
         </div>
@@ -998,7 +1001,7 @@ function AdminPanel({
   const saveKatm = useMutation({ mutationFn: () => api.setKatmPrice(c.id, Number(katm)), onSuccess: onChange });
   return (
     <Card className="space-y-3">
-      <h2 className="font-semibold text-gray-800 dark:text-white">Yakunlash (Admin)</h2>
+      <h2 className="font-semibold text-gray-800 dark:text-white">Yakunlash</h2>
       <Field label="KATM narxi">
         <div className="flex gap-2">
           <MoneyInput value={katm ? Number(katm) : null} onChange={(v) => setKatm(v == null ? '' : String(v))} />

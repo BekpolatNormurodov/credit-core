@@ -25,14 +25,11 @@ export const TRANSITIONS: TransitionRule[] = [
   { from: CaseStatus.MODERATION, to: CaseStatus.DIRECTOR_REVIEW, role: Role.MODERATOR, decision: WorkflowDecision.APPROVE },
   { from: CaseStatus.MODERATION, to: CaseStatus.DRAFT, role: Role.MODERATOR, decision: WorkflowDecision.RETURN },
 
-  // Director signs (Imzolash) → admin. No file attach required; the document set is generated on
-  // demand from the registry. Or returns → moderation.
-  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.ADMIN_FINALIZE, role: Role.DIRECTOR, decision: WorkflowDecision.APPROVE },
+  // Director signs (Imzolash) → FINALIZED, directly. No file attach required; the document set is
+  // generated on demand from the registry. Director approval is final — there is no admin step.
+  // Or returns → moderation.
+  { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.FINALIZED, role: Role.DIRECTOR, decision: WorkflowDecision.APPROVE },
   { from: CaseStatus.DIRECTOR_REVIEW, to: CaseStatus.MODERATION, role: Role.DIRECTOR, decision: WorkflowDecision.RETURN },
-
-  // Admin finalizes (KATM price + PDF + Excel) → done, or returns → director.
-  { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.FINALIZED, role: Role.ADMIN, decision: WorkflowDecision.FINALIZE },
-  { from: CaseStatus.ADMIN_FINALIZE, to: CaseStatus.DIRECTOR_REVIEW, role: Role.ADMIN, decision: WorkflowDecision.RETURN },
 
   // Cancel — moderator aborts a case in their queue; director may cancel any active step.
   { from: CaseStatus.MODERATION, to: CaseStatus.CANCELLED, role: Role.MODERATOR, decision: WorkflowDecision.CANCEL, override: true },
@@ -51,7 +48,6 @@ export const TRANSITIONS: TransitionRule[] = [
 export const DEADLINE_STEPS: CaseStatus[] = [
   CaseStatus.MODERATION,
   CaseStatus.DIRECTOR_REVIEW,
-  CaseStatus.ADMIN_FINALIZE,
 ];
 
 /** Whether a status has an SLA deadline (a step timer applies). */
@@ -82,5 +78,6 @@ export const ROLE_INBOX_STATUS: Record<Role, CaseStatus | null> = {
   [Role.OPERATOR]: CaseStatus.DRAFT,
   [Role.MODERATOR]: CaseStatus.MODERATION,
   [Role.DIRECTOR]: CaseStatus.DIRECTOR_REVIEW,
-  [Role.ADMIN]: CaseStatus.ADMIN_FINALIZE,
+  // Admin is no longer a workflow step — director approval is final. No inbox for admin.
+  [Role.ADMIN]: null,
 };

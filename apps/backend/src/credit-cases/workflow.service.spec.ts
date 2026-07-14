@@ -36,22 +36,13 @@ describe('WorkflowService', () => {
     ).toThrow(ForbiddenException);
   });
 
-  it('lets director sign (Imzolash) without any attached final doc', () => {
+  it('lets director sign (Imzolash) without any attached final doc — approval is final', () => {
+    // Spec B: director approval finalizes the case directly — no admin step.
     // Feature C: no file attach required; the document set is generated on demand.
     const rule = svc.resolve({
       currentStatus: CaseStatus.DIRECTOR_REVIEW,
       role: Role.DIRECTOR,
       decision: WorkflowDecision.APPROVE,
-      documentTypes: [],
-    });
-    expect(rule.to).toBe(CaseStatus.ADMIN_FINALIZE);
-  });
-
-  it('admin finalizes', () => {
-    const rule = svc.resolve({
-      currentStatus: CaseStatus.ADMIN_FINALIZE,
-      role: Role.ADMIN,
-      decision: WorkflowDecision.FINALIZE,
       documentTypes: [],
     });
     expect(rule.to).toBe(CaseStatus.FINALIZED);

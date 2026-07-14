@@ -123,8 +123,9 @@ export class CreditCasesController {
     return this.service.resume(id, user);
   }
 
+  // Director signs and finalizes in one step now (Spec B); admin kept for legacy access.
   @UseGuards(RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.DIRECTOR, Role.ADMIN)
   @Put(':id/katm-price')
   setKatmPrice(@Param('id') id: string, @CurrentUser() user: RequestUser, @Body() dto: SetKatmPriceDto) {
     return this.service.setKatmPrice(id, user, dto.katmPrice);
