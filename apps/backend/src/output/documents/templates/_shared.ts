@@ -1,9 +1,15 @@
 import type { Content } from 'pdfmake/interfaces';
-import { sumToWordsUz, dateToUzbekWords } from '../../../common/sum-to-words.util';
+import {
+  sumToWordsUz, dateToUzbekWords, moneyWithWordsCyr, integerToUzbekWordsCyrillic,
+} from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 
 /** Justified body paragraph. */
 export const p = (text: string): Content => ({ text, margin: [0, 3, 0, 3], alignment: 'justify' });
+
+const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+/** Number in Cyrillic Uzbek words, capitalized (e.g. 55 → "Эллик беш"). */
+export const wordsCyr = (n: number): string => cap(integerToUzbekWordsCyrillic(n));
 
 /** "200 000 000,00 (ikki yuz million ...)" — number + words. */
 export function amountWords(amount: number): string {
@@ -13,15 +19,18 @@ export function amountWords(amount: number): string {
 /** The shared numbered line terms (form, limit, term, rate/penalty) — identical across the forms. */
 export function lineTerms(c: CaseDocData): Content[] {
   const line = c.creditLine;
-  const amount = Number(line?.amountTotal ?? c.amount ?? 0);
-  const termText = line?.termMonths != null ? `${line.termMonths} ой` : '—';
-  const rateText = line?.interestRate != null ? `${Math.round(Number(line.interestRate) * 100)}%` : '—';
-  const penaltyText = line?.penaltyRate != null ? `${Math.round(Number(line.penaltyRate) * 100)}%` : '—';
+  const amount = line?.amountTotal ?? c.amount ?? null;
+  const term = line?.termMonths ?? null;
+  const ratePct = line?.interestRate != null ? Math.round(Number(line.interestRate) * 100) : null;
+  const penaltyPct = line?.penaltyRate != null ? Math.round(Number(line.penaltyRate) * 100) : 105;
+  const termText = term != null ? `${term} (${wordsCyr(term)}) ой` : '—';
+  const rateText = ratePct != null ? `${ratePct}% (${wordsCyr(ratePct)}) фоиз` : '—';
+  const penaltyText = `${penaltyPct}% (${wordsCyr(penaltyPct)}) фоиз`;
   return [
     p('1. Микромолия линияси доирасида ажратиладиган Микроқарз/микрокредит шакли: нақд ёки пул ўтказиш йўли билан (Мижоз ихтиёрига кўра);'),
-    p(`2. Микромолия линия лимит суммаси: ${amountWords(amount)} сўмгача;`),
+    p(`2. Микромолия линия лимит суммаси: ${moneyWithWordsCyr(amount)}гача;`),
     p(`3. Микромолия линия муддати: ${termText};`),
-    p(`4. Микромолия линияси доирасида ажратиладиган микроқарз/микрокредитларнинг фоиз ставкаси: йиллик ${rateText} фоиздан кредит миқдорининг қолдиқ суммасига нисбатан хисобланади. Тўлаш жадвалига мувофиқ асосий қарз бўйича навбатдаги тўлов бузилган ҳолларда муддати ўтган микроқарз/микрокредитнинг асосий қарз суммаси бўйича йиллик ${penaltyText} фоиз миқдорида фоизлар ҳисоблайди.`),
+    p(`4. Микромолия линияси доирасида ажратиладиган микроқарз/микрокредитларнинг фоиз ставкаси: йиллик ${rateText}дан кредит миқдорининг қолдиқ суммасига нисбатан хисобланади. Тўлаш жадвалига мувофиқ асосий қарз бўйича навбатдаги тўлов бузилган ҳолларда муддати ўтган микроқарз/микрокредитнинг асосий қарз суммаси бўйича йиллик ${penaltyText} миқдорида фоизлар ҳисоблайди.`),
   ];
 }
 

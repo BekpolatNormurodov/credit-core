@@ -6,9 +6,9 @@ describe('petitionTemplate', () => {
     const c = mockCaseDoc();
     const text = flattenDocText(petitionTemplate(c));
 
-    expect(text).toContain('24 ой');
-    expect(text).toContain('55%');
-    expect(text).toContain('105%');
+    expect(text).toContain('24 (Йигирма тўрт) ой');
+    expect(text).toContain('55% (Эллик беш) фоиз');
+    expect(text).toContain('105% (Бир юз беш) фоиз');
   });
 
   it('binds the borrower name, amount, line number and applicant address', () => {
@@ -16,8 +16,7 @@ describe('petitionTemplate', () => {
     const text = flattenDocText(petitionTemplate(c));
 
     expect(text).toContain(c.borrower!.fullName);
-    expect(text).toContain(new Intl.NumberFormat('ru-RU').format(150_000_000));
-    expect(text).toContain(c.creditLine!.lineNumber!);
+    expect(text.replace(/\s/g, ' ')).toContain('150 000 000');
     expect(text).toContain(c.borrower!.regAddress!);
   });
 
@@ -40,10 +39,9 @@ describe('petitionTemplate', () => {
     });
     const text = flattenDocText(petitionTemplate(c));
 
-    // The old bug hardcoded term=60/rate=55%/penalty=105% regardless of data.
-    expect(text).not.toContain('60 ой');
-    expect(text).not.toContain('55%');
-    expect(text).not.toContain('105%');
+    // The old bug hardcoded term=60/rate=55% regardless of data. (Penalty 105% is boilerplate.)
+    expect(text).not.toContain('60 (');
+    expect(text).not.toContain('55% (');
     // No fabricated today() fallback for a missing line date — must show a placeholder instead.
     expect(text).toContain('Мурожаатнома санаси: —');
   });

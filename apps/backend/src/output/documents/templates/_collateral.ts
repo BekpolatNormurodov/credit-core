@@ -1,7 +1,7 @@
 import type { Content, TableCell } from 'pdfmake/interfaces';
-import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-words.util';
+import { moneyWithWordsCyr } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { gridTable } from '../doc-layout';
+import { gridTable, shortDate } from '../doc-layout';
 
 type Collateral = CaseDocData['collaterals'][number];
 
@@ -49,7 +49,8 @@ export function autoValueTable(collaterals: Collateral[]): Content {
     { text: moneyWithWordsCyr(c.agreedValue) },
   ]);
   return {
-    table: { headerRows: 1, widths: ['*', '*', '*', '*', '*'], body: [AUTO_HEADER, ...rows] },
+    fontSize: 8,
+    table: { headerRows: 1, widths: [70, '*', '*', 78, 92], body: [AUTO_HEADER, ...rows] },
     layout: gridTable,
     margin: [0, 4, 0, 6],
   };
@@ -58,7 +59,7 @@ export function autoValueTable(collaterals: Collateral[]): Content {
 /** Footnote lines under the auto table (эгаси / тех паспорт / гараж / давлат рақами). */
 export function autoFootnotes(c: Collateral): Content[] {
   const tp = c.techPassportNo
-    ? `${c.techPassportNo}${c.techPassportDate ? ` от ${dateToRuCyrillic(c.techPassportDate)}` : ''}`
+    ? `${c.techPassportNo}${c.techPassportDate ? ` от ${shortDate(c.techPassportDate)} г.` : ''}`
     : '—';
   return [
     { text: `* Автомототранспорт воситаси эгаси: ${owner(c)}`, fontSize: 9 },
@@ -120,8 +121,9 @@ export function realtyValueTable(collaterals: Collateral[], withValue = true): C
   ];
   if (withValue) totalRow.push({ text: '' });
 
-  const widths = withValue ? ['*', 70, 90, '*'] : ['*', 80, 110];
+  const widths = withValue ? ['*', 60, 78, 92] : ['*', 78, 104];
   return {
+    fontSize: 8,
     table: { headerRows: 1, widths, body: [header, ...rows, totalRow] },
     layout: gridTable,
     margin: [0, 4, 0, 6],
