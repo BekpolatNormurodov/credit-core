@@ -2,18 +2,42 @@ import { mockCaseDoc, flattenDocText } from '../__fixtures__/case-doc.fixture';
 import { DOC_REGISTRY } from '../registry';
 import { monitoringTemplate } from './monitoring';
 
-describe('monitoringTemplate', () => {
+describe('monitoringTemplate (Акт мониторинга)', () => {
   const c = mockCaseDoc();
 
-  it('computes the +6-month visit date off the application date (2026-01-06 → 6 iyul 2026)', () => {
-    const text = flattenDocText(monitoringTemplate(c, 6));
-    // dateToUzbekWords renders month names in Latin transliteration (see sum-to-words.util.ts UZ_MONTHS)
-    expect(text).toContain('iyul 2026');
+  it('renders the sheet: heading, inspector clause, property block and the two signatures', () => {
+    const text = flattenDocText(monitoringTemplate(c, 0));
+
+    expect(text).toContain('Фуқаро ЖЎЛДИБАЕВ РУСЛАН билан имзоланган');
+    expect(text).toContain('гаровга кўйилган мол мулкнинг текширув.');
+    expect(text).toContain('ДАЛОЛАТНОМАСИ');
+    expect(text).toContain('Тошкент шахри');
+    expect(text).toContain('гаровга кўйилган мол - мулкни текширдим');
+    expect(text).toContain('Гаров сифатида қуйидаги мулк қабул қилинган:');
+    expect(text).toContain('Гаровга қўйилган мулкни визуал текшириши унинг қониқорли холатини кўрсатди.');
+    expect(text).toContain('Юқоридагиларни тасдиқлаб имзо қўювчилар:');
+    expect(text).toContain('ижрочи директори');
+    expect(text).toContain('Қарздор');
   });
 
-  it('computes the application-date (0-month) visit date (2026-01-06 → 6 yanvar 2026)', () => {
+  it('uses the monitoring sheet\'s own real-estate columns (not the act\'s)', () => {
     const text = flattenDocText(monitoringTemplate(c, 0));
-    expect(text).toContain('yanvar 2026');
+    expect(text).toContain('Умумий фойдаланиш майдони');
+    expect(text).not.toContain('Давлат руйхатидан утказилган ер майдони');
+    expect(text).toContain('ЖАМИ');
+  });
+
+  it('states the total agreed value in Cyrillic words', () => {
+    const text = flattenDocText(monitoringTemplate(c, 0)).replace(/\s/g, ' ');
+    // Fixture: 200M realty + 180M auto = 380M.
+    expect(text).toContain('380 000 000,00');
+    expect(text).toContain('сўмни ташкил қилади');
+  });
+
+  it('computes the visit date off the application date (2026-01-06: +0/+6/+12)', () => {
+    expect(flattenDocText(monitoringTemplate(c, 0))).toContain('06 Январь 2026 й.');
+    expect(flattenDocText(monitoringTemplate(c, 6))).toContain('06 Июль 2026 й.');
+    expect(flattenDocText(monitoringTemplate(c, 12))).toContain('06 Январь 2027 й.');
   });
 
   it('does not leak a raw datetime/timestamp anywhere in any of the three periods', () => {
@@ -29,6 +53,7 @@ describe('monitoringTemplate', () => {
     for (const months of [0, 6, 12]) {
       const text = flattenDocText(monitoringTemplate(noDate, months));
       expect(text).toContain('—');
+      expect(text).not.toContain('NaN');
     }
   });
 });

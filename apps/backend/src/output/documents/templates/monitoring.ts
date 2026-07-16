@@ -1,12 +1,17 @@
-import type { TDocumentDefinitions } from 'pdfmake/interfaces';
-import { dateToUzbekWords } from '../../../common/sum-to-words.util';
+import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
+import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, docTitle, kv, kvTable, money, signatures } from '../doc-layout';
+import { gridTable, shortDate, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { p } from './_shared';
+import { autoValueTable, autoFootnotes, realtyFootnotes, shortName, totalAgreedValue } from './_collateral';
+
+type Collateral = CaseDocData['collaterals'][number];
+
+const dash = (v: unknown): string => (v == null || v === '' ? '—' : String(v));
 
 /**
  * Add `months` to `d`, clamping the day-of-month to the last day of the resulting month
- * (e.g. 31 Jan + 1 month → 28/29 Feb, not an overflowed March date). UTC-based to match
- * `dateToUzbekWords` and avoid local-timezone drift.
+ * (e.g. 31 Jan + 1 month → 28/29 Feb, not an overflowed March date). UTC-based to avoid drift.
  */
 function addMonths(d: Date, months: number): Date {
   const r = new Date(d);
@@ -18,44 +23,133 @@ function addMonths(d: Date, months: number): Date {
   return r;
 }
 
+// The monitoring sheet's real-estate table differs from the act's: the third column is
+// "Умумий фойдаланиш майдони" (total area), and the composition sentence is the shorter form.
+const REALTY_HEAD: TableCell[] = [
+  { text: 'Ушбу кучмас мулк объектнинг таркиби ва таснифи', bold: true, alignment: 'center' },
+  { text: 'Яшаш майдони', bold: true, alignment: 'center' },
+  { text: 'Умумий фойдаланиш майдони', bold: true, alignment: 'center' },
+];
+
+const monitoringComposition = (col: Collateral): string =>
+  `Хоналар сони: ${dash(col.roomCount)} та, умумий майдони ${dash(col.totalAreaM2)} кв.м. ` +
+  `яшаш майдони - ${dash(col.livingAreaM2)} кв.м., хоналар номи: ${col.roomNames ?? ''}`.trimEnd();
+
+function realtyMonitoringTable(cols: Collateral[]): Content {
+  const rows: TableCell[][] = cols.map((col) => [
+    { text: monitoringComposition(col) },
+    { text: `${dash(col.livingAreaM2)} кв.м.`, alignment: 'center' },
+    { text: `${dash(col.totalAreaM2)} кв.м.`, alignment: 'center' },
+  ]);
+  const totLiving = cols.reduce((s, x) => s + Number(x.livingAreaM2 ?? 0), 0);
+  const totTotal = cols.reduce((s, x) => s + Number(x.totalAreaM2 ?? 0), 0);
+  return {
+    fontSize: 8,
+    table: {
+      headerRows: 1,
+      widths: ['*', 70, 90],
+      body: [
+        REALTY_HEAD,
+        ...rows,
+        [
+          { text: 'ЖАМИ', bold: true },
+          { text: `${totLiving} кв.м.`, bold: true, alignment: 'center' },
+          { text: `${totTotal} кв.м.`, bold: true, alignment: 'center' },
+        ],
+      ],
+    },
+    layout: gridTable,
+    margin: [0, 4, 0, 4],
+  };
+}
+
 /**
- * Мониторинг далолатномаси — the collateral/borrower monitoring act. Three of these are generated
- * per case: at the application date, +6 months, and +12 months (`periodMonths` selects which).
- * The visit date is always computed off the case's application date — never `new Date()` — so the
- * document is reproducible and doesn't leak a generation timestamp. Findings sections are left
- * blank for the inspector to fill in by hand during the actual site visit.
+ * Акт мониторинга — «…гаровга кўйилган мол мулкнинг текширув ДАЛОЛАТНОМАСИ», matching the reference
+ * sheet: the "Фуқаро … билан имзоланган" heading, the inspector clause, the pledged-property tables
+ * (auto — the sheet's 4-column form without a value column; real-estate — composition / яшаш /
+ * умумий фойдаланиш майдони) with their footnotes, the total agreed value in Cyrillic words, the
+ * visual-inspection sentence, and the two signatures. No org letterhead.
+ *
+ * Three are generated per case — at the application date, +6 and +12 months (`periodMonths`).
+ * The visit date is always derived from the application date, never `new Date()`.
  */
 export function monitoringTemplate(c: CaseDocData, periodMonths: number): TDocumentDefinitions {
-  const baseDate = c.creditLine?.tranches?.[0]?.applicationDate ?? c.creditLine?.lineDate ?? null;
-  const visitDateStr = baseDate ? dateToUzbekWords(addMonths(baseDate, periodMonths)) : '—';
+  const org = c.organization;
+  const b = c.borrower;
+  const name = b?.fullName ?? '—';
+  const line = c.creditLine;
+  const lineNo = line?.orderNumber ?? line?.lineNumber ?? c.contractNumber ?? c.number ?? '—';
+  const lineDate = line?.lineDate ?? null;
+  const lineDateStr = lineDate ? shortDate(lineDate) : '—';
 
-  const collateralTypes = c.collaterals
-    .map((col) => (col.type === 'AUTO' ? 'Автотранспорт' : 'Уй-жой'))
-    .join(', ') || '—';
-  const collateralTotal = c.collaterals.reduce((sum, col) => sum + Number(col.agreedValue ?? 0), 0);
+  const baseDate = line?.tranches?.[0]?.applicationDate ?? lineDate ?? null;
+  const visitDateStr = baseDate ? dateToRuCyrillic(addMonths(baseDate, periodMonths)) : '—';
+
+  const cols = c.collaterals ?? [];
+  const autos = cols.filter((x) => x.type === 'AUTO');
+  const realty = cols.filter((x) => x.type === 'REAL_ESTATE');
+
+  const property: Content[] = [];
+  if (autos.length) {
+    property.push(autoValueTable(autos, false));
+    autos.forEach((a) => property.push(...autoFootnotes(a)));
+  }
+  if (realty.length) {
+    property.push(realtyMonitoringTable(realty));
+    realty.forEach((r) => property.push(...realtyFootnotes(r)));
+  }
+  if (!property.length) property.push({ text: 'Гаров киритилмаган', italics: true });
 
   return {
-    defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [45, 50, 45, 50],
+    defaultStyle: DOC_DEFAULT_STYLE,
+    pageMargins: DOC_PAGE_MARGINS,
     content: [
-      orgHeader(c.organization),
-      docTitle(
-        'МОНИТОРИНГ ДАЛОЛАТНОМАСИ',
-        `${periodMonths === 0 ? 'Бошланғич' : periodMonths + ' ойлик'} мониторинг · ${visitDateStr}`,
+      { text: `Фуқаро ${name} билан имзоланган`, bold: true, alignment: 'center' },
+      {
+        text:
+          `${lineDateStr}йилдаги № ${lineNo} микромолиялаш линияси очиш тўғрисидаги Бош келишувга асосан ` +
+          `микроқарз/микрокредитларга гаровга кўйилган мол мулкнинг текширув.`,
+        bold: true,
+        alignment: 'center',
+        margin: [0, 2, 0, 2],
+      },
+      { text: 'ДАЛОЛАТНОМАСИ', bold: true, alignment: 'center', fontSize: 12, margin: [0, 0, 0, 10] },
+      {
+        columns: [
+          { width: '*', text: 'Тошкент шахри' },
+          { width: 'auto', text: visitDateStr, alignment: 'right' },
+        ],
+        margin: [0, 0, 0, 10],
+      },
+      p(
+        `Мен, ${org?.nameUpper ?? 'ММТ'} ижрочи директори ${org?.directorShort ?? '—'} , фуқаро ${name}нинг ` +
+          `иштирокида ${lineDateStr}йилдаги № ${lineNo} сонли микромолиялаш линиясини очиш тўғрисидаги Бош ` +
+          `Келишувга асосан гаровга кўйилган мол - мулкни текширдим`,
       ),
-      kvTable([
-        kv('Мижоз Ф.И.Ш.', c.borrower?.fullName ?? '—'),
-        kv('Шартнома рақами', String(c.contractNumber ?? c.number ?? '—')),
-        kv('Кредит суммаси', money(c.creditLine?.amountTotal ?? c.amount)),
-        kv('Гаровлар', collateralTypes),
-        kv('Гаров умумий қиймати', money(collateralTotal)),
-        kv('Мониторинг санаси', visitDateStr),
-      ]),
-      { text: 'Гаров ҳолати ва мавжудлиги: _______________________________', margin: [0, 8, 0, 4] },
-      { text: 'Тўлов интизоми: _______________________________', margin: [0, 0, 0, 4] },
-      { text: 'Мижоз фаолияти ҳолати: _______________________________', margin: [0, 0, 0, 4] },
-      { text: 'Хулоса: _______________________________', margin: [0, 0, 0, 4] },
-      signatures(['Текширувчи', '(лавозими, Ф.И.Ш.)'], ['Мижоз', c.borrower?.fullName ?? '']),
+      { text: 'Гаров сифатида қуйидаги мулк қабул қилинган:', margin: [0, 6, 0, 2] },
+      ...property,
+      p(`Юқорида қўрсатилган мулкнинг келишилган гаров қиймати ${moneyWithWordsCyr(totalAgreedValue(c))}ни ташкил қилади`),
+      p('Гаровга қўйилган мулкни визуал текшириши унинг қониқорли холатини кўрсатди.'),
+      { text: 'Юқоридагиларни тасдиқлаб имзо қўювчилар:', margin: [0, 10, 0, 8] },
+      {
+        stack: [
+          { text: org?.nameUpper ?? 'ММТ' },
+          {
+            columns: [
+              { width: '*', text: 'ижрочи директори' },
+              { width: 'auto', text: `_______________ ${org?.directorShort ?? '—'}`, alignment: 'right' },
+            ],
+            margin: [0, 2, 0, 12],
+          },
+          {
+            columns: [
+              { width: '*', text: 'Қарздор' },
+              { width: 'auto', text: `_______________ ${shortName(name)}`, alignment: 'right' },
+            ],
+          },
+        ],
+        unbreakable: true,
+      },
     ],
   };
 }
