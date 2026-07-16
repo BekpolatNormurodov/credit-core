@@ -1,18 +1,19 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { sumToWordsUz, dateToUzbekWords } from '../../../common/sum-to-words.util';
+import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, money } from '../doc-layout';
-import { p, collateralDetails } from './_shared';
+import { sectionTitle } from '../doc-layout';
+import { p } from './_shared';
+import { collateralBlock } from './_collateral';
 
 /** Bold section heading, e.g. "4. Микромолия ташкилотининг ҳуқуқ ва мажбуриятлари". */
-const h = (text: string): Content => ({ text, bold: true, margin: [0, 8, 0, 4] as [number, number, number, number] });
+const h = (text: string): Content => sectionTitle(text);
 
 /** Italic sub-heading, e.g. "4.1. Микромолия ташкилот қуйидаги ҳуқуқларга эга:". */
 const sub = (text: string): Content => ({ text, bold: true, italics: true, margin: [0, 4, 0, 2] as [number, number, number, number] });
 
 /** "<money> (<so'z bilan>)" — omits the parenthetical when the amount is unknown. */
 function amountWithWords(amount: number | null): string {
-  return amount ? `${money(amount)} (${sumToWordsUz(amount)})` : '—';
+  return amount ? moneyWithWordsCyr(amount) : '—';
 }
 
 /**
@@ -28,12 +29,12 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
   const insurance = line?.insurance;
 
   const contractNo = c.contractNumber ?? c.number ?? '—';
-  const lineDateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
-  const lineMaturityStr = line?.lineMaturity ? dateToUzbekWords(line.lineMaturity) : '—';
+  const lineDateStr = line?.lineDate ? dateToRuCyrillic(line.lineDate) : '—';
+  const lineMaturityStr = line?.lineMaturity ? dateToRuCyrillic(line.lineMaturity) : '—';
   const applicationDateStr = tr?.applicationDate
-    ? dateToUzbekWords(tr.applicationDate)
+    ? dateToRuCyrillic(tr.applicationDate)
     : line?.lineDate
-      ? dateToUzbekWords(line.lineDate)
+      ? dateToRuCyrillic(line.lineDate)
       : '—';
 
   const amountTotal =
@@ -51,7 +52,7 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
   const borrowerName = b?.fullName ?? '—';
   const passport = [b?.passportSeries, b?.passportNumber].filter(Boolean).join(' ') || '—';
   const passportIssuer = b?.passportIssuer ?? '—';
-  const passportIssueDateStr = b?.passportIssueDate ? dateToUzbekWords(b.passportIssueDate) : '—';
+  const passportIssueDateStr = b?.passportIssueDate ? dateToRuCyrillic(b.passportIssueDate) : '—';
   const borrowerAddress = b?.regAddress ?? b?.address ?? '—';
   const phoneList = [
     b?.phone,
@@ -79,13 +80,12 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
     defaultStyle: { font: 'Roboto', fontSize: 10 },
     pageMargins: [45, 50, 45, 50],
     content: [
-      orgHeader(c.organization),
       { text: 'МИКРОҚАРЗ ШАРТНОМАСИ', style: 'h1', alignment: 'center' },
       { text: `№ ${contractNo}`, alignment: 'center', margin: [0, 0, 0, 4] },
       { columns: [{ text: 'Тошкент ш.' }, { text: lineDateStr, alignment: 'right' }], margin: [0, 0, 0, 10] },
 
       p(
-        `«${orgName}», бундан буён «Микромолия ташкилоти» деб номланувчи, Низом асосида фаолият юритувчи, Ижрочи директор ${directorFull} номидан бир томондан ва ўз манфаати йўлида ҳамда ўз номидан ҳаракат қилувчи Ўзбекистон Республикаси фуқароси ${borrowerName} (паспорт рақами ${passport}, ${passportIssuer} томонидан ${passportIssueDateStr} берилган), бундан буён "Қарз олувчи" деб номланади, бошқа томондан, биргаликда "Тарафлар" ёки алоҳида "Тараф" деб номланувчилар, Қарз олувчи томонидан ${applicationDateStr}, микроқарз олиш учун ариза берилганлигини ҳисобга олиб, ушбу Микроқарз шартномасини (бундан кейин – «Шартнома») қуйидагилар ҳақида туздилар:`,
+        `${orgName}, бундан буён «Микромолия ташкилоти» деб номланувчи, Низом асосида фаолият юритувчи, Ижрочи директор ${directorFull} номидан бир томондан ва ўз манфаати йўлида ҳамда ўз номидан ҳаракат қилувчи Ўзбекистон Республикаси фуқароси ${borrowerName} (паспорт рақами ${passport}, ${passportIssuer} томонидан ${passportIssueDateStr} берилган), бундан буён "Қарз олувчи" деб номланади, бошқа томондан, биргаликда "Тарафлар" ёки алоҳида "Тараф" деб номланувчилар, Қарз олувчи томонидан ${applicationDateStr}, микроқарз олиш учун ариза берилганлигини ҳисобга олиб, ушбу Микроқарз шартномасини (бундан кейин – «Шартнома») қуйидагилар ҳақида туздилар:`,
       ),
 
       h('1. Шартнома предмети'),
@@ -127,7 +127,7 @@ export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
       h('3. Микроқарз бўйича гаров таъминоти'),
       p('3.1. Ушбу Шартнома бўйича тақдим этилган Микроқарз қуйидаги гаров билан таъминланади:'),
       sub('3.1.1. Гаров предмети'),
-      ...collateralDetails(c),
+      ...collateralBlock(c),
       p(`Гаровга қўювчи: ${pledgorName}.`),
       p(
         `Келишилган гаров қиймати: ${amountWithWords(totalCollateral)}. Гаровнинг аниқ шартлари тегишли тарзда нотариал тасдиқланган гаров шартномаси билан белгиланади. Гаров объекти суғурталанмайди.`,
