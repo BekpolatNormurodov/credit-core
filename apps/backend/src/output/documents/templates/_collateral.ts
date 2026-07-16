@@ -31,26 +31,31 @@ export function autoDescription(c: Collateral): string {
   );
 }
 
-const AUTO_HEADER: TableCell[] = [
+const AUTO_HEAD_BASE: TableCell[] = [
   { text: 'Мулк номи', bold: true, alignment: 'center' },
   { text: 'Кузов тури ва кузов рақами', bold: true, alignment: 'center' },
   { text: 'Двигател рақами ва шасси рақами', bold: true, alignment: 'center' },
   { text: 'Ишлаб чиқарилган йили ва ранги', bold: true, alignment: 'center' },
-  { text: 'Гаров қийматининг келишилган нархи, сўм', bold: true, alignment: 'center' },
 ];
+const AUTO_VALUE_COL: TableCell = { text: 'Гаров қийматининг келишилган нархи, сўм', bold: true, alignment: 'center' };
 
-/** The 5-column auto value table (Приказ / Кредитная заявка). */
-export function autoValueTable(collaterals: Collateral[]): Content {
-  const rows: TableCell[][] = collaterals.map((c) => [
-    { text: dash(c.model) },
-    { text: `тип кузова - ${dash(c.bodyType)}, кузов №${dash(c.bodyNo)}` },
-    { text: `двигатель №${dash(c.engineNo)}, шасси - ${dash(c.chassis)}` },
-    { text: `ранги - ${dash(c.color)}, ${dash(c.year)} йилда ишлаб чиқарилган.` },
-    { text: moneyWithWordsCyr(c.agreedValue) },
-  ]);
+/** The auto value table. `withValue` adds the "Гаров қиймати" column (Приказ / act table 2). */
+export function autoValueTable(collaterals: Collateral[], withValue = true): Content {
+  const header = withValue ? [...AUTO_HEAD_BASE, AUTO_VALUE_COL] : AUTO_HEAD_BASE;
+  const rows: TableCell[][] = collaterals.map((c) => {
+    const row: TableCell[] = [
+      { text: dash(c.model) },
+      { text: `тип кузова - ${dash(c.bodyType)}, кузов №${dash(c.bodyNo)}` },
+      { text: `двигатель №${dash(c.engineNo)}, шасси - ${dash(c.chassis)}` },
+      { text: `ранги - ${dash(c.color)}, ${dash(c.year)} йилда ишлаб чиқарилган.` },
+    ];
+    if (withValue) row.push({ text: moneyWithWordsCyr(c.agreedValue) });
+    return row;
+  });
+  const widths = withValue ? [70, '*', '*', 78, 92] : [80, '*', '*', 90];
   return {
     fontSize: 8,
-    table: { headerRows: 1, widths: [70, '*', '*', 78, 92], body: [AUTO_HEADER, ...rows] },
+    table: { headerRows: 1, widths, body: [header, ...rows] },
     layout: gridTable,
     margin: [0, 4, 0, 6],
   };
@@ -146,6 +151,41 @@ export function realtyFootnotes(c: Collateral): Content[] {
 export function isAutoOnly(c: CaseDocData): boolean {
   const cols = c.collaterals ?? [];
   return cols.length > 0 && cols.every((x) => x.type === 'AUTO');
+}
+
+/** Акт table 1 — the DECLARED composition (no value column) + footnotes, per type. */
+export function collateralDeclaredBlock(c: CaseDocData): Content[] {
+  const cols = c.collaterals ?? [];
+  if (cols.length === 0) return [{ text: 'Гаров киритилмаган', italics: true }];
+  const autos = cols.filter((x) => x.type === 'AUTO');
+  const realty = cols.filter((x) => x.type === 'REAL_ESTATE');
+  const out: Content[] = [];
+  if (autos.length) {
+    out.push(autoValueTable(autos, false));
+    autos.forEach((a) => out.push(...autoFootnotes(a)));
+  }
+  if (realty.length) {
+    out.push(realtyValueTable(realty, false));
+    realty.forEach((r) => out.push(...realtyFootnotes(r)));
+  }
+  return out;
+}
+
+/** Акт table 2 — the AGREED value tables (with the залоговая стоимость column), no footnotes. */
+export function collateralAgreedTables(c: CaseDocData): Content[] {
+  const cols = c.collaterals ?? [];
+  if (cols.length === 0) return [];
+  const autos = cols.filter((x) => x.type === 'AUTO');
+  const realty = cols.filter((x) => x.type === 'REAL_ESTATE');
+  const out: Content[] = [];
+  if (autos.length) out.push(autoValueTable(autos, true));
+  if (realty.length) out.push(realtyValueTable(realty, true));
+  return out;
+}
+
+/** Total agreed collateral value (sum of agreedValue across collaterals). */
+export function totalAgreedValue(c: CaseDocData): number {
+  return (c.collaterals ?? []).reduce((s, x) => s + Number(x.agreedValue ?? 0), 0);
 }
 
 /** Full collateral block (table + footnotes) for a form, dispatching per type. */
