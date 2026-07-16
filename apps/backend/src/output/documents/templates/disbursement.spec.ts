@@ -10,7 +10,13 @@ describe('disbursementTemplate', () => {
     expect(text).toContain(c.contractNumber ?? c.number);
     expect(text).toContain('23120000800011438001');
     expect(text).toContain('00083');
-    expect(text).toContain('5614681810235717');
+    // The card is printed grouped 4-4-4-4, as on the panel that captures it.
+    expect(text).toContain('5614 6818 1023 5717');
+  });
+
+  it('states the amount in Cyrillic words', () => {
+    const text = flattenDocText(disbursementTemplate(mockCaseDoc())).replace(/\s/g, ' ');
+    expect(text).toContain('150 000 000,00 (Бир юз эллик миллион сўм 00 тийин) сўм');
   });
 
   it('shows the disbursement-account holder ИНН, not the borrower ИНН (third-party account guard)', () => {

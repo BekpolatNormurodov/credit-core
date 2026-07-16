@@ -1,52 +1,63 @@
-import type { TDocumentDefinitions } from 'pdfmake/interfaces';
-import { sumToWordsUz } from '../../../common/sum-to-words.util';
+import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
+import { moneyWithWordsCyr } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, docTitle, money, kv, kvTable } from '../doc-layout';
+import { DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { p } from './_shared';
 
+/** 16-digit card → "0000 0000 0000 0000"; any other length is left as-is. */
+function groupCard(n: string | null | undefined): string {
+  if (!n) return '—';
+  const digits = n.replace(/\D/g, '');
+  return digits.length === 16 ? digits.replace(/(.{4})/g, '$1 ').trim() : n;
+}
+
 /**
- * Пул ўтказиш аризаси (disbursement application) — the borrower's letter asking the org to
- * transfer the contracted microloan to a bank account/card. The destination account may belong
- * to a third party (not the borrower) — all requisites come from `DisbursementDetail`, never
- * from `Borrower.inn`.
+ * Пул ўтказиш аризаси — «Мижоз аризаси тўлов учун» (item 13 of the filing list): the borrower's
+ * letter asking the org to transfer the contracted microloan to a bank account/card. The destination
+ * account may belong to a third party — all requisites come from `DisbursementDetail`, never from
+ * `Borrower.inn`.
+ *
+ * There is no reference sheet for this form, so it follows the АРИЗА layout of the set: addressee
+ * block, title, request paragraph, plain requisite lines (no table), signature strip.
  */
 export function disbursementTemplate(c: CaseDocData): TDocumentDefinitions {
+  const org = c.organization;
   const b = c.borrower;
   const d = c.disbursement;
-  const amount = Number(c.creditLine?.amountTotal ?? c.amount ?? 0);
+  const amount = c.creditLine?.amountTotal ?? c.amount ?? null;
+
+  const line = (label: string, value: string): Content => ({ text: `${label}: ${value}`, margin: [0, 2, 0, 0] });
 
   return {
-    defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [45, 50, 45, 50],
+    defaultStyle: DOC_DEFAULT_STYLE,
+    pageMargins: DOC_PAGE_MARGINS,
     content: [
-      orgHeader(c.organization),
       {
         stack: [
-          { text: `«${c.organization?.nameMixed ?? 'ММТ'}»` },
+          { text: org?.nameUpper ?? 'ММТ' },
           { text: 'Ижрочи директори' },
-          { text: `${c.organization?.directorFull ?? '—'}га` },
+          { text: `${org?.directorShort ?? '—'}га`, bold: true },
         ],
         alignment: 'right',
         margin: [0, 0, 0, 12],
       },
       p(`${b?.regAddress ?? b?.address ?? '—'}да яшовчи ${b?.fullName ?? '—'}дан`),
-      docTitle('АРИЗА'),
+      { text: 'АРИЗА', bold: true, alignment: 'center', fontSize: 13, margin: [0, 6, 0, 10] },
       p(
-        `Ушбу ариза билан мен ${b?.fullName ?? '—'}, сиздан «${c.organization?.nameMixed ?? 'ММТ'}» билан имзоланган № ${c.contractNumber ?? c.number} сонли Микроқарз Шартномасига асосан ${money(amount)} (${amount ? sumToWordsUz(amount) : '—'}) микроқарзни қуйидаги ҳисоб рақамга ўтказиб беришингизни сўрайман.`,
+        `Ушбу ариза билан мен ${b?.fullName ?? '—'}, сиздан ${org?.nameUpper ?? 'ММТ'} билан имзоланган ` +
+          `№ ${c.contractNumber ?? c.number ?? '—'} сонли Микроқарз Шартномасига асосан ${moneyWithWordsCyr(amount)} ` +
+          `микроқарзни қуйидаги ҳисоб рақамга ўтказиб беришингизни сўрайман.`,
       ),
-      kvTable([
-        kv('Ҳисоб рақами (Х/Р)', d?.accountNumber ?? '—'),
-        kv('МФО', d?.bankMfo ?? '—'),
-        kv('ИНН', d?.holderInn ?? '—'),
-        kv('Карта рақами', d?.cardNumber ?? '—'),
-        kv('Ҳисоб эгаси', d?.holderName ?? '—'),
-        kv('Банк', d?.bankName ?? '—'),
-      ]),
+      { text: 'Тўлов реквизитлари:', bold: true, margin: [0, 10, 0, 2] },
+      line('Ҳисоб эгаси', d?.holderName ?? '—'),
+      line('Карта рақами', groupCard(d?.cardNumber)),
+      line('Ҳисоб рақами (Х/Р)', d?.accountNumber ?? '—'),
+      line('МФО', d?.bankMfo ?? '—'),
+      line('ИНН', d?.holderInn ?? '—'),
+      line('Банк', d?.bankName ?? '—'),
       {
-        columns: [
-          { width: '*', text: `${b?.fullName ?? '—'}   ______________   ____________` },
-        ],
-        margin: [0, 22, 0, 0],
+        columns: [{ width: '*', text: `${b?.fullName ?? '—'}   ______________   ____________` }],
+        margin: [0, 26, 0, 0],
       },
       {
         columns: [

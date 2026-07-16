@@ -1,7 +1,8 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { sumToWordsUz } from '../../../common/sum-to-words.util';
+import { moneyWithWordsCyr } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, docTitle, kv, kvTable, money, signatures } from '../doc-layout';
+import { DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { wordsCyr } from './_shared';
 
 /** Cyrillic label for the pledged-asset (garov) portion, driven by the case's actual collateral(s). */
 function collateralPortionLabel(c: CaseDocData): string {
@@ -11,7 +12,7 @@ function collateralPortionLabel(c: CaseDocData): string {
   return types.has('AUTO') ? 'Автотранспорт қисми' : 'Мол-мулк қисми';
 }
 
-/** 16-digit card → "0000 0000 0000 0000"; any other length is left as-is (already masked / partial). */
+/** 16-digit card → "0000 0000 0000 0000"; any other length is left as-is. */
 function groupCard(n: string | null | undefined): string {
   if (!n) return '—';
   const digits = n.replace(/\D/g, '');
@@ -19,62 +20,63 @@ function groupCard(n: string | null | undefined): string {
 }
 
 /**
- * Маблағ тақсимоти (Бухгалтерия учун) — the accountant-facing breakdown of a credit line:
- *  • Умумий маълумотлар — borrower, contract №, credit-line №, loan type, term.
- *  • Маблағ тақсимоти    — total, the garov-backed portion (labelled Автотранспорт / Мол-мулк per the
- *                          actual collateral), the insurance portion, and the total spelled in words.
- *  • Тўлов реквизитлари   — the beneficiary card / account requisites (from DisbursementDetail).
- * Every value is null-safe — a missing field renders "—", never NaN.
+ * Маблағ тақсимоти (Бухгалтерия учун) — the accountant-facing breakdown of a credit line: the total,
+ * the garov-backed portion (labelled per the actual collateral type) and the insurance portion, plus
+ * the beneficiary requisites.
+ *
+ * There is no reference sheet for this form (it is ours), so it follows the plain-line layout of the
+ * set rather than introducing tables. Every value is null-safe.
  */
 export function accountantSplitTemplate(c: CaseDocData): TDocumentDefinitions {
+  const org = c.organization;
   const line = c.creditLine;
   const d = c.disbursement;
-  const total = line?.amountTotal != null ? Number(line.amountTotal) : c.amount != null ? Number(c.amount) : null;
-  const collateralPart = line?.amountAuto != null ? Number(line.amountAuto) : null;
-  const insurancePart = line?.amountPolis != null ? Number(line.amountPolis) : null;
-  const totalWords = total != null ? sumToWordsUz(total) : '—';
+  const total = line?.amountTotal ?? c.amount ?? null;
+  const collateralPart = line?.amountAuto ?? null;
+  const insurancePart = line?.amountPolis ?? null;
+  const term = line?.termMonths ?? null;
   const loanTypeLabel =
     line?.loanType === 'MICROCREDIT' ? 'Микрокредит' : line?.loanType === 'MICROLOAN' ? 'Микроқарз' : '—';
 
-  const heading = (t: string, top = 10): Content => ({ text: t, bold: true, fontSize: 11, margin: [0, top, 0, 4] });
-
-  const content: Content[] = [
-    orgHeader(c.organization),
-    docTitle('МАБЛАҒ ТАҚСИМОТИ (Бухгалтерия учун)', `Иш № ${c.contractNumber ?? c.number ?? '—'}`),
-
-    heading('Умумий маълумотлар', 2),
-    kvTable([
-      kv('Қарз олувчи', c.borrower?.fullName ?? '—'),
-      kv('Шартнома рақами', c.contractNumber ?? c.number ?? '—'),
-      kv('Кредит линияси', line?.lineNumber ?? '—'),
-      kv('Кредит тури', loanTypeLabel),
-      kv('Муддат', line?.termMonths != null ? `${line.termMonths} ой` : '—'),
-    ]),
-
-    heading('Маблағ тақсимоти'),
-    kvTable([
-      kv('Кредит суммаси (жами)', money(total)),
-      kv(collateralPortionLabel(c), money(collateralPart)),
-      kv('Суғурта қисми', money(insurancePart)),
-      kv('Сумма (ёзувда)', totalWords),
-    ]),
-
-    heading('Тўлов реквизитлари'),
-    kvTable([
-      kv('Ҳисоб эгаси', d?.holderName ?? '—'),
-      kv('Карта рақами', groupCard(d?.cardNumber)),
-      kv('Ҳисоб рақами (Х/Р)', d?.accountNumber ?? '—'),
-      kv('МФО', d?.bankMfo ?? '—'),
-      kv('ИНН', d?.holderInn ?? '—'),
-      kv('Банк', d?.bankName ?? '—'),
-    ]),
-
-    signatures(['Бош бухгалтер'], ['Ижрочи директор']),
-  ];
+  const heading = (t: string, top = 10): Content => ({ text: t, bold: true, fontSize: 11, margin: [0, top, 0, 3] });
+  const line_ = (label: string, value: string): Content => ({ text: `${label}: ${value}`, margin: [0, 2, 0, 0] });
 
   return {
-    defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [45, 50, 45, 50],
-    content,
+    defaultStyle: DOC_DEFAULT_STYLE,
+    pageMargins: DOC_PAGE_MARGINS,
+    content: [
+      { text: org?.nameUpper ?? 'ММТ', bold: true, alignment: 'center' },
+      { text: 'МАБЛАҒ ТАҚСИМОТИ (Бухгалтерия учун)', bold: true, alignment: 'center', fontSize: 12, margin: [0, 4, 0, 2] },
+      { text: `Иш № ${c.contractNumber ?? c.number ?? '—'}`, alignment: 'center', color: '#444', fontSize: 9, margin: [0, 0, 0, 8] },
+
+      heading('Умумий маълумотлар', 2),
+      line_('Қарз олувчи', c.borrower?.fullName ?? '—'),
+      line_('Шартнома рақами', String(c.contractNumber ?? c.number ?? '—')),
+      line_('Кредит линияси', line?.lineNumber ?? '—'),
+      line_('Кредит тури', loanTypeLabel),
+      line_('Муддат', term != null ? `${term} (${wordsCyr(term)}) ой` : '—'),
+
+      heading('Маблағ тақсимоти'),
+      line_('Кредит суммаси (жами)', moneyWithWordsCyr(total)),
+      line_(collateralPortionLabel(c), moneyWithWordsCyr(collateralPart)),
+      line_('Суғурта қисми', moneyWithWordsCyr(insurancePart)),
+
+      heading('Тўлов реквизитлари'),
+      line_('Ҳисоб эгаси', d?.holderName ?? '—'),
+      line_('Карта рақами', groupCard(d?.cardNumber)),
+      line_('Ҳисоб рақами (Х/Р)', d?.accountNumber ?? '—'),
+      line_('МФО', d?.bankMfo ?? '—'),
+      line_('ИНН', d?.holderInn ?? '—'),
+      line_('Банк', d?.bankName ?? '—'),
+
+      {
+        columns: [
+          { width: '*', stack: [{ text: 'Бош бухгалтер' }, { text: '\n_______________' }] },
+          { width: '*', stack: [{ text: 'Ижрочи директори' }, { text: `\n_______________ ${org?.directorShort ?? '—'}` }] },
+        ],
+        columnGap: 24,
+        margin: [0, 30, 0, 0],
+      },
+    ],
   };
 }
