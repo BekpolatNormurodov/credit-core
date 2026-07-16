@@ -1,76 +1,177 @@
-import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { dateToUzbekWords } from '../../../common/sum-to-words.util';
+import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
+import {
+  sumToWordsUzCyrillic, integerToUzbekWords, integerToUzbekWordsCyrillic, dateToRuCyrillic,
+} from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { money, orgHeader } from '../doc-layout';
-import { amountWords, p } from './_shared';
+import { gridTable, plainMoney, shortDate, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { p } from './_shared';
+import { shortName, realtyWord } from './_collateral';
+
+type Collateral = CaseDocData['collaterals'][number];
+
+const dash = (v: unknown): string => (v == null || v === '' ? '—' : String(v));
+const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+
+/** "90 000 000,00 (Тўқсон миллион сўм 00 тийин)" — the sheet spells sums in Cyrillic even here. */
+const sumCyr = (n: unknown): string => {
+  if (n == null) return '—';
+  const v = Number(n);
+  if (Number.isNaN(v)) return '—';
+  return `${plainMoney(v)} (${sumToWordsUzCyrillic(v)})`;
+};
+
+/** Committee "Mikroqarz ta'minoti" sentence, per collateral type. */
+function collateralSentence(col: Collateral, ownerFull: string): string {
+  const ownerShort = shortName(col.owners?.[0]?.fullName ?? ownerFull);
+  if (col.type === 'AUTO') {
+    return (
+      `Egalik huquqi ${ownerShort}ga tegishli bo‘lgan garovga olingan avtomobil markasi ${dash(col.model)}, ` +
+      `rangi - ${dash(col.color)}, ishlab chiqarilgan yili - ${dash(col.year)}, ` +
+      `davlat raqam belgisi ${dash(col.stateNumber)}, kuzov turi - ${dash(col.bodyType)}, ` +
+      `kuzov raqami - ${dash(col.bodyNo)}, dvigatel raqami - ${dash(col.engineNo)}, ` +
+      `shassi raqami - ${dash(col.chassis)}`
+    );
+  }
+  return (
+    `Egalik huquqi ${col.owners?.[0]?.fullName ?? ownerFull}ga tegishli bo‘lgan garovga olingan ` +
+    `${realtyWord(col)} umumiy foydali maydoni - ${dash(col.usableAreaM2)} кв.м. va ` +
+    `yashash maydoni - ${dash(col.livingAreaM2)} кв.м., ${dash(col.address)}`
+  );
+}
+
+const AUTO_HEAD: TableCell[] = [
+  { text: 'Nomi', bold: true, alignment: 'center' },
+  { text: 'Kuzov turi va kuzov raqami*', bold: true, alignment: 'center' },
+  { text: 'Dvigatel va shassi raqami*', bold: true, alignment: 'center' },
+  { text: 'Ishlab chiqarilgan yili va rangi*', bold: true, alignment: 'center' },
+  { text: "Kelishilgan garov qiymati, so'm", bold: true, alignment: 'center' },
+];
+const REALTY_HEAD: TableCell[] = [
+  { text: 'Nomi', bold: true, alignment: 'center' },
+  { text: 'Kadastr raqami', bold: true, alignment: 'center' },
+  { text: 'Yashash maydoni', bold: true, alignment: 'center' },
+  { text: 'Umumiy foydali maydoni', bold: true, alignment: 'center' },
+  { text: "Kelishilgan garov qiymati, so'm", bold: true, alignment: 'center' },
+];
+
+/** The committee's garov table + its footnotes, per collateral type (both are on the sheet). */
+function collateralTable(cols: Collateral[], ownerFull: string): Content[] {
+  const out: Content[] = [];
+  const autos = cols.filter((x) => x.type === 'AUTO');
+  const realty = cols.filter((x) => x.type === 'REAL_ESTATE');
+
+  if (autos.length) {
+    const rows: TableCell[][] = autos.map((col) => [
+      { text: dash(col.model) },
+      { text: `${dash(col.bodyType)} ${dash(col.bodyNo)}` },
+      { text: `${dash(col.engineNo)} ${dash(col.chassis)}` },
+      { text: `${dash(col.year)} rangi - ${dash(col.color)}, ${dash(col.year)} yilda ishlab chiqarilgan.` },
+      { text: plainMoney(col.agreedValue) },
+    ]);
+    out.push({
+      fontSize: 8,
+      table: { headerRows: 1, widths: [70, '*', '*', 84, 78], body: [AUTO_HEAD, ...rows] },
+      layout: gridTable,
+      margin: [0, 4, 0, 4],
+    });
+    autos.forEach((col) => {
+      const tp = col.techPassportNo
+        ? `${col.techPassportNo}${col.techPassportDate ? ` от ${shortDate(col.techPassportDate)} г.` : ''}`
+        : '—';
+      out.push(
+        { text: `-* avtotransport egasi: ${shortName(col.owners?.[0]?.fullName ?? ownerFull)}`, fontSize: 9 },
+        { text: `-* texnik pasport: ${tp}`, fontSize: 9 },
+        // NB: plain apostrophes — the Excel's "ʻ" (U+02BB) has no glyph in Roboto and renders as tofu.
+        { text: `-* ro‘yxatdan o‘tgan manzili/garaj manzili: ${dash(col.address)}`, fontSize: 9 },
+        { text: `-* davlat raqami: ${dash(col.stateNumber)}`, fontSize: 9 },
+      );
+    });
+  }
+
+  if (realty.length) {
+    const rows: TableCell[][] = realty.map((col) => [
+      { text: realtyWord(col) },
+      { text: dash(col.cadastreNo) },
+      { text: `${dash(col.livingAreaM2)} кв.м.`, alignment: 'center' },
+      { text: `${dash(col.usableAreaM2)} кв.м.`, alignment: 'center' },
+      { text: plainMoney(col.agreedValue) },
+    ]);
+    out.push({
+      fontSize: 8,
+      table: { headerRows: 1, widths: ['*', '*', 60, 66, 78], body: [REALTY_HEAD, ...rows] },
+      layout: gridTable,
+      margin: [0, 4, 0, 4],
+    });
+    realty.forEach((col) => {
+      out.push(
+        { text: `-* ko‘chmas mulk egasi: ${col.owners?.[0]?.fullName ?? ownerFull}`, fontSize: 9 },
+        { text: `-* reest raqami: ${dash(col.registryNo)}`, fontSize: 9 },
+        { text: `-* kadastr raqami: ${dash(col.cadastreNo)}`, fontSize: 9 },
+        { text: `-* manzili: ${dash(col.address)}`, fontSize: 9 },
+      );
+    });
+  }
+
+  if (!out.length) out.push({ text: 'Garov kiritilmagan', italics: true });
+  return out;
+}
 
 /**
- * Протокол — extract from the credit-committee meeting protocol approving the loan. Faithful
- * transcription (Latin Uzbek) with placeholders merged: committee terms + collateral.
+ * Протокол — extract from the credit-committee meeting protocol. This sheet is written in LATIN
+ * Uzbek (unlike the rest of the set) while still spelling sums/terms in Cyrillic words and the rate
+ * in Latin words — reproduced exactly. No org letterhead.
  */
 export function protokolTemplate(c: CaseDocData): TDocumentDefinitions {
+  const org = c.organization;
   const line = c.creditLine;
   const b = c.borrower;
   const name = b?.fullName ?? '—';
-  const amount = Number(line?.amountTotal ?? c.amount ?? 0);
-  const amt = amountWords(amount);
+  const amount = line?.amountTotal ?? c.amount ?? null;
   const term = line?.termMonths ?? null;
   const ratePct = line?.interestRate != null ? Math.round(Number(line.interestRate) * 100) : null;
-  const dateStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
-  const contractNo = c.contractNumber ?? c.number;
-  const schedule = line?.tranches?.[0]?.scheduleType === 'DIFFERENTIATED' ? 'differensial' : 'annuitet';
-
-  // Collateral description (real estate → composition; auto → model + state number).
-  const collateralDesc: Content[] = c.collaterals.map((col) =>
-    col.type === 'AUTO'
-      ? p(`Egalik huquqi ${name}ga tegishli ${col.model ?? '—'} rusumli avtotransport vositasi, davlat raqami ${col.stateNumber ?? '—'}.`)
-      : p(`Egalik huquqi ${name}ga tegishli garovga olingan ${col.realtyKind === 'HOUSE' ? 'HOVLI' : "KO'P QAVATLI UYDAGI XONADON"}, umumiy maydoni - ${col.totalAreaM2 ?? '—'} kv.m., yashash maydoni - ${col.livingAreaM2 ?? '—'} kv.m., manzil: ${col.address ?? '—'}`),
-  );
-
-  const collateralTable: Content[] = c.collaterals.flatMap((col) =>
-    col.type === 'AUTO'
-      ? [
-          { text: `Garov: ${col.model ?? '—'}`, bold: true, margin: [0, 4, 0, 1] },
-          { text: `-* transport vositasi egasi: ${col.owners?.[0]?.fullName ?? name}`, margin: [0, 1, 0, 0] },
-          { text: `-* texnik pasport raqami: ${col.techPassportNo ?? '—'}`, margin: [0, 1, 0, 0] },
-          { text: `-* davlat raqami: ${col.stateNumber ?? '—'}`, margin: [0, 1, 0, 0] },
-          { text: `-* ishlab chiqarilgan yili: ${col.year ?? '—'}`, margin: [0, 1, 0, 0] },
-          { text: `-* kelishilgan qiymati: ${money(col.agreedValue)}`, margin: [0, 1, 0, 0] },
-        ]
-      : [
-          { text: `Garov: ${col.realtyKind === 'HOUSE' ? 'HOVLI' : "KO'P QAVATLI UYDAGI XONADON"}`, bold: true, margin: [0, 4, 0, 1] },
-          { text: `-* ko'chmas mulk egasi: ${col.owners?.[0]?.fullName ?? name}`, margin: [0, 1, 0, 0] },
-          { text: `-* reestr raqami: ${col.registryNo ?? '—'}`, margin: [0, 1, 0, 0] },
-          { text: `-* kadastr raqami: ${col.cadastreNo ?? '—'}`, margin: [0, 1, 0, 0] },
-          { text: `-* manzili: ${col.address ?? '—'}`, margin: [0, 1, 0, 0] },
-          { text: `-* kelishilgan qiymati: ${money(col.agreedValue)}`, margin: [0, 1, 0, 0] },
-        ],
-  );
+  const dateStr = line?.lineDate ? dateToRuCyrillic(line.lineDate) : '—';
+  const contractNo = c.contractNumber ?? c.number ?? '—';
+  const hasRealty = (c.collaterals ?? []).some((x) => x.type === 'REAL_ESTATE');
+  const securityWord = hasRealty ? 'ko‘chmas mulk' : 'avtotransport';
 
   return {
-    defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [45, 50, 45, 50],
+    defaultStyle: DOC_DEFAULT_STYLE,
+    pageMargins: DOC_PAGE_MARGINS,
     content: [
-      orgHeader(c.organization),
-      { text: `«${c.organization?.nameUpper ?? 'MMT'}» mikromoliya tashkiloti Kredit qo‘mitasining yig‘ilishi`, alignment: 'center', bold: true },
+      { text: `${org?.nameUpper ?? 'MMT'} mikromoliya tashkiloti Kredit qo‘mitasining yig‘ilishi`, alignment: 'center', bold: true },
       { text: `${contractNo} protokolidan ko‘chirma`, alignment: 'center', margin: [0, 2, 0, 2] },
-      { text: `Toshkent shahri · ${dateStr}`, alignment: 'center', margin: [0, 0, 0, 12] },
+      {
+        columns: [
+          { width: '*', text: 'Toshkent shahri' },
+          { width: 'auto', text: dateStr, alignment: 'right' },
+        ],
+        margin: [0, 4, 0, 10],
+      },
       { text: 'KUN TARTIBI:', bold: true },
       p(`${name}ga mikroqarz berish masalasini ko‘rib chiqish to‘g‘risida.`),
-      p(`Birinchi masala yuzasidan: «${c.organization?.nameMixed ?? 'MMT'}» kredit bo‘yicha menejeri ${name}ga ${amt} so‘m miqdorida, muddati ${term ?? '—'} oyga va yillik ${ratePct ?? '—'}% miqdorida mikroqarz berish bo‘yicha ${name}ning kredit arizasi va tashkilotning xulosasi bilan ishtirokchilarni tanishtirdi.`),
-      { text: 'Mikroqarz ta’minoti:', bold: true, margin: [0, 4, 0, 2] },
-      ...collateralDesc,
-      p('Birinchi masala yuzasidan berilgan ma’lumotlarni muhokama qilib, Kredit qo‘mitasi a’zolariga taqdim etilgan zarur hujjatlarni o‘rganib, majlisda ishtirok etgan Kredit qo‘mitasi a’zolarining taklif va mulohazalarini inobatga olgan holda Kredit qo‘mitasi'),
-      { text: 'QAROR QILADI:', bold: true, margin: [0, 4, 0, 4] },
+      p(
+        `Birinchi masala yuzasidan: ${org?.nameUpper ?? 'MMT'} mikromoliya tashkiloti kredit bo‘yicha menejeri ` +
+          `${name}ga ${sumCyr(amount)} so'm miqdorida, muddati ${term != null ? `${term} (${cap(integerToUzbekWordsCyrillic(term))})` : '—'} oyga va ` +
+          `yillik ${ratePct != null ? `${ratePct} (${cap(integerToUzbekWords(ratePct))})` : '—'} foiz miqdorida mikroqarz berish bo‘yicha ` +
+          `${name}ning kredit arizasi va ${org?.nameUpper ?? 'MMT'}ning xulosasi bilan ishtirokchilarni tanishtirdi.`,
+      ),
+      { text: 'Mikroqarz ta’minoti:', bold: true, margin: [0, 6, 0, 2] },
+      ...(c.collaterals ?? []).map((col) => p(collateralSentence(col, name))),
+      p(
+        `Birinchi masala yuzasidan berilgan ma’lumotlarni muhokama qilib, Kredit qo‘mitasi a’zolariga taqdim etilgan ` +
+          `zarur hujjatlarni o‘rganib, majlisda ishtirok etgan Kredit qo‘mitasi a’zolarining taklif va mulohazalarini ` +
+          `inobatga olgan holda ${org?.nameUpper ?? 'MMT'} kredit qo‘mitasi`,
+      ),
+      { text: 'QAROR QILADI:', bold: true, alignment: 'center', margin: [0, 6, 0, 6] },
       p(`${name}ga quyidagi shartlarda mikroqarz berish masalasi ma’qullansin:`),
-      { text: `1. Mikroqarz summasi: ${amt}.`, margin: [0, 1, 0, 1] },
-      { text: `2. Mikroqarz muddati: ${term ?? '—'} oy.`, margin: [0, 1, 0, 1] },
-      { text: `3. Mikroqarzdan foydalanganlik uchun foiz stavkasi: yillik ${ratePct ?? '—'}% foiz.`, margin: [0, 1, 0, 1] },
-      { text: `4. Mikroqarz bo‘yicha asosiy qarz va foizlarni to‘lash: shartnoma bo‘yicha har oy ${schedule} to‘lovlari amalga oshiriladi.`, margin: [0, 1, 0, 1] },
-      { text: `5. Mikroqarz bo‘yicha garov ${name}:`, margin: [0, 1, 0, 1] },
-      ...collateralTable,
-      { text: '6. Boshqa shartlar – ko‘chmas mulk shaklida garov ta’minlangandan keyin mikroqarz berish.', margin: [0, 4, 0, 0] },
-      { text: '\nKredit qo‘mitasi raisi ______________', margin: [0, 16, 0, 0] },
+      { text: `1. Mikroqarz summasi: ${sumCyr(amount)}.`, margin: [0, 2, 0, 2] },
+      { text: `2. Mikroqarz muddati: ${term != null ? `${term} (${cap(integerToUzbekWordsCyrillic(term))})` : '—'} oy`, margin: [0, 2, 0, 2] },
+      { text: `3. Mikroqarzdan foydalanganlik uchun foiz stavkasi:yillik ${ratePct != null ? `${ratePct}% (${cap(integerToUzbekWords(ratePct))} )` : '—'} foiz.`, margin: [0, 2, 0, 2] },
+      { text: '4. Mikroqarz bo‘yicha asosiy qarz va foizlarni to‘lash:', margin: [0, 2, 0, 2] },
+      { text: "- mikroqarz shartnomasi bo'yicha har oy аннуитетный to'lovlari amalga oshiriladi", margin: [0, 1, 0, 2] },
+      { text: `5. Mikroqarz bo‘yicha garov ${name}`, margin: [0, 2, 0, 2] },
+      ...collateralTable(c.collaterals ?? [], name),
+      { text: `6. Boshqa shartlar – ${securityWord} shaklida garov ta'minlangandan keyin mikroqarz berish.`, margin: [0, 6, 0, 0] },
     ],
   };
 }

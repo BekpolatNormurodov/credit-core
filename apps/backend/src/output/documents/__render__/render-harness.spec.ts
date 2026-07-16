@@ -3,6 +3,7 @@ import * as path from 'path';
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { mockCaseDoc } from '../__fixtures__/case-doc.fixture';
 import { DOC_REGISTRY } from '../registry';
+import { sanitizeDocDefinition } from '../sanitize';
 
 /**
  * Local PDF render harness — NOT part of the normal test suite (gated on RENDER_PDFS=1).
@@ -36,7 +37,8 @@ const fonts = {
 const printer = new PdfPrinter(fonts);
 
 function render(def: TDocumentDefinitions): Promise<Buffer> {
-  const pdfDoc = printer.createPdfKitDocument(def);
+  // Mirror PdfService: sanitise font-less glyphs before rendering.
+  const pdfDoc = printer.createPdfKitDocument(sanitizeDocDefinition(def));
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     pdfDoc.on('data', (d: Buffer) => chunks.push(d));

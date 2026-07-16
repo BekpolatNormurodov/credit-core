@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { CreditCaseDto } from '@credit-core/shared';
 import { sumToWordsUz } from '../common/sum-to-words.util';
+import { sanitizeDocDefinition } from './documents/sanitize';
 
 // pdfmake server-side: PdfPrinter + Roboto (covers Cyrillic & Latin).
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -35,7 +36,9 @@ export class PdfService {
 
   /** Render any pdfmake document definition to a Buffer. */
   async render(def: TDocumentDefinitions): Promise<Buffer> {
-    const pdfDoc = this.printer.createPdfKitDocument(def);
+    // Roboto has no glyph for the Uzbek modifier apostrophes (ʻ/ʼ) — map them before rendering,
+    // otherwise real data like "sugʻurta" prints as tofu boxes.
+    const pdfDoc = this.printer.createPdfKitDocument(sanitizeDocDefinition(def));
     return new Promise<Buffer>((resolve, reject) => {
       const chunks: Buffer[] = [];
       pdfDoc.on('data', (d: Buffer) => chunks.push(d));

@@ -4,6 +4,7 @@ import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { PrismaClient } from '@prisma/client';
 import { loadCaseForDocs } from '../case-document.loader';
 import { DOC_REGISTRY } from '../registry';
+import { sanitizeDocDefinition } from '../sanitize';
 
 /**
  * Real-data PDF render harness — renders documents from the actual database, NOT fixtures.
@@ -33,7 +34,8 @@ const fonts = {
 };
 const printer = new PdfPrinter(fonts);
 function render(def: TDocumentDefinitions): Promise<Buffer> {
-  const pdfDoc = printer.createPdfKitDocument(def);
+  // Mirror PdfService: sanitise font-less glyphs before rendering.
+  const pdfDoc = printer.createPdfKitDocument(sanitizeDocDefinition(def));
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     pdfDoc.on('data', (d: Buffer) => chunks.push(d));
