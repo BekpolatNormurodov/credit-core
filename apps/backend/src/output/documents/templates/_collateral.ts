@@ -76,7 +76,15 @@ export function autoFootnotes(c: Collateral): Content[] {
 
 // ── REAL ESTATE ──────────────────────────────────────────────────────────────
 
-const realtyWord = (c: Collateral): string => (c.realtyKind === 'HOUSE' ? 'ҲОВЛИ' : 'ТУРАР ЖОЙ');
+/**
+ * The registry classification the forms print for a pledged property — e.g.
+ * "YAKKA TARTIBDAGI TURAR JOY" (house) or "KO'P QAVATLI UYDAGI XONADON" (apartment).
+ * Comes from the stored `propertyType`; falls back to the realtyKind wording when absent.
+ */
+export function realtyWord(c: Collateral): string {
+  if (c.propertyType) return c.propertyType;
+  return c.realtyKind === 'HOUSE' ? 'YAKKA TARTIBDAGI TURAR JOY' : "KO'P QAVATLI UYDAGI XONADON";
+}
 
 /**
  * The composition sentence used in the first cell of the real-estate table.
@@ -93,12 +101,21 @@ export function realtyComposition(c: Collateral): string {
   );
 }
 
-/** Prose real-estate description, as the Кредитная заявка prints it. */
+/**
+ * Prose real-estate description, verbatim in the Кредитная заявка / Мурожаатнома shape:
+ * "<address> манзилда жойлашган, Давлат руйхатидан утказилган ер майдони - X кв.м., курилиш ости
+ *  майдони - Y кв.м., умумий фойдали майдони - Z кв.м., яшаш майдони - W кв.м., бўлган,
+ *  <OWNER S.N.>га тегишли <PROPERTY TYPE> гарови. Гаров қиймати нархи <sum>."
+ */
 export function realtyDescription(c: Collateral): string {
   return (
-    `${dash(c.address)} манзилда жойлашган, умумий майдони - ${dash(c.totalAreaM2)} кв.м. ва ` +
-    `яшаш майдони - ${dash(c.livingAreaM2)} кв.м. бўлган, ${shortName(owner(c))} га тегишли ` +
-    `${realtyWord(c).toLowerCase()} гарови. Гаров қиймати нархи ${moneyWithWordsCyr(c.agreedValue)}.`
+    `${dash(c.address)} манзилда жойлашган, ` +
+    `Давлат руйхатидан утказилган ер майдони - ${dash(c.landAreaM2)} кв.м., ` +
+    `курилиш ости майдони - ${dash(c.totalAreaM2)} кв.м., ` +
+    `умумий фойдали майдони - ${dash(c.usableAreaM2)} кв.м., ` +
+    `яшаш майдони - ${dash(c.livingAreaM2)} кв.м., бўлган, ` +
+    `${shortName(owner(c))}га тегишли ${realtyWord(c)} гарови. ` +
+    `Гаров қиймати нархи ${moneyWithWordsCyr(c.agreedValue)}.`
   );
 }
 

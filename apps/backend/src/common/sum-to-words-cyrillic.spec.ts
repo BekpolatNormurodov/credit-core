@@ -31,8 +31,9 @@ describe('moneyWithWordsCyr', () => {
 });
 
 describe('dateToRuCyrillic', () => {
-  it('prints Russian month + й. suffix', () => {
+  it('prints a zero-padded day + Russian month + й. suffix, as the Excel does', () => {
     expect(dateToRuCyrillic(new Date('2026-07-14T00:00:00.000Z'))).toBe('14 Июль 2026 й.');
-    expect(dateToRuCyrillic(new Date('2026-01-01T00:00:00.000Z'))).toBe('1 Январь 2026 й.');
+    expect(dateToRuCyrillic(new Date('2026-07-01T00:00:00.000Z'))).toBe('01 Июль 2026 й.');
+    expect(dateToRuCyrillic(new Date('2026-01-05T00:00:00.000Z'))).toBe('05 Январь 2026 й.');
   });
 });

@@ -144,7 +144,11 @@ const RU_MONTHS = [
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
 ];
 
-/** Format a date as the forms print it, e.g. 2026-07-14 → "14 Июль 2026 й." (UTC-based). */
+/**
+ * Format a date as the forms print it, e.g. 2026-07-01 → "01 Июль 2026 й." (UTC-based).
+ * The day is zero-padded to two digits, exactly as the reference Excel prints it.
+ */
 export function dateToRuCyrillic(d: Date): string {
-  return `${d.getUTCDate()} ${RU_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} й.`;
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${day} ${RU_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()} й.`;
 }
