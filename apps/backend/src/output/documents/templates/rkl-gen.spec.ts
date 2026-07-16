@@ -48,13 +48,30 @@ describe('rklGenTemplate', () => {
     expect(text).not.toContain('йилига 2%');
   });
 
-  it('binds the borrower name, amount and line number from the case data', () => {
+  it('binds the borrower name, amount (Cyrillic words) and line number from the case data', () => {
     const c = mockCaseDoc();
-    const text = flattenDocText(rklGenTemplate(c));
+    const text = flattenDocText(rklGenTemplate(c)).replace(/\s/g, ' ');
 
     expect(text).toContain(c.borrower!.fullName);
-    expect(text).toContain("Bir yuz ellik million so'm");
+    expect(text).toContain('150 000 000,00 (Бир юз эллик миллион сўм 00 тийин)');
     expect(text).toContain('РКЛ-0042');
+  });
+
+  it('opens with the «PULMAKON» trade mark before the org name, as the sheet does', () => {
+    const text = flattenDocText(rklGenTemplate(mockCaseDoc()));
+    expect(text).toContain('«PULMAKON» Савдо белгиси МЧЖ «CLEVER MIKROMOLIYA TASHKILOTI»');
+  });
+
+  it('falls back to the plain org name when no trade mark is configured', () => {
+    const text = flattenDocText(rklGenTemplate(mockCaseDoc({ organization: { tradeMark: null as unknown as never } })));
+    expect(text).not.toContain('Савдо белгиси');
+    expect(text).toContain('МЧЖ «CLEVER MIKROMOLIYA TASHKILOTI»');
+  });
+
+  it('carries no org letterhead (the sheet has none)', () => {
+    const text = flattenDocText(rklGenTemplate(mockCaseDoc()));
+    // The address/bank line only ever came from the letterhead block.
+    expect(text.indexOf('СОНЛИ МИКРОМОЛИЯ ЛИНИЯСИ')).toBeLessThan(60);
   });
 
   it('renders the full multi-clause body — several distinct section headings', () => {

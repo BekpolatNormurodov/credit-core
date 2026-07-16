@@ -1,11 +1,12 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { dateToUzbekWords, sumToWordsUz } from '../../../common/sum-to-words.util';
+import { dateToRuCyrillic, moneyWithWordsCyr } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { money, orgHeader } from '../doc-layout';
-import { amountWords, collateralDetails, notaryBlock, p } from './_shared';
+import { sectionTitle } from '../doc-layout';
+import { notaryBlock, p } from './_shared';
+import { collateralBlock } from './_collateral';
 
-/** Bold section heading, e.g. "3. Микроқарз/микрокредитлар гаров таъминоти". */
-const h = (text: string): Content => ({ text, bold: true, margin: [0, 8, 0, 4] as [number, number, number, number] });
+/** Centered, larger chapter heading, e.g. "3. МИКРОҚАРЗ/МИКРОКРЕДИТЛАР ГАРОВ ТАЪМИНОТИ". */
+const h = (text: string): Content => sectionTitle(text);
 
 /** Bold sub-heading for a numbered sub-clause, e.g. "3.1.1. Гаров предмети". */
 const sub = (text: string): Content => ({ text, bold: true, italics: true, margin: [0, 4, 0, 2] as [number, number, number, number] });
@@ -30,38 +31,37 @@ export function rklGenTemplate(c: CaseDocData, notary = false): TDocumentDefinit
   const passport = [
     b?.passportSeries && b?.passportNumber ? `паспорт рақами ${b.passportSeries} №${b.passportNumber}` : null,
     b?.passportIssuer ? `${b.passportIssuer} томонидан` : null,
-    b?.passportIssueDate ? `${dateToUzbekWords(b.passportIssueDate)} берилган` : null,
+    b?.passportIssueDate ? `${dateToRuCyrillic(b.passportIssueDate)} берилган` : null,
   ].filter(Boolean).join(', ');
 
   const contractNo = line?.lineNumber ?? c.contractNumber ?? c.number;
   const amount = Number(line?.amountTotal ?? c.amount ?? 0);
-  const amt = amountWords(amount);
+  const amt = moneyWithWordsCyr(amount);
   const termText = line?.termMonths != null ? `${line.termMonths} ой` : '—';
   const rateText = line?.interestRate != null ? `${Math.round(Number(line.interestRate) * 100)}%` : '—';
   const penaltyText = line?.penaltyRate != null ? `${Math.round(Number(line.penaltyRate) * 100)}%` : '—';
-  const startStr = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
-  const endStr = line?.lineMaturity ? dateToUzbekWords(line.lineMaturity) : '—';
+  const startStr = line?.lineDate ? dateToRuCyrillic(line.lineDate) : '—';
+  const endStr = line?.lineMaturity ? dateToRuCyrillic(line.lineMaturity) : '—';
 
   const pledgorName = c.collaterals?.[0]?.owners?.[0]?.fullName ?? name;
   const totalCollateralValue = c.collaterals?.length
     ? c.collaterals.reduce((s, x) => s + Number(x.agreedValue ?? 0), 0)
     : null;
   const collateralValueLines: Content[] = c.collaterals.map((col) =>
-    p(`${col.type === 'AUTO' ? 'Автотранспорт' : 'Кўчмас мулк'} гаровининг келишиш далолатномасига мувофиқ қиймати: ${money(col.agreedValue)}.`),
+    p(`${col.type === 'AUTO' ? 'Автотранспорт' : 'Кўчмас мулк'} гаровининг келишиш далолатномасига мувофиқ қиймати: ${moneyWithWordsCyr(col.agreedValue)}.`),
   );
 
   return {
     defaultStyle: { font: 'Roboto', fontSize: 9.5 },
     pageMargins: [45, 45, 45, 45],
     content: [
-      orgHeader(org),
       { text: `№ ${contractNo} СОНЛИ МИКРОМОЛИЯ ЛИНИЯСИ ОЧИШ БЎЙИЧА БОШ КЕЛИШУВ`, bold: true, alignment: 'center', fontSize: 12 },
       { columns: [{ text: 'Тошкент шаҳар' }, { text: startStr, alignment: 'right' }], margin: [0, 2, 0, 10] as [number, number, number, number] },
 
-      p(`«${org?.nameMixed ?? '—'}» ${org?.nameSuffix ?? 'МЧЖ'}, (бундан буён «ММТ»), деб номланувчи, ${org?.legalBasis ?? 'Низом'} асосида фаолият юритувчи, ижрочи директори ${org?.directorFull ?? '—'} бир тарафдан, ва ўз номидан ҳаракат қилувчи Ўзбекистон Республикаси фуқароси ${name} (${passport}), бундан буён «Қарз олувчи» бошқа тарафдан, биргаликда «Тарафлар» деб номланувчилар, микромолия линиясини очиш бўйича қуйидаги шартлар асосида ушбу Бош келишувни туздилар:`),
+      p(`${org?.tradeMark ? `«${org.tradeMark}» Савдо белгиси ` : ''}${org?.nameUpper ?? 'ММТ'}, (бундан буён «ММТ»), деб номланувчи, ${org?.legalBasis ?? 'Низом'} асосида фаолият юритувчи, ижрочи директори ${org?.directorShort ?? '—'} бир тарафдан, ва ўз номидан ҳаракат қилувчи Ўзбекистон Республикаси фуқароси ${name} (${passport}), бундан буён «Қарз олувчи» бошқа тарафдан, биргаликда «Тарафлар» деб номланувчилар, микромолия линиясини очиш бўйича қуйидаги шартлар асосида ушбу Бош келишувни туздилар:`),
 
       h('1. КЕЛИШУВ ПРЕДМЕТИ'),
-      p(`1.1. ММТ мижозга ${amt} сўм миқдорида ${termText} муддатга, яъни ${startStr} дан ${endStr} гача бўлган муддатга лимит билан микромолиялаш линиясини (бундан кейин ММЛ) очади ва ушбу келишув шартларига асосан мижозга Микроқарз/микрокредитлар бериш мажбуриятини олади, мижоз эса олинган Микроқарз/микрокредитларни ММТга қайтариш ва улардан фойдаланганлик учун фоизларни тўлаш мажбуриятини олади.`),
+      p(`1.1. ММТ мижозга ${amt} миқдорида ${termText} муддатга, яъни ${startStr} дан ${endStr} гача бўлган муддатга лимит билан микромолиялаш линиясини (бундан кейин ММЛ) очади ва ушбу келишув шартларига асосан мижозга Микроқарз/микрокредитлар бериш мажбуриятини олади, мижоз эса олинган Микроқарз/микрокредитларни ММТга қайтариш ва улардан фойдаланганлик учун фоизларни тўлаш мажбуриятини олади.`),
 
       h('2. МИКРОҚАРЗ/МИКРОКРЕДИТ БЕРИШ ШАРТЛАРИ'),
       p('2.1. Микроқарз/Микрокредитлар Ўзбекистон Республикасининг миллий валютасида (сўмда) нақд ва/ёки нақд пулсиз шаклда (мижознинг хоҳишига кўра) томонлар томонидан алоҳида микроқарз/микрокредит шартномаларини тузиш йўли билан берилади. Ушбу Келишув бўйича тузилган микроқарз/микрокредит шартномалари ушбу Келишувнинг ажралмас қисми ҳисобланади.'),
@@ -86,13 +86,13 @@ export function rklGenTemplate(c: CaseDocData, notary = false): TDocumentDefinit
       h('3. МИКРОҚАРЗ/МИКРОКРЕДИТЛАР ГАРОВ ТАЪМИНОТИ'),
       p('3.1. Ушбу Келишув, шунингдек ушбу Келишув бўйича тузилган микроқарз/микрокредит шартномаларига гаров сифатида қуйидагилар тақдим этилади:'),
       sub('3.1.1. Гаров предмети'),
-      ...collateralDetails(c),
+      ...collateralBlock(c),
       ...collateralValueLines,
       p(`Гаровга қўювчи: ${pledgorName}.`),
-      p(`Гаров предметлари умумий қиймати келишиш далолатномасига мувофиқ ${money(totalCollateralValue)} (${totalCollateralValue != null ? sumToWordsUz(totalCollateralValue) : '—'})ни ташкил қилади. Гаров шартлари тегишли нотариал тасдиқланган гаров шартномаси билан белгиланади. Гаров предметининг нотариал тасдиқланган гаров шартномаси мижоз томонидан ушбу шартнома бўйича микроқарз/микрокредит беришдан олдин ММТга тақдим этилиши керак. Гаров мулки суғурталанмайди.`),
+      p(`Гаров предметлари умумий қиймати келишиш далолатномасига мувофиқ ${moneyWithWordsCyr(totalCollateralValue)}ни ташкил қилади. Гаров шартлари тегишли нотариал тасдиқланган гаров шартномаси билан белгиланади. Гаров предметининг нотариал тасдиқланган гаров шартномаси мижоз томонидан ушбу шартнома бўйича микроқарз/микрокредит беришдан олдин ММТга тақдим этилиши керак. Гаров мулки суғурталанмайди.`),
       ...(ins?.insured ? [
-        p(`3.1.2. Ушбу шартнома бўйича тузилган микроқарз/микрокредит шартномаларига${ins?.company ? ` «${ins.company}»` : ' ММТ ни қаноатлантирадиган ҳар қандай'} суғурта компанияси томонидан тўланмаслик хавфи учун сугурта полиси илова қилинади. Суғурта суммаси${ins?.insuredSum != null ? ` ${money(Number(ins.insuredSum))} миқдорида` : ' ҳар бир алоҳида ҳолатда мижоз томонидан олинган микроқарз/микрокредит миқдоридан келиб чиқиб'} белгиланади.`),
-        p(`ММТ полисни бериш учун суғурта мукофотини${ins?.premium != null ? ` ${money(Number(ins.premium))} миқдорида` : ins?.insuranceRate != null ? ` полиснинг суғурта суммасининг йилига ${Math.round(Number(ins.insuranceRate) * 100)}% миқдорида` : ' — миқдорида'} тўлашни ва кейинчалик мижоз томонидан ушбу харажатларни қоплашни таъминлайди.`),
+        p(`3.1.2. Ушбу шартнома бўйича тузилган микроқарз/микрокредит шартномаларига${ins?.company ? ` «${ins.company}»` : ' ММТ ни қаноатлантирадиган ҳар қандай'} суғурта компанияси томонидан тўланмаслик хавфи учун сугурта полиси илова қилинади. Суғурта суммаси${ins?.insuredSum != null ? ` ${moneyWithWordsCyr(ins.insuredSum)} миқдорида` : ' ҳар бир алоҳида ҳолатда мижоз томонидан олинган микроқарз/микрокредит миқдоридан келиб чиқиб'} белгиланади.`),
+        p(`ММТ полисни бериш учун суғурта мукофотини${ins?.premium != null ? ` ${moneyWithWordsCyr(ins.premium)} миқдорида` : ins?.insuranceRate != null ? ` полиснинг суғурта суммасининг йилига ${Math.round(Number(ins.insuranceRate) * 100)}% миқдорида` : ' — миқдорида'} тўлашни ва кейинчалик мижоз томонидан ушбу харажатларни қоплашни таъминлайди.`),
         p('Кредит қайтарилмаслиги хавфини суғурталаш билан боғлиқ ММТ харажатларини қоплаш мижоз томонидан тегишли микроқарз/микрокредит шартномаси тузилганидан кейин 3 банк куни ичида амалга оширилиши керак. Суғурта харажатлари белгиланган муддатда қопланмаган тақдирда, ММТ микроқарз/микрокредит беришни рад етишга ва/ёки мижознинг манзилига ёзма хабарнома юбориш орқали микроқарз/микрокредит шартномасини бир томонлама бекор қилишга ҳақли. Бундай ҳолда, микроқарз/микрокредит шартномаси мижоз хабарнома олган пайтда ёки почта хизмати орқали хабарнома юборилганидан кейин учинчи куни бекор қилинган ҳисобланади.'),
       ] : []),
       p('3.2. Агар мижоз ушбу шартнома шартларидан ва ушбу шартнома бўйича тузилган микроқарз/микрокредит шартномаларидан келиб чиқадиган асосий қарзни, фоизларни ва/ёки бошқа тўловларни микроқарз/микрокредит шартномасида белгиланган санага қадар тўлаш учун ҳеч қандай тўловларни амалга ошира олмайдиган вазият юзага келса ва/ёки ушбу шартнома бўйича бошқа мажбуриятларни бузса, ушбу шартнома бўйича тузилган битим ва/ёки микроқарз/микрокредит шартномалари, ММТ Ўзбекистон Республикасининг амалдаги қонунчилигига ва гаров шартномасига мувофиқ гаровни ва/ёки унинг бир қисмини ундириш, шунингдек суғурта компаниясига кечикиш натижасида етказилган зарарни қоплаш учун суғурта товонини тўлаш тўғрисида даъво билан мурожаат қилиш учун сўзсиз ва қайтариб бўлмайдиган ҳуқуқни олади.'),
