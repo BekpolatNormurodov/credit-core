@@ -1,7 +1,7 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { lineTerms, notaryBlock } from './_shared';
 import { collateralBlock } from './_collateral';
 
@@ -23,7 +23,7 @@ export function prikazTemplate(c: CaseDocData, notary = false): TDocumentDefinit
     defaultStyle: DOC_DEFAULT_STYLE,
     pageMargins: DOC_PAGE_MARGINS,
     content: [
-      orgHeader(org),
+      // NOTE: the reference sheet has NO org letterhead — the order opens with the org name.
       { text: org?.nameUpper ?? 'ММТ', alignment: 'center', bold: true },
       { text: 'Ижрочи директорининг', alignment: 'center', margin: [0, 2, 0, 2] },
       { text: `${dateStr} №${contractNo} БУЙРУҒИ`, alignment: 'center', bold: true, fontSize: 12, margin: [0, 0, 0, 12] },

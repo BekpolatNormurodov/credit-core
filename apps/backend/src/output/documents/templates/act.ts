@@ -1,7 +1,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { p, notaryBlock } from './_shared';
 import { collateralDeclaredBlock, collateralAgreedTables, totalAgreedValue, shortName } from './_collateral';
 
@@ -63,7 +63,7 @@ export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinition
     defaultStyle: DOC_DEFAULT_STYLE,
     pageMargins: DOC_PAGE_MARGINS,
     content: [
-      orgHeader(org),
+      // NOTE: the reference sheet has NO org letterhead — the act opens with its title.
       // The Excel titles the valuation act "…ДАЛОЛАТНОМАСИ №1" — one act per case, not the contract №.
       { text: 'ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ №1', bold: true, alignment: 'center', fontSize: 12 },
       {

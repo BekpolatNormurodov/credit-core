@@ -1,7 +1,8 @@
-import type { TDocumentDefinitions, TableCell } from 'pdfmake/interfaces';
+import type { Content, TDocumentDefinitions, TableCell } from 'pdfmake/interfaces';
+import { dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import {
-  orgHeader, docTitle, gridTable, plainMoney, shortDate, partyRequisites,
+  gridTable, plainMoney, shortDate, partyRequisites,
   DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS,
 } from '../doc-layout';
 import { scheduleForCase, type DocInstallment } from '../schedule';
@@ -32,8 +33,15 @@ const HEADER_SUB: TableCell[] = [
 export function grafikTemplate(c: CaseDocData): TDocumentDefinitions {
   const contractNo = c.contractNumber ?? c.number ?? '—';
   const sched = scheduleForCase(c);
+  const contractDate = c.creditLine?.tranches?.[0]?.contractDate ?? c.creditLine?.lineDate ?? c.createdAt ?? null;
 
-  const header = [orgHeader(c.organization), docTitle('ТЎЛОВ ЖАДВАЛИ', `Иш № ${contractNo}`)];
+  // The reference sheet has NO org letterhead — it opens with the contract reference, "Илова №1",
+  // then the centered "Тўлов жадвали" title.
+  const header: Content[] = [
+    { text: `${contractDate ? dateToRuCyrillic(contractDate) : '—'} даги № ${contractNo} шартномасига`, alignment: 'right' },
+    { text: 'Илова №1', alignment: 'right', margin: [0, 2, 0, 8] },
+    { text: 'Тўлов жадвали', bold: true, alignment: 'center', fontSize: 12, margin: [0, 0, 0, 8] },
+  ];
 
   if (!sched || !sched.installments.length) {
     return {

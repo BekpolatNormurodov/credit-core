@@ -1,7 +1,7 @@
 import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { moneyWithWordsCyr } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, shortDate, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { shortDate, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { p, lineTerms } from './_shared';
 import { autoDescription, realtyDescription, isAutoOnly } from './_collateral';
 
@@ -29,7 +29,7 @@ export function petitionTemplate(c: CaseDocData): TDocumentDefinitions {
   }));
 
   const content: Content[] = [
-    orgHeader(org),
+    // NOTE: the reference sheet has NO org letterhead — it opens with the addressee block.
     {
       stack: [
         { text: `${org?.nameUpper ?? 'ММТ'} ижрочи директори` },

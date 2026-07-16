@@ -3,7 +3,7 @@ import {
   moneyWithWordsCyr, integerToUzbekWordsCyrillic, dateToRuCyrillic,
 } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, docTitle, shortDate, plainMoney, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
+import { docTitle, shortDate, plainMoney, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { autoDescription, realtyDescription, isAutoOnly } from './_collateral';
 
 const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
@@ -44,10 +44,10 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
   );
 
   const content: Content[] = [
-    orgHeader(org),
+    // NOTE: the reference sheet has NO org letterhead — it opens with the addressee block.
     {
       stack: [
-        { text: `${org?.nameMixed ?? 'ММТ'} Ижрочи директори` },
+        { text: `${org?.nameUpper ?? 'ММТ'} Ижрочи директори` },
         { text: org?.directorShort ?? '—', bold: true },
       ],
       alignment: 'right',
