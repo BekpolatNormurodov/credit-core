@@ -78,14 +78,18 @@ export function autoFootnotes(c: Collateral): Content[] {
 
 const realtyWord = (c: Collateral): string => (c.realtyKind === 'HOUSE' ? 'ҲОВЛИ' : 'ТУРАР ЖОЙ');
 
-/** The composition sentence used in the first cell of the real-estate table. */
+/**
+ * The composition sentence used in the first cell of the real-estate table.
+ * Wording/spelling copied verbatim from the reference Excel ("кучмас", "руйхатидан утказилган",
+ * "(ташки)") so the printed form is identical to it.
+ */
 export function realtyComposition(c: Collateral): string {
   return (
     `Хоналар сони: ${dash(c.roomCount)} та, ` +
-    `Давлат рўйхатидан ўтказилган ер майдони - ${dash(c.landAreaM2)} кв.м., ` +
-    `умумий майдони (ташқи) - ${dash(c.totalAreaM2)} кв.м., ` +
+    `Давлат руйхатидан утказилган ер майдони - ${dash(c.landAreaM2)} кв.м., ` +
+    `умумий майдони (ташки) - ${dash(c.totalAreaM2)} кв.м., ` +
     `умумий фойдали майдони - ${dash(c.usableAreaM2)} кв.м., ` +
-    `яшаш майдони - ${dash(c.livingAreaM2)} кв.м.`
+    `яшаш майдони - ${dash(c.livingAreaM2)} кв.м..`
   );
 }
 
@@ -100,12 +104,13 @@ export function realtyDescription(c: Collateral): string {
 
 /** Real-estate value table (Акт согласования / Приказ). `withValue` adds the залоговая стоимость column. */
 export function realtyValueTable(collaterals: Collateral[], withValue = true): Content {
+  // Headers verbatim from the Excel — note the value column is Russian there, unlike the auto table.
   const header: TableCell[] = [
-    { text: 'Ушбу кўчмас мулк объектнинг таркиби ва таснифи', bold: true, alignment: 'center' },
+    { text: 'Ушбу кучмас мулк объектнинг таркиби ва таснифи', bold: true, alignment: 'center' },
     { text: 'Яшаш майдони', bold: true, alignment: 'center' },
-    { text: 'Давлат рўйхатидан ўтказилган ер майдони', bold: true, alignment: 'center' },
+    { text: 'Давлат руйхатидан утказилган ер майдони', bold: true, alignment: 'center' },
   ];
-  if (withValue) header.push({ text: 'Келишилган гаров қиймати, сўм', bold: true, alignment: 'center' });
+  if (withValue) header.push({ text: 'Согласованная залоговая стоимость, сум', bold: true, alignment: 'center' });
 
   const rows: TableCell[][] = collaterals.map((c) => {
     const row: TableCell[] = [
@@ -119,12 +124,14 @@ export function realtyValueTable(collaterals: Collateral[], withValue = true): C
 
   const totalLiving = collaterals.reduce((s, c) => s + Number(c.livingAreaM2 ?? 0), 0);
   const totalLand = collaterals.reduce((s, c) => s + Number(c.landAreaM2 ?? 0), 0);
+  const totalValue = collaterals.reduce((s, c) => s + Number(c.agreedValue ?? 0), 0);
   const totalRow: TableCell[] = [
     { text: 'ЖАМИ', bold: true },
     { text: `${totalLiving} кв.м.`, bold: true, alignment: 'center' },
     { text: `${totalLand} кв.м.`, bold: true, alignment: 'center' },
   ];
-  if (withValue) totalRow.push({ text: '' });
+  // The Excel's ЖАМИ row carries the summed agreed value in the value column.
+  if (withValue) totalRow.push({ text: moneyWithWordsCyr(totalValue), bold: true });
 
   const widths = withValue ? ['*', 60, 78, 92] : ['*', 78, 104];
   return {

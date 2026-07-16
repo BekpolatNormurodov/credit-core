@@ -4,10 +4,12 @@ import { actTemplate } from './act';
 const norm = (s: string) => s.replace(/\s/g, ' ');
 
 describe('actTemplate', () => {
-  it('renders the real contract number in the title (never a hardcoded №1)', () => {
-    const c = mockCaseDoc({ contractNumber: '1175/MFL' });
+  it('titles the act "№1" (as the Excel does) and references the real line number in the clause', () => {
+    const c = mockCaseDoc({ contractNumber: '1175/MFL', creditLine: { orderNumber: 'ORD-77' as unknown as never } });
     const text = flattenDocText(actTemplate(c));
-    expect(text).toContain('ДАЛОЛАТНОМАСИ №1175/MFL');
+    expect(text).toContain('ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ №1');
+    // The line reference inside the clause still carries the real number.
+    expect(text).toContain('№ORD-77 сонли микромолиялаш линияси');
   });
 
   it('shows "—" instead of fabricating a today() date when lineDate is missing', () => {
@@ -38,9 +40,10 @@ describe('actTemplate', () => {
   it('renders a 3rd-party pledgor when the collateral owner differs from the borrower', () => {
     const c = mockCaseDoc({ collaterals: [{ owners: [{ fullName: 'TAYLIBAYEVA ZARINA ZOKIROVNA' }] }] });
     const text = flattenDocText(actTemplate(c));
-    expect(text).toContain('ЖЎЛДИБАЕВ РУСЛАН'); // borrower stays 2nd party
+    // The Excel names parties in short form: the borrower stays the 2nd party as "ЖЎЛДИБАЕВ Р."
+    expect(text).toContain('«Қарз олувчи» (2 тараф) Ўзбекистон Республикаси фуқароси ЖЎЛДИБАЕВ Р.');
     expect(text).toContain('3 - тарафдан');
-    expect(text).toContain('TAYLIBAYEVA Z.Z.'); // shortName of the pledgor in the signature
+    expect(text).toContain('TAYLIBAYEVA Z.Z.'); // shortName of the pledgor
   });
 
   it('never leaks a raw datetime (no GMT string, no HH:MM:SS timestamp)', () => {

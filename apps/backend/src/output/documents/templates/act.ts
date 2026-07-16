@@ -31,9 +31,10 @@ export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinition
   const creditAmount = line?.amountTotal ?? c.amount ?? null;
   const agreed = totalAgreedValue(c);
 
+  // The Excel names the parties in short form ("TURAYEV Z.B.") inside the intro clause.
   const partiesClause = samePerson
-    ? `«Қарз олувчи» ва «Гаровга қўювчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${borrowerName}`
-    : `«Қарз олувчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${borrowerName} ва «Гаровга қўювчи» (3 тараф) Ўзбекистон Республикаси фуқароси ${pledgorName}`;
+    ? `«Қарз олувчи» ва «Гаровга қўювчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${shortName(borrowerName)}`
+    : `«Қарз олувчи» (2 тараф) Ўзбекистон Республикаси фуқароси ${shortName(borrowerName)} ва «Гаровга қўювчи» (3 тараф) Ўзбекистон Республикаси фуқароси ${shortName(pledgorName)}`;
 
   const signatureRow = (labelLeft: string, right: string): Content => ({
     columns: [
@@ -63,7 +64,8 @@ export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinition
     pageMargins: DOC_PAGE_MARGINS,
     content: [
       orgHeader(org),
-      { text: `ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ №${contractNo}`, bold: true, alignment: 'center', fontSize: 12 },
+      // The Excel titles the valuation act "…ДАЛОЛАТНОМАСИ №1" — one act per case, not the contract №.
+      { text: 'ГАРОВ ПРЕДМЕТИНИНГ ҚИЙМАТИНИ КЕЛИШИШ ДАЛОЛАТНОМАСИ №1', bold: true, alignment: 'center', fontSize: 12 },
       {
         columns: [
           { width: '*', text: 'Тошкент ш.' },
@@ -73,7 +75,7 @@ export function actTemplate(c: CaseDocData, notary = false): TDocumentDefinition
       },
       p(
         `Ушбу далолатнома ${org?.nameUpper ?? 'ММТ'} (1 тараф) ижрочи директори ${org?.directorShort ?? '—'}, ` +
-          `${partiesClause} иштирокида ва хабардорлигида ${dateBare} йилдаги №${lineRefNo} сонли микромолиялаш линияси очиш ` +
+          `${partiesClause} иштирокида ва хабардорлигида 2 тарафга ${dateBare} йилдаги №${lineRefNo} сонли микромолиялаш линияси очиш ` +
           `тўғрисидаги Бош келишувига асосан ${moneyWithWordsCyr(creditAmount)} миқдоридаги микроқарз/микрокредит гаров ` +
           `таъминоти сифатида тақдим этилаётган қуйидаги мулкни гаров қийматини аниқлаш учун мазкур далолатномани туздик.`,
       ),
