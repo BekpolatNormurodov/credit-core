@@ -62,10 +62,11 @@ export function grafikTemplate(c: CaseDocData): TDocumentDefinitions {
 
   const sum = (f: (n: DocInstallment) => number) =>
     sched.installments.reduce((s, i) => s + f(i), 0);
+  // The Excel puts ИТОГО in the "Тўлов санаси" column, leaving № and the balance column empty.
   const totalsRow: TableCell[] = [
-    { text: 'ИТОГО', bold: true, colSpan: 3, alignment: 'center' },
-    {},
-    {},
+    { text: '' },
+    { text: 'ИТОГО', bold: true, alignment: 'center' },
+    { text: '' },
     { text: plainMoney(sum((i) => i.principal)), bold: true, alignment: 'right' },
     { text: plainMoney(sum((i) => i.interest)), bold: true, alignment: 'right' },
     { text: plainMoney(sum((i) => i.total)), bold: true, alignment: 'right' },

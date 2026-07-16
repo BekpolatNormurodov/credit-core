@@ -1,14 +1,28 @@
 import { mockCaseDoc, flattenDocText } from '../__fixtures__/case-doc.fixture';
 import { obloshkaTemplate } from './obloshka';
 
-describe('obloshkaTemplate', () => {
-  it('renders the borrower name, PINFL, and collateral count', () => {
+describe('obloshkaTemplate (обложка — cover page)', () => {
+  it('renders the cover: org name, the borrower name, the bosh kelishuv line and the terms', () => {
     const c = mockCaseDoc();
     const text = flattenDocText(obloshkaTemplate(c));
 
+    expect(text).toContain('МЧЖ «CLEVER MIKROMOLIYA TASHKILOTI»');
     expect(text).toContain('ЖЎЛДИБАЕВ РУСЛАН');
-    expect(text).toContain('52101901234567');
-    expect(text).toContain('2');
+    expect(text).toContain('СОНЛИ МИКРОМОЛИЯ ЛИНИЯСИ ОЧИШ БЎЙИЧА БОШ КЕЛИШУВ');
+    expect(text).toContain('Фоиз ставкаси: 55%');
+    expect(text).toContain('Микромолия линияси муддати: 24 ойгача');
+    expect(text.replace(/\s/g, ' ')).toContain('150 000 000,00 сум');
+    expect(text).toContain('Тошкент шахар, 05 Январь 2026 й.');
+  });
+
+  it('is a title page — carries no table and no dossier key/value grid', () => {
+    const def = obloshkaTemplate(mockCaseDoc());
+    const json = JSON.stringify(def);
+    expect(json).not.toContain('"table"');
+    // Fields that only belonged to the old invented summary grid.
+    const text = flattenDocText(def);
+    expect(text).not.toContain('ЖШШИР');
+    expect(text).not.toContain('Гаровлар сони');
   });
 
   it('never crashes / shows NaN when the credit-line fields are missing — renders "—" instead', () => {

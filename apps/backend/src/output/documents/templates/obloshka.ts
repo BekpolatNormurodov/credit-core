@@ -1,44 +1,47 @@
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
-import { dateToUzbekWords } from '../../../common/sum-to-words.util';
+import { dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
-import { orgHeader, docTitle, kv, kvTable, money } from '../doc-layout';
+import { plainMoney, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 
 /**
- * Дело обложкаси — the dossier cover sheet: a one-page summary of the case's key identifiers so
- * the paper file can be found/filed at a glance. Every value is null-safe ('—' when missing).
+ * обложка — the dossier COVER PAGE, matching the reference sheet: the org name at the top, the
+ * borrower's name large and centered in the middle, the "№ … СОНЛИ МИКРОМОЛИЯ ЛИНИЯСИ ОЧИШ БЎЙИЧА
+ * БОШ КЕЛИШУВ" line, the three key line terms, and the city + date footer.
+ *
+ * There is no table on this sheet — it is a title page.
  */
 export function obloshkaTemplate(c: CaseDocData): TDocumentDefinitions {
+  const org = c.organization;
   const b = c.borrower;
   const line = c.creditLine;
-  const contractNo = c.contractNumber ?? c.number ?? '—';
-  const passport = [b?.passportSeries, b?.passportNumber].filter(Boolean).join(' ') || '—';
-  const loanTypeText = line?.loanType === 'MICROCREDIT' ? 'Микрокредит' : 'Микроқарз';
-  const termText = line?.termMonths != null ? `${line.termMonths} ой` : '—';
+  const lineNo = line?.lineNumber ?? c.contractNumber ?? c.number ?? '—';
+  const termText = line?.termMonths != null ? `${line.termMonths} ойгача` : '—';
   const rateText = line?.interestRate != null ? `${Math.round(Number(line.interestRate) * 100)}%` : '—';
-  const dateText = line?.lineDate ? dateToUzbekWords(line.lineDate) : '—';
-  const collateralTotal = c.collaterals.reduce((sum, col) => sum + Number(col.agreedValue ?? 0), 0);
+  const amount = line?.amountTotal ?? c.amount ?? null;
+  const dateText = line?.lineDate ? dateToRuCyrillic(line.lineDate) : '—';
 
   return {
-    defaultStyle: { font: 'Roboto', fontSize: 10 },
-    pageMargins: [45, 50, 45, 50],
+    defaultStyle: DOC_DEFAULT_STYLE,
+    pageMargins: DOC_PAGE_MARGINS,
     content: [
-      orgHeader(c.organization),
-      docTitle('МИКРОМОЛИЯ ЛИНИЯСИ ИШИ — ОБЛОЖКА'),
-      kvTable([
-        kv('Иш/шартнома рақами', String(contractNo)),
-        kv('Филиал', c.branch?.name ?? '—'),
-        kv('Мижоз Ф.И.Ш.', b?.fullName ?? '—'),
-        kv('Паспорт', passport),
-        kv('ЖШШИР', b?.pinfl ?? '—'),
-        kv('Манзил', b?.regAddress ?? b?.address ?? '—'),
-        kv('Кредит тури', loanTypeText),
-        kv('Лимит суммаси', money(line?.amountTotal ?? c.amount)),
-        kv('Муддати', termText),
-        kv('Фоиз ставкаси', rateText),
-        kv('Гаровлар сони', String(c.collaterals.length)),
-        kv('Гаров умумий қиймати', money(collateralTotal)),
-        kv('Сана', dateText),
-      ]),
+      { text: org?.nameUpper ?? 'ММТ', bold: true, alignment: 'center', fontSize: 14, decoration: 'underline' },
+
+      // The borrower's name, large and centered, is the visual anchor of the cover.
+      { text: b?.fullName ?? '—', bold: true, alignment: 'center', fontSize: 26, margin: [0, 150, 0, 0] },
+
+      {
+        text: `№ ${lineNo} СОНЛИ МИКРОМОЛИЯ ЛИНИЯСИ ОЧИШ БЎЙИЧА БОШ КЕЛИШУВ`,
+        bold: true,
+        alignment: 'center',
+        fontSize: 12,
+        margin: [0, 130, 0, 0],
+      },
+
+      { text: `Фоиз ставкаси: ${rateText}`, bold: true, fontSize: 9, margin: [0, 60, 0, 0] },
+      { text: `Микромолия линияси муддати: ${termText}`, bold: true, fontSize: 9 },
+      { text: `Микромолия линияси  микдори: ${amount != null ? `${plainMoney(amount)} сум` : '—'}`, bold: true, fontSize: 9 },
+
+      { text: `Тошкент шахар, ${dateText}`, bold: true, alignment: 'center', fontSize: 9, margin: [0, 150, 0, 0] },
     ],
   };
 }
