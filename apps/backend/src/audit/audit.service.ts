@@ -49,6 +49,14 @@ export class AuditService {
   caseRestore(u: RequestUser, caseId: string, number?: string) { return this.write('CASE_RESTORE', u, { caseId, field: 'status', newValue: number ?? 'restored' }); }
   sectionSave(u: RequestUser, caseId: string, section: string) { return this.write('SECTION_SAVE', u, { caseId, field: section }); }
   transition(u: RequestUser, caseId: string, from: unknown, to: unknown) { return this.write('TRANSITION', u, { caseId, field: 'status', oldValue: from, newValue: to }); }
+  /** Director signed the frozen document set with their E-IMZO key. */
+  sign(u: RequestUser, caseId: string, manifestSha256: string, keyName: string) { return this.write('SIGN', u, { caseId, field: 'signature', newValue: { manifestSha256, key: keyName } }); }
+  /**
+   * A signing attempt that E-IMZO refused. Recorded because the refusal happens in the browser and
+   * would otherwise leave nothing behind — a director reporting "it will not sign" and a server
+   * with no trace of them ever trying.  is E-IMZO's own wording, not a softened version.
+   */
+  signFailed(u: RequestUser, caseId: string, stage: string, error: string) { return this.write('SIGN_FAILED', u, { caseId, field: stage, reason: error.slice(0, 300) }); }
 
   async list(q: { caseId?: string; actorId?: string; action?: string }): Promise<AuditLogDto[]> {
     const rows = await this.prisma.auditLog.findMany({

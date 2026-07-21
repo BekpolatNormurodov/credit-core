@@ -22,6 +22,7 @@ import { MessagesModule } from './messages/messages.module';
 import { SettingsModule } from './settings/settings.module';
 import { DeadlinesModule } from './deadlines/deadlines.module';
 import { AuditModule } from './audit/audit.module';
+import { SigningModule } from './signing/signing.module';
 import { PassportModule } from './passport/passport.module';
 
 @Module({
@@ -46,6 +47,7 @@ import { PassportModule } from './passport/passport.module';
     DeadlinesModule,
     AuditModule,
     PassportModule,
+    SigningModule,
   ],
 })
 export class AppModule {}

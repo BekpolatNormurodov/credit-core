@@ -1,4 +1,4 @@
-import { BadRequestException, ValidationError, ValidationPipe } from '@nestjs/common';
+import { BadRequestException, RequestMethod, ValidationError, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -41,7 +41,9 @@ function flatten(errors: ValidationError[]): string[] {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  app.setGlobalPrefix('api');
+  // `/v/:caseId` is left off the api prefix on purpose: it is printed into a QR on paper, where a
+  // shorter URL is a shorter code and one less thing to mistype when the scan fails.
+  app.setGlobalPrefix('api', { exclude: [{ path: 'v/:caseId', method: RequestMethod.GET }] });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

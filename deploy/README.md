@@ -66,8 +66,37 @@ bash deploy/update.sh        # git pull → rebuild → restart (schema re-synce
 | `VITE_API_URL` | baked into web builds — `https://api.creditcore.uz` |
 | `CORS_ORIGINS` | the 4 role origins, comma-separated |
 | `CERTBOT_EMAIL` | Let's Encrypt contact (nginx terminates TLS in-stack) |
+| `PUBLIC_VERIFY_URL` | public origin the printed QR points at — e.g. `https://api.creditcore.uz` |
 
 `deploy/.env` is gitignored — never commit it.
+
+**`PUBLIC_VERIFY_URL` must be set before anyone signs.** The URL is encoded into a QR, printed
+onto every document and frozen into the stored PDF. Unset, the backend refuses to sign in
+production rather than issue documents whose QR resolves to `localhost` — a failure that would
+only surface when someone first scanned one, by which time the documents cannot be reprinted.
+
+## 4a. E-IMZO (director signing)
+
+Signing runs entirely on the director's own machine: E-IMZO reads the key from their disk, asks
+for the password in its own window, and only the finished PKCS#7 reaches us. Neither the key nor
+the password touches the browser or the server.
+
+Two things the directors have to be told:
+
+**The password window opens behind the browser.** It is a separate desktop window and it is easy
+to miss — the signing dialog says so at that step, but people still report "it froze". Check the
+taskbar.
+
+**«Режим разработчика» is currently required, and it is not free.** E-IMZO only accepts requests
+from `localhost` and `127.0.0.1`; any other origin gets `-1022 API-key для домена … недействителен`.
+Until NIC issues a domain API-KEY for our production host, each director must enable E-IMZO's
+developer mode — which drops the origin check **for every site they visit, not just ours**.
+E-IMZO's password window does not name who asked for it, so with that mode on it is the human,
+not the code, deciding whether a prompt is legitimate. Getting the domain API-KEY removes this.
+
+Signatures are stored but **not verified**: checking an O'zDSt 1092:2009 signature needs
+E-IMZO-SERVER and a NIC contract we do not have. `CaseSignature.verified` is always `false`, and
+nothing in the UI claims otherwise. A third party with E-IMZO-SERVER can verify what we store.
 
 ## 5. Routing
 

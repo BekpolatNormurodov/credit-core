@@ -103,6 +103,7 @@ model User {
   moderatedBranches Branch[]        @relation("BranchModerators")
   isActive          Boolean         @default(true)
   createdCases      CreditCase[]    @relation("CaseCreatedBy")
+  signedCases       CaseSignature[] @relation("CaseSignedBy")
   documents         Document[]
   events            WorkflowEvent[]
   auditLogs         AuditLog[]      @relation("AuditActor")
@@ -169,12 +170,73 @@ model CreditCase {
   incomeCertificate IncomeCertificate?
   disbursement      DisbursementDetail?
 
+  /// The director's E-IMZO signature, once they have signed. Its absence means the case rests on
+  /// the workflow record alone — which is true of everything issued before this feature.
+  signature   CaseSignature?
+  signedAt    DateTime?
+  /// When the document set was rendered and frozen to disk. From this moment the stored files are
+  /// the issued documents; the templates are no longer consulted for this case.
+  docsFrozenAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([branchId])
   @@index([stepDeadlineAt])
+}
+
+/// The director's E-IMZO signature over the case's frozen document set.
+///
+/// `verified` is the whole story of this table. Producing a signature needs nothing but the
+/// director's key; *checking* one needs E-IMZO-SERVER and a NIC contract, which we do not have.
+/// So the row is evidence, not proof: it is a real PKCS#7 made by a real key on the director's own
+/// machine, and a third party with E-IMZO-SERVER can verify it — we cannot, yet. Until we can,
+/// nothing in the UI may call a document «tasdiqlangan» on the strength of this row alone.
+///
+/// One signature per case: the signed payload is a manifest listing every generated document and
+/// its digest, so a single key press covers the whole set rather than 19 separate passwords.
+model CaseSignature {
+  id             String     @id @default(cuid())
+  case           CreditCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId         String     @unique
+  /// base64 PKCS#7/CMS with the manifest attached.
+  pkcs7          String     @db.LongText
+  /// The manifest exactly as it was signed — so what the signature covers stays readable later.
+  manifest       Json
+  /// Digest of the manifest bytes handed to the client. The server re-derives this at commit.
+  manifestSha256 String
+  /// Set only once an E-IMZO-SERVER has actually checked it. Never set by the client.
+  verified       Boolean    @default(false)
+  verifiedAt     DateTime?
+  /// Untrusted, informational: the key's alias/name as the client reported it.
+  signerInfo     Json?
+  signedBy       User       @relation("CaseSignedBy", fields: [signedById], references: [id])
+  signedById     String
+  createdAt      DateTime   @default(now())
+}
+
+/// A rendered-but-unsigned document set awaiting its signature.
+///
+/// The director signs bytes, so the server must know exactly which bytes it handed out: without
+/// this row a client could sign anything at all and we would store it against the case.
+/// Short-lived by design — one signing attempt.
+model CaseSignChallenge {
+  id             String   @id @default(cuid())
+  caseId         String
+  /// The director who asked. Only they may complete it.
+  userId         String
+  /// Digest of the manifest handed to the client; the returned PKCS#7 must cover exactly this.
+  manifestSha256 String
+  /// The manifest itself, carried here rather than re-derived at commit. It stamps a `signedAt`
+  /// that cannot be recomputed later, and re-deriving it from the client's copy would mean
+  /// trusting the client with the very thing this row exists to pin down.
+  manifest       Json
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([caseId])
+  @@index([expiresAt])
 }
 
 /// Company-wide contract-number counters. id = "global" (never resets) or a year like "2026".
@@ -661,6 +723,8 @@ enum AuditAction {
   CASE_RESTORE
   SECTION_SAVE
   TRANSITION
+  SIGN
+  SIGN_FAILED
 }
 
 /// Layer A — semantic domain audit (who changed what value, from→to, and why).

@@ -7,11 +7,16 @@ import { loadCaseForDocs } from './documents/case-document.loader';
 import { docBadgeForStatus, watermarkForStatus } from './documents/doc-layout';
 import { DOC_REGISTRY } from './documents/registry';
 import { exportScheduleToExcel } from './excel-export.util';
+import { SignedDocsStore } from '../signing/signed-docs.store';
 
 @UseGuards(JwtAuthGuard)
 @Controller('cases/:id/documents')
 export class CaseDocumentsController {
-  constructor(private readonly prisma: PrismaService, private readonly pdf: PdfService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pdf: PdfService,
+    private readonly signedDocs: SignedDocsStore,
+  ) {}
 
   @Get()
   async list(@Param('id') id: string) {
@@ -50,6 +55,22 @@ export class CaseDocumentsController {
     const c = await loadCaseForDocs(this.prisma, id);
     if (!c) throw new NotFoundException('case not found');
     if (c.status === 'DRAFT') throw new ConflictException('hujjat hali mavjud emas (qoralama)');
+
+    /*
+      Once the director has signed, the frozen file IS the issued document — it is the bytes their
+      key covers, and it carries the QR the signature is verified through. Re-rendering here would
+      hand out a different document from the one that was signed the moment any case data changed.
+    */
+    const frozen = await this.signedDocs.read(id, key);
+    if (frozen) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `${download === '1' ? 'attachment' : 'inline'}; filename="${key}_${c.number}.pdf"`,
+      );
+      res.send(frozen);
+      return;
+    }
     // Server-side stage gate (mirrors list()): 'approved' docs (notary copies, monitoring acts) can
     // only be generated once the director has signed off — so a direct URL can't bypass the UI lock.
     if (tpl.stage === 'approved' && c.status !== 'FINALIZED' && (c.status as string) !== 'ADMIN_FINALIZE') {
