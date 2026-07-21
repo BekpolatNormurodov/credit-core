@@ -2,7 +2,7 @@ import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interface
 import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { gridTable, shortDate, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
-import { p } from './_shared';
+import { p, pv, v } from './_shared';
 import { autoValueTable, autoFootnotes, realtyFootnotes, shortName, totalAgreedValue } from './_collateral';
 
 type Collateral = CaseDocData['collaterals'][number];
@@ -104,12 +104,14 @@ export function monitoringTemplate(c: CaseDocData, periodMonths: number): TDocum
     defaultStyle: DOC_DEFAULT_STYLE,
     pageMargins: DOC_PAGE_MARGINS,
     content: [
-      { text: `Фуқаро ${name} билан имзоланган`, bold: true, alignment: 'center' },
+      { text: ['Фуқаро ', { text: name, bold: true }, ' билан имзоланган'], alignment: 'center' },
       {
-        text:
-          `${lineDateStr}йилдаги № ${lineNo} микромолиялаш линияси очиш тўғрисидаги Бош келишувга асосан ` +
-          `микроқарз/микрокредитларга гаровга кўйилган мол мулкнинг текширув.`,
-        bold: true,
+        text: [
+          { text: lineDateStr, bold: true },
+          ' йилдаги № ',
+          { text: String(lineNo), bold: true },
+          ' микромолиялаш линияси очиш тўғрисидаги Бош келишувга асосан микроқарз/микрокредитларга гаровга кўйилган мол мулкнинг текширув.',
+        ],
         alignment: 'center',
         margin: [0, 2, 0, 2],
       },
@@ -117,18 +119,18 @@ export function monitoringTemplate(c: CaseDocData, periodMonths: number): TDocum
       {
         columns: [
           { width: '*', text: 'Тошкент шахри' },
-          { width: 'auto', text: visitDateStr, alignment: 'right' },
+          { width: 'auto', text: visitDateStr, bold: true, alignment: 'right' },
         ],
         margin: [0, 0, 0, 10],
       },
-      p(
-        `Мен, ${org?.nameUpper ?? 'ММТ'} ижрочи директори ${org?.directorShort ?? '—'} , фуқаро ${name}нинг ` +
-          `иштирокида ${lineDateStr}йилдаги № ${lineNo} сонли микромолиялаш линиясини очиш тўғрисидаги Бош ` +
-          `Келишувга асосан гаровга кўйилган мол - мулкни текширдим`,
+      pv(
+        'Мен, ', v(org?.nameUpper), ' ижрочи директори ', v(org?.directorShort),
+        ' , фуқаро ', v(name), 'нинг иштирокида ', v(lineDateStr), ' йилдаги № ', v(lineNo),
+        ' сонли микромолиялаш линиясини очиш тўғрисидаги Бош Келишувга асосан гаровга кўйилган мол - мулкни текширдим',
       ),
       { text: 'Гаров сифатида қуйидаги мулк қабул қилинган:', margin: [0, 6, 0, 2] },
       ...property,
-      p(`Юқорида қўрсатилган мулкнинг келишилган гаров қиймати ${moneyWithWordsCyr(totalAgreedValue(c))}ни ташкил қилади`),
+      pv('Юқорида қўрсатилган мулкнинг келишилган гаров қиймати ', v(moneyWithWordsCyr(totalAgreedValue(c))), 'ни ташкил қилади'),
       p('Гаровга қўйилган мулкни визуал текшириши унинг қониқорли холатини кўрсатди.'),
       { text: 'Юқоридагиларни тасдиқлаб имзо қўювчилар:', margin: [0, 10, 0, 8] },
       {

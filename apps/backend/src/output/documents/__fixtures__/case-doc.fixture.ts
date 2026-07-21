@@ -374,6 +374,23 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
 export function flattenDocText(def: TDocumentDefinitions): string {
   const out: string[] = [];
 
+  /**
+   * Render an inline `text` value the way pdfmake does: an array of runs is CONCATENATED with no
+   * separator (that is how rich text like `['Фуқаро ', {text: name, bold: true}, ' билан']` prints).
+   * Joining those with a space would fabricate gaps the PDF never shows.
+   */
+  function inlineText(node: unknown): string {
+    if (node == null) return '';
+    if (typeof node === 'string') return node;
+    if (typeof node === 'number' || typeof node === 'boolean') return String(node);
+    if (Array.isArray(node)) return node.map(inlineText).join('');
+    if (typeof node === 'object') {
+      const n = node as Record<string, unknown>;
+      if (n.text !== undefined) return inlineText(n.text);
+    }
+    return '';
+  }
+
   function walk(node: unknown): void {
     if (node == null) return;
     if (typeof node === 'string') {
@@ -392,7 +409,7 @@ export function flattenDocText(def: TDocumentDefinitions): string {
 
     const n = node as Record<string, unknown>;
 
-    if (n.text !== undefined) walk(n.text);
+    if (n.text !== undefined) out.push(inlineText(n.text));
     if (n.stack !== undefined) walk(n.stack);
     if (n.columns !== undefined) walk(n.columns);
     if (n.ul !== undefined) walk(n.ul);

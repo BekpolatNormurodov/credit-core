@@ -7,6 +7,21 @@ import { CaseDocData } from '../case-document.loader';
 /** Justified body paragraph. */
 export const p = (text: string): Content => ({ text, margin: [0, 3, 0, 3], alignment: 'justify' });
 
+/** Marks a merged case value so `pv` can set it in bold. */
+export const v = (value: unknown): { v: string } => ({ v: value == null || value === '' ? '—' : String(value) });
+
+/**
+ * Justified paragraph in which the merged case data is bold, so the filled-in values stand out from
+ * the boilerplate. Pass alternating static text and `v(...)` values:
+ *
+ *   pv('Мен, ', v(director), ' , фуқаро ', v(name), 'нинг иштирокида …')
+ */
+export const pv = (...parts: (string | { v: string })[]): Content => ({
+  text: parts.map((x) => (typeof x === 'string' ? x : { text: x.v, bold: true })),
+  margin: [0, 3, 0, 3],
+  alignment: 'justify',
+});
+
 const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 /** Number in Cyrillic Uzbek words, capitalized (e.g. 55 → "Эллик беш"). */
 export const wordsCyr = (n: number): string => cap(integerToUzbekWordsCyrillic(n));
