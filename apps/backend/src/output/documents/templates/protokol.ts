@@ -133,6 +133,8 @@ export function protokolTemplate(c: CaseDocData): TDocumentDefinitions {
   const contractNo = c.contractNumber ?? c.number ?? '—';
   const hasRealty = (c.collaterals ?? []).some((x) => x.type === 'REAL_ESTATE');
   const securityWord = hasRealty ? 'ko‘chmas mulk' : 'avtotransport';
+  const scheduleWord =
+    line?.tranches?.[0]?.scheduleType === 'DIFFERENTIATED' ? 'дифференцированный' : 'аннуитетный';
 
   return {
     defaultStyle: DOC_DEFAULT_STYLE,
@@ -168,7 +170,9 @@ export function protokolTemplate(c: CaseDocData): TDocumentDefinitions {
       { text: `2. Mikroqarz muddati: ${term != null ? `${term} (${cap(integerToUzbekWordsCyrillic(term))})` : '—'} oy`, margin: [0, 2, 0, 2] },
       { text: `3. Mikroqarzdan foydalanganlik uchun foiz stavkasi:yillik ${ratePct != null ? `${ratePct}% (${cap(integerToUzbekWords(ratePct))} )` : '—'} foiz.`, margin: [0, 2, 0, 2] },
       { text: '4. Mikroqarz bo‘yicha asosiy qarz va foizlarni to‘lash:', margin: [0, 2, 0, 2] },
-      { text: "- mikroqarz shartnomasi bo'yicha har oy аннуитетный to'lovlari amalga oshiriladi", margin: [0, 1, 0, 2] },
+      // The sheet names the repayment method in Russian and it follows the tranche's schedule type
+      // (the ХОВЛИ book prints "дифференцированный", the others "аннуитетный").
+      { text: `- mikroqarz shartnomasi bo'yicha har oy ${scheduleWord} to'lovlari amalga oshiriladi`, margin: [0, 1, 0, 2] },
       { text: `5. Mikroqarz bo‘yicha garov ${name}`, margin: [0, 2, 0, 2] },
       ...collateralTable(c.collaterals ?? [], name),
       { text: `6. Boshqa shartlar – ${securityWord} shaklida garov ta'minlangandan keyin mikroqarz berish.`, margin: [0, 6, 0, 0] },

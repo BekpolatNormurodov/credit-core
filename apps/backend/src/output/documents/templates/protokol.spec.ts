@@ -70,6 +70,17 @@ describe('protokolTemplate (Протокол — Latin sheet)', () => {
     expect(text).toContain('6. Boshqa shartlar – ko‘chmas mulk shaklida');
   });
 
+  it('names the repayment method from the tranche schedule type, as the books do', () => {
+    const annuity = flattenDocText(protokolTemplate(mockCaseDoc()));
+    expect(annuity).toContain("har oy аннуитетный to'lovlari");
+
+    const diff = flattenDocText(protokolTemplate(mockCaseDoc({
+      creditLine: { tranches: [{ scheduleType: 'DIFFERENTIATED' as unknown as never }] as unknown as never },
+    })));
+    expect(diff).toContain("har oy дифференцированный to'lovlari");
+    expect(diff).not.toContain('аннуитетный');
+  });
+
   it('never fabricates a default term / rate / date when the line lacks them', () => {
     const c = mockCaseDoc({
       creditLine: {

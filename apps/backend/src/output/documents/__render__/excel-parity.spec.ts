@@ -77,11 +77,35 @@ function isBoilerplate(s: string): boolean {
   return true;
 }
 
+// Match each book's own product: the AUTO workbook is a microloan, the property books microcredits.
 const variants = {
-  auto: mockCaseDoc({ productType: 'AUTO' as never, collaterals: [{ type: 'AUTO' as never }] }),
-  kvartira: mockCaseDoc({ collaterals: [{ type: 'REAL_ESTATE' as never, realtyKind: 'APARTMENT' as never }] }),
-  hovli: mockCaseDoc({ collaterals: [{ type: 'REAL_ESTATE' as never, realtyKind: 'HOUSE' as never }] }),
+  auto: mockCaseDoc({
+    productType: 'AUTO' as never,
+    creditLine: { loanType: 'MICROLOAN' as never },
+    collaterals: [{ type: 'AUTO' as never }],
+  }),
+  kvartira: mockCaseDoc({
+    creditLine: { loanType: 'MICROCREDIT' as never },
+    collaterals: [{ type: 'REAL_ESTATE' as never, realtyKind: 'APARTMENT' as never }],
+  }),
+  hovli: mockCaseDoc({
+    creditLine: { loanType: 'MICROCREDIT' as never },
+    collaterals: [{ type: 'REAL_ESTATE' as never, realtyKind: 'HOUSE' as never }],
+  }),
 };
+
+/**
+ * Cells that are NOT part of the printed form and must not count as gaps:
+ *  - editor notes left in the sheet for whoever fills it,
+ *  - dropdown option lists parked in helper columns,
+ *  - blank template rows whose placeholders were never filled in the sample.
+ */
+function isNoise(s: string): boolean {
+  if (/скрыть|Если обеспеч/i.test(s)) return true;
+  if (/(кузов №\s*$|шасси - \s*$|ранги - ,)/.test(s)) return true;
+  if (/^\s*-\*/.test(s) && s.replace(/[^:]*:/, '').trim().length === 0) return true;
+  return false;
+}
 
 const RUN = process.env.EXCEL_PARITY === '1';
 
@@ -103,10 +127,12 @@ const RUN = process.env.EXCEL_PARITY === '1';
         const docText = norm(flattenDocText(DOC_REGISTRY[docKey].build(c)));
 
         const phrases = new Set<string>();
-        ws.eachRow({ includeEmpty: false }, (row: { eachCell: (o: unknown, cb: (cell: { value: unknown }) => void) => void }) => {
+        ws.eachRow({ includeEmpty: false }, (row: { eachCell: (o: unknown, cb: (cell: { value: unknown; col: number }) => void) => void }) => {
           row.eachCell({ includeEmpty: false }, (cell) => {
+            // Only the printed form area (cols A..F) — helper columns hold dropdown option lists.
+            if (cell.col > 6) return;
             const t = cellText(cell.value).replace(/\s+/g, ' ').trim();
-            if (isBoilerplate(t)) phrases.add(t);
+            if (isBoilerplate(t) && !isNoise(t)) phrases.add(t);
           });
         });
 
