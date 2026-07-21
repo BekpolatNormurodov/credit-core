@@ -12,6 +12,16 @@ type Collateral = CaseDocData['collaterals'][number];
 const dash = (v: unknown): string => (v == null || v === '' ? '—' : String(v));
 const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
+/**
+ * The org name as THIS (Latin) sheet writes it: the quoted name first, then a Latin "MChJ" —
+ * «CLEVER MIKROMOLIYA TASHKILOTI» MChJ — whereas the Cyrillic sheets print МЧЖ «…» the other way
+ * round. Derived by stripping the stored Cyrillic МЧЖ affix and appending the Latin one.
+ */
+const orgLatin = (name: string | undefined): string => {
+  const bare = (name ?? 'MMT').replace(/^\s*МЧЖ\s*/, '').replace(/\s*МЧЖ\s*$/, '').trim();
+  return `${bare} MChJ`;
+};
+
 /** "90 000 000,00 (Тўқсон миллион сўм 00 тийин)" — the sheet spells sums in Cyrillic even here. */
 const sumCyr = (n: unknown): string => {
   if (n == null) return '—';
@@ -135,12 +145,16 @@ export function protokolTemplate(c: CaseDocData): TDocumentDefinitions {
   const securityWord = hasRealty ? 'ko‘chmas mulk' : 'avtotransport';
   const scheduleWord =
     line?.tranches?.[0]?.scheduleType === 'DIFFERENTIATED' ? 'дифференцированный' : 'аннуитетный';
+  // This sheet writes the org in Latin with the suffix AFTER the name — uppercase in the heading and
+  // the committee line, mixed case in the "Birinchi masala" paragraph.
+  const orgUpperLat = orgLatin(org?.nameUpper);
+  const orgMixedLat = orgLatin(org?.nameMixed);
 
   return {
     defaultStyle: DOC_DEFAULT_STYLE,
     pageMargins: DOC_PAGE_MARGINS,
     content: [
-      { text: `${org?.nameUpper ?? 'MMT'} mikromoliya tashkiloti Kredit qo‘mitasining yig‘ilishi`, alignment: 'center', bold: true },
+      { text: `${orgUpperLat} mikromoliya tashkiloti Kredit qo‘mitasining yig‘ilishi`, alignment: 'center', bold: true },
       { text: `${contractNo} protokolidan ko‘chirma`, alignment: 'center', margin: [0, 2, 0, 2] },
       {
         columns: [
@@ -152,17 +166,17 @@ export function protokolTemplate(c: CaseDocData): TDocumentDefinitions {
       { text: 'KUN TARTIBI:', bold: true },
       p(`${name}ga mikroqarz berish masalasini ko‘rib chiqish to‘g‘risida.`),
       p(
-        `Birinchi masala yuzasidan: ${org?.nameUpper ?? 'MMT'} mikromoliya tashkiloti kredit bo‘yicha menejeri ` +
+        `Birinchi masala yuzasidan: ${orgMixedLat} mikromoliya tashkiloti kredit bo‘yicha menejeri ` +
           `${name}ga ${sumCyr(amount)} so'm miqdorida, muddati ${term != null ? `${term} (${cap(integerToUzbekWordsCyrillic(term))})` : '—'} oyga va ` +
           `yillik ${ratePct != null ? `${ratePct} (${cap(integerToUzbekWords(ratePct))})` : '—'} foiz miqdorida mikroqarz berish bo‘yicha ` +
-          `${name}ning kredit arizasi va ${org?.nameUpper ?? 'MMT'}ning xulosasi bilan ishtirokchilarni tanishtirdi.`,
+          `${name}ning kredit arizasi va ${orgUpperLat}ning xulosasi bilan ishtirokchilarni tanishtirdi.`,
       ),
       { text: 'Mikroqarz ta’minoti:', bold: true, margin: [0, 6, 0, 2] },
       ...(c.collaterals ?? []).map((col) => p(collateralSentence(col, name))),
       p(
         `Birinchi masala yuzasidan berilgan ma’lumotlarni muhokama qilib, Kredit qo‘mitasi a’zolariga taqdim etilgan ` +
           `zarur hujjatlarni o‘rganib, majlisda ishtirok etgan Kredit qo‘mitasi a’zolarining taklif va mulohazalarini ` +
-          `inobatga olgan holda ${org?.nameUpper ?? 'MMT'} kredit qo‘mitasi`,
+          `inobatga olgan holda ${orgUpperLat} kredit qo‘mitasi`,
       ),
       { text: 'QAROR QILADI:', bold: true, alignment: 'center', margin: [0, 6, 0, 6] },
       p(`${name}ga quyidagi shartlarda mikroqarz berish masalasi ma’qullansin:`),
