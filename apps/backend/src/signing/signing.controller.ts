@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, RequestUser } from '../auth/current-user.decorator';
 import { SigningService } from './signing.service';
@@ -14,6 +14,12 @@ import { SigningService } from './signing.service';
 @Controller('cases/:id/sign')
 export class SigningController {
   constructor(private readonly signing: SigningService) {}
+
+  /** The INN the signing key must carry — so the dialog can filter the key list. */
+  @Get('key-requirement')
+  keyRequirement() {
+    return this.signing.keyRequirement();
+  }
 
   @Post('prepare')
   prepare(@Param('id') id: string, @CurrentUser() user: RequestUser) {

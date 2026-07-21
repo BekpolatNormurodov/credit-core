@@ -175,6 +175,11 @@ export const api = {
     exactly which bytes it handed out. Without the prepare/commit split a client could sign
     anything at all and we would file it against the case.
   */
+  /** The INN the signing key must carry — only the firm's own key may sign. */
+  async signKeyRequirement(id: string): Promise<{ orgName: string | null; inn: string | null }> {
+    const { data } = await http.get(`/cases/${id}/sign/key-requirement`);
+    return data;
+  },
   /** Render and freeze the document set; returns the manifest to sign and the challenge it belongs to. */
   async signPrepare(id: string): Promise<{ challengeId: string; manifestBase64: string; docCount: number }> {
     const { data } = await http.post(`/cases/${id}/sign/prepare`, {});

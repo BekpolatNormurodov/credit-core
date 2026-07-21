@@ -10,6 +10,7 @@ import { watermarkForStatus } from '../output/documents/doc-layout';
 import { caseQrDataUrl, withVerificationBlock } from '../output/documents/verification-block';
 import { buildManifest, manifestBytes, manifestSha256, sha256, type CaseManifest, type ManifestDoc } from './manifest';
 import { SignedDocsStore } from './signed-docs.store';
+import { extractCertInns, signatureCarriesInn } from './cert-inn';
 
 /** A signing attempt is one human typing one password. Anything older is abandoned. */
 const CHALLENGE_TTL_MS = 10 * 60_000;
@@ -42,6 +43,16 @@ export class SigningService {
       throw new ForbiddenException('Bu holatda imzolab bo‘lmaydi');
     }
     return c;
+  }
+
+  /**
+   * Which key the director must use, so the dialog can rule out the wrong ones before they type a
+   * password rather than after. The commit-side check is the one that decides; this only spares
+   * them the wasted attempt.
+   */
+  async keyRequirement() {
+    const org = await this.prisma.organization.findFirst({ select: { nameUpper: true, inn: true } });
+    return { orgName: org?.nameUpper ?? null, inn: org?.inn?.trim() ?? null };
   }
 
   /**
@@ -128,6 +139,36 @@ export class SigningService {
     if (typeof body.pkcs7 !== 'string' || body.pkcs7.length < 100) {
       await this.audit.signFailed(user, id, 'commit', 'no pkcs7 in request');
       throw new BadRequestException('Imzo kelmadi');
+    }
+
+    /*
+      Only the firm's own key may sign — not a director's personal key, not another company's.
+      The INN in the certificate is what tells them apart.
+
+      Fails closed, including when the organisation has no INN configured: an unconfigured INN
+      means the check cannot be made, and a check that cannot be made must not pass. The message
+      names what was actually found so a single refused attempt says why, rather than sending
+      someone to guess which of their keys is wrong.
+    */
+    const orgInn = c.organization?.inn?.trim();
+    if (!orgInn) {
+      await this.audit.signFailed(user, id, 'commit', 'organisation has no INN configured');
+      throw new ConflictException('Tashkilot INN sozlanmagan — imzolab bo‘lmaydi. Administratorga murojaat qiling');
+    }
+    if (!signatureCarriesInn(body.pkcs7, orgInn)) {
+      const found = extractCertInns(body.pkcs7);
+      await this.audit.signFailed(
+        user, id, 'commit',
+        `key INN mismatch: expected ${orgInn}, certificate carried ${found.length ? found.join(', ') : 'none'}`,
+      );
+      this.log.warn(
+        `[sign] key rejected case=${c.number} (${c.id}) by=${user.id} expected=${orgInn} found=${found.join(',') || 'none'}`,
+      );
+      throw new ForbiddenException(
+        found.length
+          ? `Bu kalit tashkilotga tegishli emas (kalit INN: ${found.join(', ')}, kerak: ${orgInn}). Firma kaliti bilan imzolang`
+          : `Kalitda tashkilot INN topilmadi (kerak: ${orgInn}). Shaxsiy kalit emas, firma kaliti bilan imzolang`,
+      );
     }
 
     const challenge = await this.prisma.caseSignChallenge.findUnique({ where: { id: body.challengeId ?? '' } });

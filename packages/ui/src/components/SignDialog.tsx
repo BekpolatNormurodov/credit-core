@@ -5,7 +5,7 @@ import { Modal } from './Modal';
 import { Button, Field } from './primitives';
 import { Select, type Option } from './forms';
 import {
-  probeEimzo, loadKey, createPkcs7, unloadKey, EimzoError,
+  probeEimzo, loadKey, createPkcs7, unloadKey, innFromAlias, EimzoError,
   type EimzoKey, type EimzoStatus,
 } from '../lib/eimzo';
 
@@ -127,20 +127,28 @@ export function SignDialog({
   const [step, setStep] = useState<Step>(null);
   const [err, setErr] = useState('');
   const [denyReason, setDenyReason] = useState('');
+  /** The INN the key must carry. null while loading, or if the org has none configured. */
+  const [required, setRequired] = useState<{ orgName: string | null; inn: string | null } | null>(null);
 
   const probe = useCallback(async () => {
     setStatus('checking');
     setErr('');
     setDenyReason('');
+    // Which key is acceptable is the server's answer, not a constant here — and it is needed
+    // before the picker renders, so the wrong key is never offered rather than rejected later.
+    const req = await api.signKeyRequirement(caseId).catch(() => null);
+    setRequired(req);
     const r = await probeEimzo();
     if (r.status === 'ready') {
       setKeys(r.keys);
-      setAlias(r.keys.length === 1 ? r.keys[0]!.alias : '');
+      // Preselect only when there is exactly one key the firm may actually sign with.
+      const usable = req?.inn ? r.keys.filter((k) => innFromAlias(k.alias) === req.inn) : r.keys;
+      setAlias(usable.length === 1 ? usable[0]!.alias : '');
     } else if (r.status === 'domain-denied') {
       setDenyReason(r.reason);
     }
     setStatus(r.status);
-  }, []);
+  }, [caseId]);
 
   useEffect(() => {
     if (open) void probe();
@@ -214,7 +222,12 @@ export function SignDialog({
   }
 
   const busy = step !== null;
-  const keyOptions: Option<string>[] = keys.map((k) => ({
+  // Only the firm's own key may sign. Keys belonging to a person or another company are dropped
+  // from the list entirely rather than shown and refused — the director cannot act on a key that
+  // is not theirs to use, so offering it only invites a wasted password.
+  const usableKeys = required?.inn ? keys.filter((k) => innFromAlias(k.alias) === required.inn) : keys;
+  const rejectedCount = keys.length - usableKeys.length;
+  const keyOptions: Option<string>[] = usableKeys.map((k) => ({
     value: k.alias,
     label: `${k.name} — ${keyLocation(k)}`,
   }));
@@ -340,9 +353,37 @@ export function SignDialog({
           </div>
         )}
 
-        {status === 'ready' && keys.length > 0 && (
-          <Field label="Kalit" hint="Tanlagach E-IMZO o‘z oynasida parol so‘raydi. Parol bu sahifaga kirmaydi.">
+        {/*
+          Keys were found, but none of them is the firm's. Named explicitly — "kalit topilmadi"
+          would send them to hunt for a flash drive when the key is right there and simply wrong.
+        */}
+        {status === 'ready' && keys.length > 0 && usableKeys.length === 0 && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2.5 text-xs leading-relaxed">
+            <p className="font-semibold text-slate-900 dark:text-slate-100">Firma kaliti topilmadi</p>
+            <p className="mt-0.5 text-slate-500 dark:text-slate-400">
+              {keys.length} ta kalit topildi, lekin ularning hech biri{' '}
+              <b className="text-slate-700 dark:text-slate-200">{required?.orgName ?? 'tashkilot'}</b> nomiga
+              emas{required?.inn ? ` (INN: ${required.inn})` : ''}. Shaxsiy kalit bilan imzolab bo‘lmaydi —
+              firma kalitini ulang.
+            </p>
+            <button onClick={() => void probe()} type="button" className="mt-2 cursor-pointer text-xs font-semibold text-brand-600 hover:underline dark:text-brand-400">
+              Qayta tekshirish
+            </button>
+          </div>
+        )}
+
+        {status === 'ready' && usableKeys.length > 0 && (
+          <Field
+            label="Kalit"
+            hint="Tanlagach E-IMZO o‘z oynasida parol so‘raydi. Parol bu sahifaga kirmaydi."
+          >
             <Select value={alias} onChange={setAlias} options={keyOptions} placeholder="Kalitni tanlang" />
+            {/* Say why the list is shorter than what E-IMZO reported, rather than silently hiding keys. */}
+            {rejectedCount > 0 && (
+              <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
+                Yana {rejectedCount} ta kalit topildi, lekin ular tashkilotga tegishli emas — ko‘rsatilmadi.
+              </p>
+            )}
           </Field>
         )}
       </div>

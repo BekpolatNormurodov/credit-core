@@ -31,6 +31,22 @@ export interface EimzoKey {
   alias: string;
 }
 
+/**
+ * The organisation INN (STIR) a key belongs to, or null for a key that names no organisation.
+ *
+ * E-IMZO's `alias` is the certificate's subject DN in text form — `1.2.860.3.16.1.1=306365847,
+ * cn=…,o=…` — where that OID is the Uzbek TIN. A personal key carries a PINFL under `…1.2` and no
+ * organisation INN, which is exactly the case that must be filtered out: only the firm's own key
+ * may sign.
+ *
+ * Used to narrow the picker so the wrong key is never selectable. The server checks the INN again
+ * against the certificate inside the returned signature — this one is convenience, not the guard.
+ */
+export function innFromAlias(alias: string | undefined | null): string | null {
+  const m = /1\.2\.860\.3\.16\.1\.1\s*=\s*(\d{9})/.exec(alias ?? '');
+  return m ? m[1]! : null;
+}
+
 export type EimzoStatus = 'checking' | 'ready' | 'not-running' | 'domain-denied';
 
 /**
