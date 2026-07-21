@@ -20,8 +20,10 @@ if [ ! -f deploy/nginx/certs/live/creditcore.uz/fullchain.pem ]; then
     certbot
 fi
 
-echo "==> Building and starting containers"
-docker compose --env-file deploy/.env up -d --build
+bash deploy/build-images.sh
+
+echo "==> Starting containers"
+docker compose --env-file deploy/.env up -d
 # The backend container syncs the DB schema (prisma db push) on start.
 
 echo "==> Waiting for the backend to come up"
