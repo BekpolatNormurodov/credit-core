@@ -3,13 +3,25 @@ import { creditApplicationTemplate } from './credit-application';
 
 describe('creditApplicationTemplate (Микроқарз олиш учун АРИЗА)', () => {
   it('renders the application header, terms in Cyrillic words, and consent list', () => {
+    // Fixture loanType is MICROCREDIT → the sheet's wording is "Микрокредит" throughout.
     const text = flattenDocText(creditApplicationTemplate(mockCaseDoc()));
-    expect(text).toContain('Микроқарз олиш учун');
+    expect(text).toContain('Микрокредит олиш учун');
     expect(text).toContain('АРИЗА');
-    expect(text).toContain('Микроқарз суммаси: 150 000 000,00 (Бир юз эллик миллион сўм 00 тийин) сўм');
-    expect(text).toContain('Микроқарз муддати: 24 (Йигирма тўрт) ойгача');
+    expect(text).toContain('Микрокредит суммаси: 150 000 000,00 (Бир юз эллик миллион сўм 00 тийин) сўм');
+    expect(text).toContain('Микрокредит муддати: 24 (Йигирма тўрт) ойгача');
     expect(text).toContain('55% (Эллик беш) фоиз');
     expect(text).toContain('кредит ахборотлари давлат реестри');
+  });
+
+  it('swaps Микроқарз/Микрокредит by product, as the two workbooks do', () => {
+    const microloan = flattenDocText(creditApplicationTemplate(mockCaseDoc({ creditLine: { loanType: 'MICROLOAN' as unknown as never } })));
+    expect(microloan).toContain('Микроқарз олиш учун');
+    expect(microloan).toContain('Микроқарз учун таъминот сифатида');
+    expect(microloan).not.toContain('Микрокредит олиш учун');
+
+    const microcredit = flattenDocText(creditApplicationTemplate(mockCaseDoc({ creditLine: { loanType: 'MICROCREDIT' as unknown as never } })));
+    expect(microcredit).toContain('Микрокредит олиш учун');
+    expect(microcredit).toContain('Микрокредит учун таъминот сифатида');
   });
 
   it('includes the full auto collateral detail for a vehicle case', () => {

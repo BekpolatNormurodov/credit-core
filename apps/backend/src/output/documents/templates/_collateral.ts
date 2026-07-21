@@ -31,11 +31,12 @@ export function autoDescription(c: Collateral): string {
   );
 }
 
+// Headers verbatim from the Excel, including the trailing asterisks that key the footnotes below.
 const AUTO_HEAD_BASE: TableCell[] = [
-  { text: 'Мулк номи', bold: true, alignment: 'center' },
-  { text: 'Кузов тури ва кузов рақами', bold: true, alignment: 'center' },
-  { text: 'Двигател рақами ва шасси рақами', bold: true, alignment: 'center' },
-  { text: 'Ишлаб чиқарилган йили ва ранги', bold: true, alignment: 'center' },
+  { text: 'Мулк номи*', bold: true, alignment: 'center' },
+  { text: 'Кузов тури ва кузов рақами*', bold: true, alignment: 'center' },
+  { text: 'Двигател рақами ва шасси рақами*', bold: true, alignment: 'center' },
+  { text: 'Ишлаб чиқарилган йили ва ранги*', bold: true, alignment: 'center' },
 ];
 const AUTO_VALUE_COL: TableCell = { text: 'Гаров қийматининг келишилган нархи, сўм', bold: true, alignment: 'center' };
 
@@ -127,7 +128,8 @@ export function realtyValueTable(collaterals: Collateral[], withValue = true): C
     { text: 'Яшаш майдони', bold: true, alignment: 'center' },
     { text: 'Давлат руйхатидан утказилган ер майдони', bold: true, alignment: 'center' },
   ];
-  if (withValue) header.push({ text: 'Согласованная залоговая стоимость, сум', bold: true, alignment: 'center' });
+  // "стоимонсть" is the reference sheet's own spelling — kept verbatim so the form matches 1:1.
+  if (withValue) header.push({ text: 'Согласованная залоговая стоимонсть, сум', bold: true, alignment: 'center' });
 
   const rows: TableCell[][] = collaterals.map((c) => {
     const row: TableCell[] = [

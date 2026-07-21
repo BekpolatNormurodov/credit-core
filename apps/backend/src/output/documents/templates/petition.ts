@@ -50,11 +50,8 @@ export function petitionTemplate(c: CaseDocData): TDocumentDefinitions {
   ];
 
   if (!isAutoOnly(c)) {
-    content.push({
-      text: `- ${line?.insurance?.company ?? 'Суғурта компанияси'}нинг кредит қайтмаслик риски полиси. Суғурта полисининг қиймати ${moneyWithWordsCyr(insuredSum)}.`,
-      alignment: 'justify',
-      margin: [0, 3, 0, 0],
-    });
+    // Verbatim from the sheet — it names no company and no sum on this line.
+    content.push({ text: '- Суғурта компаниясининг кредит қайтмаслик риски полиси', margin: [0, 3, 0, 0] });
   }
 
   content.push(

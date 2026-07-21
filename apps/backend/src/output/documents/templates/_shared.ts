@@ -11,6 +11,19 @@ const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) :
 /** Number in Cyrillic Uzbek words, capitalized (e.g. 55 → "Эллик беш"). */
 export const wordsCyr = (n: number): string => cap(integerToUzbekWordsCyrillic(n));
 
+/**
+ * "Микроқарз" or "Микрокредит" — the reference workbooks swap this word throughout a form depending
+ * on the product: the microloan book prints «Микроқарз олиш учун», the microcredit book prints
+ * «Микрокредит олиш учун». Driven by the stored loanType, falling back to the 100 mln threshold.
+ */
+export function loanWord(c: CaseDocData): string {
+  const lt = c.creditLine?.loanType;
+  if (lt === 'MICROCREDIT') return 'Микрокредит';
+  if (lt === 'MICROLOAN') return 'Микроқарз';
+  const amount = Number(c.creditLine?.amountTotal ?? c.amount ?? 0);
+  return amount > 100_000_000 ? 'Микрокредит' : 'Микроқарз';
+}
+
 /** "200 000 000,00 (ikki yuz million ...)" — number + words. */
 export function amountWords(amount: number): string {
   return `${new Intl.NumberFormat('ru-RU').format(amount)},00 (${amount ? sumToWordsUz(amount) : '—'})`;

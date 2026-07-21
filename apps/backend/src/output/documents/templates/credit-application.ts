@@ -5,6 +5,7 @@ import {
 import { CaseDocData } from '../case-document.loader';
 import { docTitle, shortDate, plainMoney, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { autoDescription, realtyDescription, isAutoOnly } from './_collateral';
+import { loanWord } from './_shared';
 
 const cap = (s: string): string => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 /** Number spelled in Cyrillic Uzbek words, capitalized (e.g. 33 → "Ўттиз уч"). */
@@ -36,6 +37,8 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
     `${b?.passportIssuer ? ` ${b.passportIssuer} томонидан` : ''}` +
     `${b?.passportIssueDate ? ` ${shortDate(b.passportIssueDate)} йилда берилган` : ''}.`;
 
+  // The workbooks swap "Микроқарз"/"Микрокредит" throughout this form by product type.
+  const lw = loanWord(c);
   const p = (text: string, top = 6): Content => ({ text, margin: [0, top, 0, 0] });
 
   // Collateral paragraphs (one bullet per pledged item).
@@ -53,7 +56,7 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
       alignment: 'right',
       margin: [0, 0, 0, 8],
     },
-    { text: 'Микроқарз олиш учун', alignment: 'center' },
+    { text: `${lw} олиш учун`, alignment: 'center' },
     docTitle('АРИЗА'),
 
     p(
@@ -66,16 +69,17 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
     p(`Лавозими: ${emp?.position ?? '—'}`),
     p(`Ўртача ойлик даромад: ${af?.avgMonthlyIncome != null ? `${plainMoney(af.avgMonthlyIncome)} сум.` : '—'}`),
 
-    p('Сиздан қуйидаги шартлар асосида менга Микроқарз ажратишингизни сўрайман:', 10),
-    p(`Микроқарз суммаси: ${moneyWithWordsCyr(amount)}.`),
-    p(`Микроқарз муддати: ${term != null ? `${term} (${words(term)}) ойгача` : '—'}.`),
-    p(`Микроқарздан фойдаланганлик учун фоиз ставкаси: йиллик : ${ratePct != null ? `${ratePct}% (${words(ratePct)}) фоиз` : '—'}`),
+    p(`Сиздан қуйидаги шартлар асосида менга ${lw} ажратишингизни сўрайман:`, 10),
+    p(`${lw} суммаси: ${moneyWithWordsCyr(amount)}.`),
+    p(`${lw} муддати: ${term != null ? `${term} (${words(term)}) ойгача` : '—'}.`),
+    p(`${lw}дан фойдаланганлик учун фоиз ставкаси: йиллик : ${ratePct != null ? `${ratePct}% (${words(ratePct)}) фоиз` : '—'}`),
 
-    p('Микроқарз бўйича асосий қарз ва фоизларни тўлаш шарти:', 10),
-    p('- асосий қарзни тўлаш Микроқарз шартномаси бўйича амалга оширилади;', 2),
-    p('- ҳар ойда аннуитет тўловлари билан амалга оширилади (микроқарз шартномасига мувофиқ).', 2),
+    p(`${lw} бўйича асосий қарз ва фоизларни тўлаш шарти:`, 10),
+    p(`- асосий қарзни тўлаш ${lw} шартномаси бўйича амалга оширилади`, 2),
+    // Verbatim from the sheet — this second condition is printed in Russian on the form.
+    p('- осуществляется ежемесячно аннуитетными платежами, по договору микрозайма;', 2),
 
-    p('Микроқарз учун таъминот сифатида', 10),
+    p(`${lw} учун таъминот сифатида`, 10),
     ...collateralLines,
   ];
 
@@ -97,7 +101,7 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
     ),
     p(
       `${org?.nameUpper ?? 'ММТ'} ва суғурта компанияси ўртасидаги келишув шартлари билан танишдим. ` +
-        `Мен, ${org?.nameMixed ?? 'ММТ'} томонидан Мен ва сўралган Микроқарз билан боғлиқ барча керакли ` +
+        `Мен, ${org?.nameMixed ?? 'ММТ'} томонидан Мен ва сўралган ${lw} билан боғлиқ барча керакли ` +
         'маълумотларни тақдим этиш ва олиш хуқуқига розилигимни билдираман.',
       8,
     ),

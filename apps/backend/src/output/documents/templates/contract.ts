@@ -2,7 +2,8 @@ import type { Content, TDocumentDefinitions } from 'pdfmake/interfaces';
 import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { sectionTitle } from '../doc-layout';
-import { p } from './_shared';
+import { mapDocStrings } from '../sanitize';
+import { p, loanWord } from './_shared';
 import { collateralBlock } from './_collateral';
 
 /** Bold section heading, e.g. "4. Микромолия ташкилотининг ҳуқуқ ва мажбуриятлари". */
@@ -22,6 +23,16 @@ function amountWithWords(amount: number | null): string {
  * boilerplate; the preamble, 1.1/2.3, 3.1.x and 12 splice in this case's data.
  */
 export function contractTemplate(c: CaseDocData): TDocumentDefinitions {
+  const def = buildContract(c);
+  // The workbooks print this contract with "Микроқарз" for a microloan and "Микрокредит" for a
+  // microcredit — swap the word across the finished document rather than in 43 separate clauses.
+  if (loanWord(c) === 'Микроқарз') return def;
+  return mapDocStrings(def, (s) =>
+    s.replace(/Микроқарз/g, 'Микрокредит').replace(/микроқарз/g, 'микрокредит').replace(/МИКРОҚАРЗ/g, 'МИКРОКРЕДИТ'),
+  );
+}
+
+function buildContract(c: CaseDocData): TDocumentDefinitions {
   const line = c.creditLine;
   const tr = line?.tranches?.[0];
   const b = c.borrower;

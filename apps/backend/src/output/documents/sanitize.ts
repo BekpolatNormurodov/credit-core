@@ -19,19 +19,25 @@ export function sanitizeText(s: string): string {
 }
 
 /**
- * Deep-copy a pdfmake document definition (or any value) with every string sanitised.
- * Non-string leaves (numbers, booleans, null, Date, Buffer) are passed through untouched.
+ * Deep-copy a value, applying `fn` to every string leaf. Non-string leaves (numbers, booleans,
+ * null, Date, Buffer) are passed through untouched.
  */
-export function sanitizeDocDefinition<T>(value: T): T {
+export function mapDocStrings<T>(value: T, fn: (s: string) => string): T {
+  const walk = (v: unknown): unknown => {
+    if (typeof v === 'string') return fn(v);
+    if (v == null || typeof v !== 'object') return v;
+    if (v instanceof Date || Buffer.isBuffer(v)) return v;
+    if (Array.isArray(v)) return v.map(walk);
+    const out: Record<string, unknown> = {};
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) out[k] = walk(val);
+    return out;
+  };
   return walk(value) as T;
 }
 
-function walk(v: unknown): unknown {
-  if (typeof v === 'string') return sanitizeText(v);
-  if (v == null || typeof v !== 'object') return v;
-  if (v instanceof Date || Buffer.isBuffer(v)) return v;
-  if (Array.isArray(v)) return v.map(walk);
-  const out: Record<string, unknown> = {};
-  for (const [k, val] of Object.entries(v as Record<string, unknown>)) out[k] = walk(val);
-  return out;
+/**
+ * Deep-copy a pdfmake document definition (or any value) with every string sanitised.
+ */
+export function sanitizeDocDefinition<T>(value: T): T {
+  return mapDocStrings(value, sanitizeText);
 }
