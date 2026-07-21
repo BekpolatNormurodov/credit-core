@@ -66,7 +66,7 @@ bash deploy/update.sh        # git pull → rebuild → restart (schema re-synce
 | `VITE_API_URL` | baked into web builds — `https://api.creditcore.uz` |
 | `CORS_ORIGINS` | the 4 role origins, comma-separated |
 | `CERTBOT_EMAIL` | Let's Encrypt contact (nginx terminates TLS in-stack) |
-| `PUBLIC_VERIFY_URL` | public origin the printed QR points at — e.g. `https://api.creditcore.uz` |
+| `PUBLIC_VERIFY_URL` | origin the printed QR points at — `https://api.creditcore.uz` |
 
 `deploy/.env` is gitignored — never commit it.
 
