@@ -99,6 +99,29 @@ the same builder with `notary=true` + the notary block. Re-verify after each bas
 
 ---
 
+## STATUS — all documents rebuilt (2026-07-15)
+
+Every document below is rebuilt against its sheet and verified by rendering the PDF and reading it.
+Backend suite: **47 suites / 300 tests green** (run with `--runInBand`; the passport OCR spec is
+flaky under parallel workers on this machine, not a code fault).
+
+**Objective parity audit** (`excel-parity.spec`, gated on `EXCEL_PARITY=1`): every boilerplate
+phrase from each sheet is searched for in the generated document — **156/198 matched**. The
+remaining 42 are accounted for, not defects:
+- each workbook carries the *other* collateral type's block unfilled (the AUTO book has an empty
+  real-estate table and vice-versa) — correctly absent from the matching variant;
+- the sample's own names/addresses differ from the fixture;
+- the scoring sheet parks its dropdown option lists in helper columns (only the selected verdict prints).
+
+Real divergences the audit caught and that are now fixed: the Микроқарз/Микрокредит product word,
+the Russian repayment line in the application, the petition's insurance line, the auto header
+asterisks, the sheet's own "стоимонсть" spelling, and the protokol's аннуитетный/дифференцированный
+repayment method.
+
+**Known judgement call:** the property workbooks' contract is internally inconsistent (45 cells say
+микроқарз, 78 say микрокредит). We print the dominant, consistent wording for the product rather
+than reproducing the mixture.
+
 ## Execution order (dependency-first)
 1. ✅ Foundation · ✅ grafik · ✅ creditApplication
 2. **prikaz** → **act** → **obloshka** → **cheklist** (collateral-table + layout heavy; helpers ready)
