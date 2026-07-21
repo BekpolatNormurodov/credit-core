@@ -70,8 +70,9 @@ function realtyMonitoringTable(cols: Collateral[]): Content {
  * умумий фойдаланиш майдони) with their footnotes, the total agreed value in Cyrillic words, the
  * visual-inspection sentence, and the two signatures. No org letterhead.
  *
- * Three are generated per case — at the application date, +6 and +12 months (`periodMonths`).
- * The visit date is always derived from the application date, never `new Date()`.
+ * Three are generated per case, one per supervision period — months 1-6, 7-12 and 13-18. The
+ * inspection happens at the END of its period, so `periodMonths` is 6 / 12 / 18 and the visit date
+ * is the application date plus that many months (day-clamped) — never `new Date()`.
  */
 export function monitoringTemplate(c: CaseDocData, periodMonths: number): TDocumentDefinitions {
   const org = c.organization;
@@ -115,7 +116,9 @@ export function monitoringTemplate(c: CaseDocData, periodMonths: number): TDocum
         alignment: 'center',
         margin: [0, 2, 0, 2],
       },
-      { text: 'ДАЛОЛАТНОМАСИ', bold: true, alignment: 'center', fontSize: 12, margin: [0, 0, 0, 10] },
+      { text: 'ДАЛОЛАТНОМАСИ', bold: true, alignment: 'center', fontSize: 12, margin: [0, 0, 0, 2] },
+      // Which supervision period this act covers (months 1-6, 7-12, 13-18).
+      { text: `${periodMonths - 5}-${periodMonths} ой мониторинги`, bold: true, alignment: 'center', margin: [0, 0, 0, 10] },
       {
         columns: [
           { width: '*', text: 'Тошкент шахри' },

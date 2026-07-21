@@ -42,9 +42,10 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; ca
   // Buxgalteriya uchun — the money-movement documents, grouped into their own section (like notary).
   accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', category: 'accountant', stage: 'review', build: accountantSplitTemplate },
   disbursement: { title: 'Пул ўтказиш аризаси (карта реквизитлари)', lang: 'uz', category: 'accountant', stage: 'review', build: disbursementTemplate },
-  monitoring1: { title: 'Мониторинг далолатномаси (бошланғич)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 0) },
-  monitoring2: { title: 'Мониторинг далолатномаси (6 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 6) },
-  monitoring3: { title: 'Мониторинг далолатномаси (12 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 12) },
+  // One act per supervision period (months 1-6, 7-12, 13-18); the inspection is at the period's end.
+  monitoring1: { title: 'Мониторинг далолатномаси (1-6 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 6) },
+  monitoring2: { title: 'Мониторинг далолатномаси (7-12 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 12) },
+  monitoring3: { title: 'Мониторинг далолатномаси (13-18 ой)', lang: 'uz', category: 'main', stage: 'approved', build: (c) => monitoringTemplate(c, 18) },
   actNotary: { title: 'Акт согласования (нотариал нусха)', lang: 'uz', category: 'notary', stage: 'approved', build: (c) => actTemplate(c, true) },
   prikazNotary: { title: 'Приказ на сделку (нотариал нусха)', lang: 'uz', category: 'notary', stage: 'approved', build: (c) => prikazTemplate(c, true) },
   rklGenNotary: { title: 'Бош келишув — РКЛ Ген (нотариал нусха)', lang: 'uz', category: 'notary', stage: 'approved', build: (c) => rklGenTemplate(c, true) },

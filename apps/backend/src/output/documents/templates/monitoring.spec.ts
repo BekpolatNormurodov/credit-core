@@ -6,7 +6,7 @@ describe('monitoringTemplate (Акт мониторинга)', () => {
   const c = mockCaseDoc();
 
   it('renders the sheet: heading, inspector clause, property block and the two signatures', () => {
-    const text = flattenDocText(monitoringTemplate(c, 0));
+    const text = flattenDocText(monitoringTemplate(c, 6));
 
     expect(text).toContain('Фуқаро ЖЎЛДИБАЕВ РУСЛАН билан имзоланган');
     expect(text).toContain('гаровга кўйилган мол мулкнинг текширув.');
@@ -21,27 +21,39 @@ describe('monitoringTemplate (Акт мониторинга)', () => {
   });
 
   it('uses the monitoring sheet\'s own real-estate columns (not the act\'s)', () => {
-    const text = flattenDocText(monitoringTemplate(c, 0));
+    const text = flattenDocText(monitoringTemplate(c, 6));
     expect(text).toContain('Умумий фойдаланиш майдони');
     expect(text).not.toContain('Давлат руйхатидан утказилган ер майдони');
     expect(text).toContain('ЖАМИ');
   });
 
   it('states the total agreed value in Cyrillic words', () => {
-    const text = flattenDocText(monitoringTemplate(c, 0)).replace(/\s/g, ' ');
+    const text = flattenDocText(monitoringTemplate(c, 6)).replace(/\s/g, ' ');
     // Fixture: 200M realty + 180M auto = 380M.
     expect(text).toContain('380 000 000,00');
     expect(text).toContain('сўмни ташкил қилади');
   });
 
-  it('computes the visit date off the application date (2026-01-06: +0/+6/+12)', () => {
-    expect(flattenDocText(monitoringTemplate(c, 0))).toContain('06 Январь 2026 й.');
+  it('inspects at the END of each period — application date 2026-01-06 + 6/12/18 months', () => {
     expect(flattenDocText(monitoringTemplate(c, 6))).toContain('06 Июль 2026 й.');
     expect(flattenDocText(monitoringTemplate(c, 12))).toContain('06 Январь 2027 й.');
+    expect(flattenDocText(monitoringTemplate(c, 18))).toContain('06 Июль 2027 й.');
+  });
+
+  it('labels each act with the period it covers', () => {
+    expect(flattenDocText(monitoringTemplate(c, 6))).toContain('1-6 ой мониторинги');
+    expect(flattenDocText(monitoringTemplate(c, 12))).toContain('7-12 ой мониторинги');
+    expect(flattenDocText(monitoringTemplate(c, 18))).toContain('13-18 ой мониторинги');
+  });
+
+  it('the three registry entries cover months 1-6, 7-12 and 13-18', () => {
+    expect(flattenDocText(DOC_REGISTRY.monitoring1.build(c))).toContain('1-6 ой мониторинги');
+    expect(flattenDocText(DOC_REGISTRY.monitoring2.build(c))).toContain('7-12 ой мониторинги');
+    expect(flattenDocText(DOC_REGISTRY.monitoring3.build(c))).toContain('13-18 ой мониторинги');
   });
 
   it('does not leak a raw datetime/timestamp anywhere in any of the three periods', () => {
-    for (const months of [0, 6, 12]) {
+    for (const months of [6, 12, 18]) {
       const text = flattenDocText(monitoringTemplate(c, months));
       expect(text).not.toContain('GMT');
       expect(text).not.toMatch(/\d\d:\d\d:\d\d/);
@@ -50,7 +62,7 @@ describe('monitoringTemplate (Акт мониторинга)', () => {
 
   it('shows — and does not crash when there is no base date at all', () => {
     const noDate = mockCaseDoc({ creditLine: { lineDate: null, tranches: [] as any } });
-    for (const months of [0, 6, 12]) {
+    for (const months of [6, 12, 18]) {
       const text = flattenDocText(monitoringTemplate(noDate, months));
       expect(text).toContain('—');
       expect(text).not.toContain('NaN');
