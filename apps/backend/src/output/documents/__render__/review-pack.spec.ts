@@ -41,21 +41,26 @@ function render(def: TDocumentDefinitions): Promise<Buffer> {
   });
 }
 
-/** Borrower/organisation data shared by all three variants — every field populated. */
+/**
+ * Borrower data shared by all three variants — every field populated.
+ * Person names, the passport issuer and addresses are written in LATIN, exactly as they appear in
+ * the reference workbooks and on real passports ("UBAYDULLAYEV ZUXRIDDIN NASRIDDINOVICH",
+ * "TOSHKENT SHAHAR YUNUSOBOD TUMANI IIB") — the surrounding form text stays Cyrillic.
+ */
 const commonBorrower = {
-  fullName: 'ЖЎЛДИБАЕВ РУСЛАН ОДИЛОВИЧ',
+  fullName: 'JOLDIBAYEV RUSLAN ODILOVICH',
   passportSeries: 'AD',
   passportNumber: '4156235',
-  passportIssuer: 'ТОШКЕНТ ШАҲАР ЧИЛОНЗОР ТУМАНИ ИИБ',
+  passportIssuer: 'TOSHKENT SHAHAR CHILONZOR TUMANI IIB',
   passportIssueDate: new Date('2023-08-03T00:00:00.000Z'),
   pinfl: '52101901234567',
   birthDate: new Date('1990-05-12T00:00:00.000Z'),
   inn: '301456789',
   phone: '+998 90 123 45 67',
-  address: 'Тошкент ш., Чилонзор тумани, Бунёдкор МФЙ, 12-уй',
-  regAddress: 'Тошкент ш., Чилонзор тумани, Бунёдкор МФЙ, 12-уй, 34-хонадон',
-  entrepreneurType: 'Якка тартибдаги тадбиркор',
-  entrepreneurCertNo: '00114455',
+  address: "TOSHKENT SHAHAR CHILONZOR TUMANI BUNYODKOR MFY 12-UY",
+  regAddress: "TOSHKENT SHAHAR CHILONZOR TUMANI BUNYODKOR MFY 12-UY 34-XONADON",
+  entrepreneurType: "O'ZINI O'ZI BAND QILGAN FUQARO",
+  entrepreneurCertNo: '0013546591',
 };
 
 const commonLine = {
@@ -79,8 +84,8 @@ const AUTO = mockCaseDoc({
     engineNo: 'B15D212241522MTAX0454', chassis: 'RAKAMSIZ',
     techPassportNo: 'AAG 4268130', techPassportDate: new Date('2024-07-05T00:00:00.000Z'),
     stateNumber: '01 P 083 SC', color: 'OQ SUMMIT WHITE', year: 2024,
-    address: '1-TRO VA IOB (YUNUSOBOD), Тошкент ш.',
-    owners: [{ fullName: 'ЖЎЛДИБАЕВ РУСЛАН ОДИЛОВИЧ' }],
+    address: '1-TRO VA IOB (YUNUSOBOD)',
+    owners: [{ fullName: 'JOLDIBAYEV RUSLAN ODILOVICH' }],
   }] as never,
 });
 
@@ -98,8 +103,8 @@ const KVARTIRA = mockCaseDoc({
     registryNo: '№ 1726266/R-A0000000 от 25.09.2023г.',
     cadastreNo: '№ 10:07:06:01:01:5091:0001:051 от 25.09.2023г.',
     totalAreaM2: 79.76, livingAreaM2: 52.89, usableAreaM2: 78.42, landAreaM2: 198,
-    roomCount: 3, roomNames: 'зал, ошхона, 2 та ётоқхона',
-    owners: [{ fullName: 'БАЙМИРЗАЕВА ГУЛНОРА МУРАТОВНА' }],
+    roomCount: 3, roomNames: 'ZAL, OSHXONA, 2 TA YOTOQXONA',
+    owners: [{ fullName: 'BAYMIRZAYEVA GULNORA MURATOVNA' }],
   }] as never,
 });
 
@@ -118,8 +123,8 @@ const HOVLI = mockCaseDoc({
     registryNo: '№1727224/Y-26006263 от 18.05.2026г.',
     cadastreNo: '№ 11:03:42:02:05:0396',
     totalAreaM2: 166.75, livingAreaM2: 77.75, usableAreaM2: 132.8, landAreaM2: 600,
-    roomCount: 4, roomNames: 'зал, ошхона, 3 та ётоқхона',
-    owners: [{ fullName: 'ИБРАГИМОВ ХОЛХЎЖА УМАРОВИЧ' }],
+    roomCount: 4, roomNames: 'ZAL, OSHXONA, 3 TA YOTOQXONA',
+    owners: [{ fullName: 'IBIRAGIMOV XOLXOJA UMAROVICH' }],
   }] as never,
 });
 
