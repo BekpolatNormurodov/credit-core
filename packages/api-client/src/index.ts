@@ -170,6 +170,32 @@ export const api = {
     const { data } = await http.post<CreditCaseDto>(`/cases/${id}/transition`, payload);
     return data;
   },
+  /*
+    Director signing — three calls, because the director signs *bytes* and the server has to know
+    exactly which bytes it handed out. Without the prepare/commit split a client could sign
+    anything at all and we would file it against the case.
+  */
+  /** Render and freeze the document set; returns the manifest to sign and the challenge it belongs to. */
+  async signPrepare(id: string): Promise<{ challengeId: string; manifestBase64: string; docCount: number }> {
+    const { data } = await http.post(`/cases/${id}/sign/prepare`, {});
+    return data;
+  },
+  /** Hand back the PKCS#7. The server re-hashes the frozen files before it accepts anything. */
+  async signCommit(
+    id: string,
+    body: { challengeId: string; pkcs7: string; signerInfo: { alias: string; name: string; disk: string } },
+  ): Promise<CreditCaseDto> {
+    const { data } = await http.post<CreditCaseDto>(`/cases/${id}/sign/commit`, body);
+    return data;
+  },
+  /**
+   * Report that E-IMZO refused. Everything it rejects — a wrong password, a closed dialog, a
+   * denied domain — happens in the browser and would otherwise leave no trace at all: a director
+   * saying "it will not sign" and a server log with no record of them ever trying.
+   */
+  async signError(id: string, body: { challengeId: string | null; stage: string; error: string }): Promise<void> {
+    await http.post(`/cases/${id}/sign/error`, body);
+  },
   async setKatmPrice(id: string, katmPrice: number): Promise<CreditCaseDto> {
     const { data } = await http.put<CreditCaseDto>(`/cases/${id}/katm-price`, { katmPrice });
     return data;

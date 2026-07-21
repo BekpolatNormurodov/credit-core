@@ -79,6 +79,9 @@ export const Volume = make(Iso.VolumeHigh ?? Iso.Volume);
 export const VolumeOff = make(Iso.VolumeSlash ?? Iso.VolumeCross);
 export const Pause = make(Iso.Pause ?? Iso.PauseCircle);
 export const Play = make(Iso.Play ?? Iso.PlayCircle);
+export const Key = make(Iso.Key);
+/** E-IMZO unavailable — the shield with a slash, distinct from `Warning`. */
+export const ShieldOff = make(Iso.ShieldSlash);
 
 // Aliases matching prior (lucide) names so call sites need no JSX changes.
 export const CheckCircle2 = Check;

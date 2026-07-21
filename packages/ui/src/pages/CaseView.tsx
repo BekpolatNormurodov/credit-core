@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X, Plus, Minus, Messages,
+  ArrowRight, Banknote, CheckCircle2, Clock, Download, FileDown, FileText, Pencil, Pause, Play, RotateCcw, Send, Flag, Upload, Eye, House, Car, Paperclip, Trash2, X, Plus, Minus, Messages, Key,
 } from '../lib/icons';
 import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage } from '@credit-core/api-client';
 import {
@@ -15,6 +15,7 @@ import { Modal } from '../components/Modal';
 import { DeadlineBadge } from '../components/DeadlineBadge';
 import { Select, MoneyInput } from '../components/forms';
 import { CaseTimeline } from '../components/CaseTimeline';
+import { SignDialog } from '../components/SignDialog';
 import { useToast } from '../components/Toast';
 import { cn, formatMoney } from '../lib/cn';
 
@@ -91,6 +92,7 @@ export function CaseView() {
   const [deleteReason, setDeleteReason] = useState('');
   const [pauseOpen, setPauseOpen] = useState(false);
   const [pauseDays, setPauseDays] = useState(2);
+  const [signOpen, setSignOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<null | 'history'>(null);
 
   const { data: c, isLoading } = useQuery({ queryKey: ['case', id], queryFn: () => api.case(id!) });
@@ -103,12 +105,10 @@ export function CaseView() {
   const toast = useToast();
   const transition = useMutation({
     mutationFn: (decision: WorkflowDecision) => api.transition(id!, { decision, comment: comment || undefined }),
-    onSuccess: (_data, decision) => {
+    // Director approval no longer comes through here — it is a real signature and goes via
+    // SignDialog (sign/prepare → sign/commit), which reports its own outcome.
+    onSuccess: () => {
       setComment(''); refresh();
-      // Director "Imzolash" (approve) → the document set is generated on demand from the registry.
-      if (decision === WorkflowDecision.APPROVE && user?.role === Role.DIRECTOR && c?.status === CaseStatus.DIRECTOR_REVIEW) {
-        toast.success('Imzolandi', 'Hujjatlar generatsiya bo‘lyapti — «Hujjatlar» bo‘limidan ko‘ring');
-      }
     },
     // Surface the backend's reason — for submit-to-moderation this is the full list of incomplete
     // required fields (e.g. "PINFL 14 raqam; Garov 1: Kadastr № majburiy; KATM …").
@@ -350,12 +350,14 @@ export function CaseView() {
                   <div className="space-y-2">
                     {isDirectorReview && (
                       <p className="flex items-center gap-2 rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
-                        <FileText className="h-4 w-4 shrink-0" /> «Imzolash» bosilsa hujjatlar avtomatik generatsiya bo‘ladi — fayl biriktirish shart emas.
+                        <Key className="h-4 w-4 shrink-0" /> Imzolashda hujjatlar generatsiya qilinib E-IMZO kalitingiz bilan imzolanadi — fayl biriktirish shart emas. Kalit ulangan va E-IMZO ochiq bo‘lsin.
                       </p>
                     )}
                     {inlineTransitions.map((t) => {
                       const Icon = decisionIcon[t.decision];
                       const busy = transition.isPending && transition.variables === t.decision;
+                      // The director's approval is a real E-IMZO signature, not a status change:
+                      // it opens the key dialog, which drives sign/prepare → sign/commit itself.
                       const isSign = isDirectorReview && t.decision === WorkflowDecision.APPROVE;
                       return (
                         <Button
@@ -363,9 +365,10 @@ export function CaseView() {
                           variant={t.decision === WorkflowDecision.RETURN ? 'secondary' : 'primary'}
                           className="w-full"
                           loading={busy}
-                          onClick={() => transition.mutate(t.decision)}
+                          onClick={() => (isSign ? setSignOpen(true) : transition.mutate(t.decision))}
                         >
-                          {!busy && <Icon className="h-5 w-5" />} {isSign ? 'Imzolash' : transitionLabel(t)}
+                          {!busy && (isSign ? <Key className="h-5 w-5" /> : <Icon className="h-5 w-5" />)}{' '}
+                          {isSign ? 'Kalit bilan imzolash' : transitionLabel(t)}
                         </Button>
                       );
                     })}
@@ -401,6 +404,19 @@ export function CaseView() {
           <DisbursementPanel c={c} onChange={refresh} />
         </div>
       </div>
+
+      <SignDialog
+        open={signOpen}
+        onClose={() => setSignOpen(false)}
+        caseId={c.id}
+        contractNumber={c.contractNumber ?? c.number}
+        borrowerName={c.borrower?.fullName ?? '—'}
+        onSigned={() => {
+          setSignOpen(false);
+          refresh();
+          toast.success('Imzolandi', 'Hujjatlar kalitingiz bilan imzolandi va muzlatildi');
+        }}
+      />
 
       <Modal
         open={activeSection === 'history'}
