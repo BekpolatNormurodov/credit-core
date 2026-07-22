@@ -283,21 +283,42 @@ export function scoreCase(i: ScoreInput): ScoreResult {
     factors: f,
     total,
     max: SCORE_MAX,
-    verdict: verdictFor(total, ovd),
+    verdict: verdictFor(total, ovd, age),
     missingCount: f.filter((x) => x.missing).length,
     ratios: { age, tranchePerIncome, surplusPerTranche, income, expenses, surplus, incomeMinusTranche: income - tranche },
   };
 }
 
+/** Outside this range the case goes to the committee whatever it scored («Ёшга мувофиқлиги»). */
+export const AGE_MIN = 18;
+export const AGE_MAX = 68;
+
 /**
  * «Score отчет»!B24 — the verdict.
  *
- * Order matters and is the sheet's: below the minimum refuses first, then problem loans, then the
- * approval threshold; anything between goes to the committee.
+ *   IF(B23<60, below-min,
+ *    IF(B20=H20, problem-loans,      ← dead: compares a row-21 label against a row-20 one
+ *     IF(B21=G21, committee,          ← dead: compares a row-22 label against a row-21 one
+ *      IF(B22=G22, committee,         ← live: age outside 18..68
+ *       IF(B23>=70, approved, committee)))))
+ *
+ * Two of those branches can never fire — each compares a cell against a label from the wrong row,
+ * which is a spreadsheet slip rather than a rule. Reproducing them would mean a case with overdue
+ * loans scoring «Маъқулланди», so the problem-loans branch is honoured as its label plainly
+ * intends. The current-obligations branch is left out: unlike overdue debt it has no obvious
+ * intent to recover, and inventing one would be worse than omitting it.
+ *
+ * The age gate is live in the sheet and was missing here — a 70-year-old applicant scored 0 for
+ * age and was still approved on the strength of the other factors.
  */
-export function verdictFor(total: number, overdueFlag: number | null | undefined): ScoreVerdict {
+export function verdictFor(
+  total: number,
+  overdueFlag: number | null | undefined,
+  age?: number | null,
+): ScoreVerdict {
   if (total < SCORE_MIN) return 'BELOW_MIN';
   if (overdueFlag === 1) return 'FAILED_PROBLEM_LOANS';
+  if (age != null && (age > AGE_MAX || age < AGE_MIN)) return 'REFER_COMMITTEE';
   if (total >= SCORE_APPROVE) return 'APPROVED';
   return 'REFER_COMMITTEE';
 }
