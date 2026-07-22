@@ -301,7 +301,16 @@ export function AppShell({ title, nav, children }: { title: string; nav: NavItem
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1536px] flex-1 p-4 md:p-6">
+        {/*
+          Left-aligned, not centred. `mx-auto` centred the content inside whatever space the
+          sidebar left over, so on anything wider than sidebar + 1536px a gap opened between the
+          navigation and the page — 61px at 1900px wide, and growing with the display. The sidebar
+          is pinned left; the page it drives has to start beside it, with only the padding between.
+
+          The max-width stays: it caps line length on an ultra-wide monitor, it just no longer
+          decides where the content begins.
+        */}
+        <main className="w-full max-w-[1536px] flex-1 p-4 md:p-6">
           <div key={location.pathname} className="cc-fade">{children}</div>
         </main>
       </div>
