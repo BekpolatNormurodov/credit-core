@@ -202,8 +202,18 @@ function Swatch({ hex }: { hex: string }) {
 
 /** Custom styled dropdown (replaces the unstyled native <select>); portal-based menu. */
 export function Select<T extends string>({
-  value, onChange, options, placeholder = 'Tanlang', searchable = false,
-}: { value: T | ''; onChange: (v: T) => void; options: Option<T>[]; placeholder?: string; searchable?: boolean }) {
+  value, onChange, options, placeholder = 'Tanlang', searchable = false, menuWidth,
+}: {
+  value: T | ''; onChange: (v: T) => void; options: Option<T>[]; placeholder?: string; searchable?: boolean;
+  /**
+   * Menu width in px, when the options need more room than the field.
+   *
+   * The menu matches the trigger by default, which is right almost everywhere. A few lists — the
+   * activity sectors — carry labels far longer than the answer they stand for, and in a
+   * half-column field the longest wrapped to three lines.
+   */
+  menuWidth?: number;
+}) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const btnRef = useRef<HTMLButtonElement>(null);
@@ -222,7 +232,7 @@ export function Select<T extends string>({
         </span>
         <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition', open && 'rotate-180')} />
       </button>
-      <Popover anchorRef={btnRef} open={open} onClose={close}>
+      <Popover anchorRef={btnRef} open={open} onClose={close} width={menuWidth}>
         {searchable && (
           <div className="mb-1 border-b border-hairline px-2 pb-1.5 dark:border-white/10">
             <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Qidirish…"

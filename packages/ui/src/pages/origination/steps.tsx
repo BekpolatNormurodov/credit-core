@@ -147,8 +147,13 @@ export function Step2({ f }: { f: OriginationForm }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ish joyi" required={bigLoan} error={bigLoan && f.attempted && !e.employer?.trim() ? 'Majburiy' : undefined}><Input value={e.employer ?? ''} onChange={(ev) => setEmp({ employer: ev.target.value })} /></Field>
           <Field label="Ish joyi manzili"><Input value={e.employerAddress ?? ''} onChange={(ev) => setEmp({ employerAddress: ev.target.value })} /></Field>
-          <Field label="Soha" hint="Ixtiyoriy — ro‘yxatda bo‘lmasa «Boshqa» ni tanlang" className="sm:col-span-2">
-            <Select searchable value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })}
+          {/*
+            One column, not two. Spanning the row pushed «Lavozim» onto a line of its own and left
+            the field far wider than the answer needs — the trigger truncates a long sector anyway,
+            and the menu wraps it.
+          */}
+          <Field label="Soha" hint="Ixtiyoriy — ro‘yxatda bo‘lmasa «Boshqa» ni tanlang">
+            <Select searchable menuWidth={380} value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })}
               options={[...SECTOR_RISK.map((s) => ({ value: s.label, label: s.label })), { value: SECTOR_OTHER, label: SECTOR_OTHER }]} />
           </Field>
           <Field label="Lavozim"><Select value={(e.position ?? '') as string} onChange={(v) => setEmp({ position: v })} options={opt(['Рахбарият', 'ўрта менежер', 'мутахассис', 'хизмат кўрсатувчи'])} /></Field>
