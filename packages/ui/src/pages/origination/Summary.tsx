@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  originationCalc, loanTypeFor, scoreForCase, SCORE_VERDICT_LABEL,
+  originationCalc, loanTypeFor, scoreForCase, SCORE_VERDICT_LABEL, COLLATERAL_COVERAGE_TARGET,
   type ScorableCase, type UpsertCasePayload,
 } from '@credit-core/shared';
 import { Button, Card } from '../../components/primitives';
@@ -26,10 +26,15 @@ function scoreTone(verdict: string): string {
  * Those rows say «kiritilmagan» instead, and the card counts them, so a low score on an unfinished
  * application is legible as unfinished.
  */
-function ScorePanel({ form }: { form: UpsertCasePayload }) {
+function ScorePanel({ form, coverageRatio, collateralTotal }: {
+  form: UpsertCasePayload; coverageRatio: number; collateralTotal: number;
+}) {
   const [open, setOpen] = useState(false);
   const r = scoreForCase(form as unknown as ScorableCase);
   const tone = scoreTone(r.verdict);
+  const cols = form.collaterals.length;
+  const coveragePct = Math.round(coverageRatio * 100);
+  const coverageOk = coverageRatio >= COLLATERAL_COVERAGE_TARGET;
 
   return (
     <div className="mt-2 border-t border-gray-200 pt-2 dark:border-white/10">
@@ -114,6 +119,38 @@ function ScorePanel({ form }: { form: UpsertCasePayload }) {
           </table>
         </div>
 
+        {/*
+          Where the collateral amounts actually count. The workbook's 100 points read only the
+          pledge's TYPE and whether the borrower owns it — never its value, and never a second
+          pledge. The sum is checked separately, as a pass/fail cover requirement, and saying so
+          here stops the score looking as though it ignores the money altogether.
+        */}
+        <div className="mt-4 rounded-xl border border-gray-200 px-4 py-3 dark:border-white/10">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Garov qiymati — ballga kirmaydi
+          </p>
+          <div className="mt-1.5 space-y-1 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500 dark:text-gray-400">Garovlar soni</span>
+              <span className="nums font-medium">{cols} ta</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500 dark:text-gray-400">Jami garov qiymati</span>
+              <span className="nums font-medium">{formatMoney(collateralTotal)}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500 dark:text-gray-400">Qoplama (kerak {Math.round(COLLATERAL_COVERAGE_TARGET * 100)}%)</span>
+              <span className={cn('nums font-semibold', coverageOk ? 'text-success-700 dark:text-success-400' : 'text-error-600 dark:text-error-500')}>
+                {coveragePct}%
+              </span>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+            Ballda faqat garov <b>turi</b> (uy-joy 4 / avto 2) va <b>egasi</b> (o‘zi 3 / boshqa 1)
+            hisobga olinadi — Excel shunday. Summalar qo‘shilib mana shu qoplama talabida tekshiriladi.
+          </p>
+        </div>
+
         <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
           Oxirgi ikki ko‘rsatkich (transh/daromad va daromad-xarajat/transh) birgalikda <b>43 ball</b> —
           ballning eng katta qismi. 60 balldan past — rad etiladi, 70 va undan yuqori — ma’qullanadi.
@@ -179,7 +216,7 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
         </p>
       )}
 
-      <ScorePanel form={form} />
+      <ScorePanel form={form} coverageRatio={calc.coverageRatio} collateralTotal={collateralTotal} />
     </Card>
   );
 }

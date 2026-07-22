@@ -29,11 +29,23 @@ export interface ScoreInput {
   education?: string | null;
   /** Д1!C32 — matched against the sheet's three options; anything else scores 2. */
   maritalStatus?: string | null;
-  /** True when any pledged collateral is a vehicle (Д2!B42 = "авто"). */
+  /**
+   * Д2!B42 «Вид имущество» — true when the pledge is a vehicle.
+   *
+   * The sheet holds one answer for the whole case, so with several collaterals this is the PRIMARY
+   * (first) one's type, not "any of them". Downgrading a property-backed loan to the vehicle score
+   * because a car was added alongside would punish extra security.
+   */
   hasAutoCollateral?: boolean;
   /** b3!D22 — «Оила аъзолари сони», the family size (see FAMILY_SIZE note). */
   familySize?: number | null;
-  /** Д2!B28 — the borrower is also the pledgor. */
+  /**
+   * Д2!B28 «Залогодатель собственник?» — the pledgor owns what they pledged.
+   *
+   * One answer per case on the sheet, so likewise taken from the primary collateral. It is a
+   * recovery question, not an affordability one: property pledged by a third party is slower and
+   * less certain to enforce than the borrower's own.
+   */
   pledgorIsBorrower?: boolean;
   /** b3!D15 — «яшаш давомийлиги». */
   residenceBand?: string | null;
@@ -339,6 +351,8 @@ export function scoringInputFromCase(c: ScorableCase): ScoreInput {
   const h = c.creditHistory;
   // The DTO exposes a single `tranche`; the Prisma row a `tranches` array.
   const tr = c.creditLine?.tranche ?? c.creditLine?.tranches?.[0] ?? null;
+  // The case's main pledge — the same one CreditCase.productType is derived from.
+  const primary = (c.collaterals ?? [])[0] ?? null;
 
   const newPayment = toNum(af?.newLoanPayment) ?? toNum(tr?.monthlyPayment) ?? 0;
   const existing = toNum(af?.existingCreditBurden) ?? toNum(h?.avgMonthlyPaymentExisting) ?? 0;
@@ -348,16 +362,18 @@ export function scoringInputFromCase(c: ScorableCase): ScoreInput {
     birthDate: (b?.birthDate as Date | string | null) ?? null,
     education: b?.education ?? null,
     maritalStatus: b?.maritalStatus ?? null,
-    hasAutoCollateral: (c.collaterals ?? []).some((col) => col.type === 'AUTO'),
+    /*
+      Both pledge factors read the PRIMARY collateral, because the sheet has one cell for each and
+      no notion of a second pledge. Taking the worst of several instead would mean a house-backed
+      loan scored as a car loan the moment a vehicle was added as extra cover.
+    */
+    hasAutoCollateral: primary?.type === 'AUTO',
     collateralCount: (c.collaterals ?? []).length,
     familySize: b?.familySize ?? null,
-    /*
-      Д2!B28 — «да» when the borrower pledges their own property. An empty owner list means exactly
-      that (the borrower stands in; see resolveOwners), so it counts as yes.
-    */
-    pledgorIsBorrower: (c.collaterals ?? []).every(
-      (col) => !col.owners?.length || col.owners.some((o) => o.fullName === b?.fullName),
-    ),
+    // «да» when the borrower pledges their own. An empty owner list means exactly that — the
+    // borrower stands in (see resolveOwners) — so it counts as yes.
+    pledgorIsBorrower: !primary?.owners?.length
+      || primary.owners.some((o) => o.fullName === b?.fullName),
     residenceBand: b?.regTenure ?? null,
     sectorRiskCode: emp?.sectorRiskCode ?? null,
     position: emp?.position ?? null,
