@@ -5,7 +5,7 @@ import { api } from '@credit-core/api-client';
 import { type ReMflContractDto } from '@credit-core/shared';
 import { Card, Input, Button, StatusBadge, Skeleton } from '../components/primitives';
 import { useToast } from '../components/Toast';
-import { Search, Calendar, Money, ArrowRight, Return, User } from '../lib/icons';
+import { Search, Calendar, Money, ArrowRight, User } from '../lib/icons';
 import { formatMoney } from '../lib/cn';
 
 /** Two uppercase initials from a full name, for the result avatar. */
@@ -45,15 +45,18 @@ export function ReMflPage() {
   const [picked, setPicked] = useState<string | null>(null);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400">
-          <Return className="h-6 w-6" />
-        </span>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Qayta MFL</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Takroriy mijozni toping — yozgan sari chiqadi.</p>
-        </div>
+    /*
+      Full width and left-aligned, like every other page in the app. This one was centred in a
+      max-w-3xl column, which on a wide screen left the heading floating in the middle of the page
+      with an empty half beside it — and made it the only screen that did not line up with the
+      sidebar.
+    */
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Qayta MFL</h1>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          Takroriy mijozni toping — yozgan sari chiqadi.
+        </p>
       </div>
 
       <Card className="space-y-3">
