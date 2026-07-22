@@ -128,6 +128,16 @@ export const SECTOR_RISK: { label: string; code: number }[] = [
   { label: 'Наука / Культура / Искусство', code: 16 },
   { label: 'Образование / Бизнес-образование / Консалтинг', code: 17 },
 ];
+/**
+ * «Boshqa» — an activity the seventeen do not cover.
+ *
+ * A real choice, not a blank: the operator has answered, we simply have no risk code for it. The
+ * sector is optional anyway (only the employer and main income are required, and only above the
+ * 100M threshold), but without this the picker forced a wrong sector on anyone who did not fit.
+ */
+export const SECTOR_OTHER = 'Boshqa';
+
+/** Risk code 1..17, or null for «Boshqa» and anything unrecognised — those score nothing. */
 export function sectorRiskCode(label: string | null | undefined): number | null {
   return SECTOR_RISK.find((s) => s.label === label)?.code ?? null;
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
-  SECTOR_RISK, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
+  SECTOR_RISK, SECTOR_OTHER, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
   INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP, insurancePremiumRate,
   collateralComplete, collateralErrors,
@@ -143,7 +143,10 @@ export function Step2({ f }: { f: OriginationForm }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Ish joyi" required={bigLoan} error={bigLoan && f.attempted && !e.employer?.trim() ? 'Majburiy' : undefined}><Input value={e.employer ?? ''} onChange={(ev) => setEmp({ employer: ev.target.value })} /></Field>
           <Field label="Ish joyi manzili"><Input value={e.employerAddress ?? ''} onChange={(ev) => setEmp({ employerAddress: ev.target.value })} /></Field>
-          <Field label="Soha" className="sm:col-span-2"><Select searchable value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })} options={SECTOR_RISK.map((s) => ({ value: s.label, label: s.label }))} /></Field>
+          <Field label="Soha" hint="Ixtiyoriy — ro‘yxatda bo‘lmasa «Boshqa» ni tanlang" className="sm:col-span-2">
+            <Select searchable value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })}
+              options={[...SECTOR_RISK.map((s) => ({ value: s.label, label: s.label })), { value: SECTOR_OTHER, label: SECTOR_OTHER }]} />
+          </Field>
           <Field label="Lavozim"><Input value={e.position ?? ''} onChange={(ev) => setEmp({ position: ev.target.value })} /></Field>
           <Field label="Ish staji (sana)"><Input value={e.employedSince ?? ''} onChange={(ev) => setEmp({ employedSince: ev.target.value })} placeholder="2024 й." /></Field>
           <Field label="Umumiy staj"><Select value={(e.experienceBand ?? '') as string} onChange={(v) => setEmp({ experienceBand: v })} options={opt(['до 3 лет', '3-5 лет', '5-9 лет', '10 и более'])} /></Field>
