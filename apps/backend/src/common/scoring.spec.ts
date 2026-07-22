@@ -162,8 +162,14 @@ describe('verdictFor', () => {
     expect(verdictFor(59, 0)).toBe('BELOW_MIN');
     expect(verdictFor(59, 1)).toBe('BELOW_MIN');
   });
-  it('stops a passing score that carries an overdue loan', () => {
-    expect(verdictFor(85, 1)).toBe('FAILED_PROBLEM_LOANS');
+  /*
+    The sheet's problem-loans branch compares a row-21 label against a row-20 one and so never
+    fires. Followed as written: an overdue loan does not change the headline verdict. The report's
+    «Муаммоли кредитлар» row still shows it.
+  */
+  it('does not stop a passing score that carries an overdue loan — as the sheet does not', () => {
+    expect(verdictFor(85, 1)).toBe('APPROVED');
+    expect(verdictFor(65, 1)).toBe('REFER_COMMITTEE');
   });
   it('approves at 70 and sends 60-69 to the committee', () => {
     expect(verdictFor(70, 0)).toBe('APPROVED');

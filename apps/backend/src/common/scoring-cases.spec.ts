@@ -34,9 +34,11 @@ describe('scoring across real case shapes', () => {
     ['a car added to a house does not downgrade it',
       { collaterals: [{ type: 'REAL_ESTATE', owners: [] }, { type: 'AUTO', owners: [] }] }, 95, 'APPROVED'],
     ['no collateral at all loses both pledge factors', { collaterals: [] }, 88, 'APPROVED'],
-    ['an overdue loan fails outright', {
+    // The sheet's problem-loans branch is unreachable, so the headline verdict ignores it; the
+    // report's own «Муаммоли кредитлар» row is where the overdue loan shows.
+    ['an overdue loan does not change the verdict, as in the sheet', {
       creditHistory: { ...strong().creditHistory, activeLoansCount: 1, overdueSubstandardFlag: 1 },
-    }, 90, 'FAILED_PROBLEM_LOANS'],
+    }, 90, 'APPROVED'],
     ['the two −5 penalties bite', {
       creditHistory: { ...strong().creditHistory, loansOver5MFlag: 'Мавжуд', priorMfiPawnshopFlag: 'Мавжуд' },
     }, 85, 'APPROVED'],
