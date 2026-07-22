@@ -113,6 +113,8 @@ export interface ScoreResult {
     income: number;
     expenses: number;
     surplus: number;
+    /** балл!C27 — the monthly tranche load (this loan's payment plus what is already being paid). */
+    tranche: number;
     /** балл!C31 — income minus the monthly tranche load; the sheet's income-sufficiency gate. */
     incomeMinusTranche: number;
   };
@@ -289,7 +291,7 @@ export function scoreCase(i: ScoreInput): ScoreResult {
     max: SCORE_MAX,
     verdict: verdictFor(total, ovd, age),
     missingCount: f.filter((x) => x.missing).length,
-    ratios: { age, tranchePerIncome, surplusPerTranche, income, expenses, surplus, incomeMinusTranche: income - tranche },
+    ratios: { age, tranchePerIncome, surplusPerTranche, income, expenses, surplus, tranche, incomeMinusTranche: income - tranche },
   };
 }
 

@@ -1,6 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { addBusinessDays, caseSubmitErrors, CaseStatus, DocumentType, formatContractNumber, hasDeadline, insurancePremiumRate, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role } from '@credit-core/shared';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Prisma, ScoringVerdict } from '@prisma/client';
+import { addBusinessDays, caseSubmitErrors, CaseStatus, DocumentType, formatContractNumber, hasDeadline, insurancePremiumRate, INSURANCE_MAX_MONTHS, isCaseInScope, loanRuleViolations, originationPersistedValues, paymentDayFor, ProductType, ReMflContractDto, Role, scoreForCase, type ScorableCase } from '@credit-core/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { RequestUser } from '../auth/current-user.decorator';
 import { AuditService } from '../audit/audit.service';
@@ -17,6 +17,8 @@ const parseDate = (s?: string | null): Date | null => (s ? new Date(s) : null);
 
 @Injectable()
 export class CreditCasesService {
+  private readonly log = new Logger(CreditCasesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly workflow: WorkflowService,
@@ -133,6 +135,25 @@ export class CreditCasesService {
       ownsHome: b.ownsHome ?? null, depositsBand: b.depositsBand ?? null,
     };
   }
+
+  /**
+   * The borrower fields to write on an UPDATE — only the ones the caller actually sent.
+   *
+   * `borrowerData` maps every absent field to null, which is right when creating a row and
+   * destructive when patching one. A section save carries whatever the client had in memory, so
+   * saving step 2 with a thin borrower object silently nulled the education, marital status,
+   * tenure and deposit band entered on step 1 — and with them five scoring factors.
+   *
+   * `undefined` means "not sent, leave it"; an explicit `null` still clears the field, so the
+   * operator can empty one deliberately.
+   */
+  private borrowerUpdate(b: BorrowerInput) {
+    const sent = b as unknown as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(this.borrowerData(b)).filter(([k]) => sent[k] !== undefined),
+    );
+  }
+
   private employmentData(e: EmploymentInput) {
     return { employer: e.employer ?? null, employerAddress: e.employerAddress ?? null, sector: e.sector ?? null, sectorRiskCode: e.sectorRiskCode ?? null, position: e.position ?? null, employedSince: e.employedSince ?? null, experienceBand: e.experienceBand ?? null };
   }
@@ -174,6 +195,7 @@ export class CreditCasesService {
       include: caseInclude,
     });
     await this.audit.caseCreate(user, created.id);
+    await this.persistScoring(created.id);
     return toCaseDto(created);
   }
 
@@ -293,7 +315,7 @@ export class CreditCasesService {
         ? [this.prisma.borrower.upsert({
             where: { caseId: id },
             create: { caseId: id, ...this.borrowerData(dto.borrower) },
-            update: this.borrowerData(dto.borrower),
+            update: this.borrowerUpdate(dto.borrower),
           })]
         : []),
       // Only churn guarantors/collaterals when that section is actually being saved
@@ -312,7 +334,55 @@ export class CreditCasesService {
       ...(dto.creditLine ? [this.prisma.creditLine.deleteMany({ where: { caseId: id } }), this.prisma.creditLine.create({ data: { caseId: id, ...this.creditLineNested(dto.creditLine, lineRate) } })] : []),
     ]);
 
+    await this.persistScoring(id);
     return this.getOne(id);
+  }
+
+
+  /**
+   * Recompute the score and store it, factor by factor.
+   *
+   * Written on every edit rather than left to be derived on read, so the twenty rows in the
+   * database always describe the case as it stands. A stored result that lags the data would be
+   * worse than none: the report prefers the stored one, and a stale row would print a score for an
+   * application that no longer exists.
+   *
+   * Never fails the save. A score is a reading of the case, not part of it — if this cannot be
+   * written the edit still stands, and the next edit writes it. Logged, not swallowed silently.
+   */
+  private async persistScoring(id: string): Promise<void> {
+    try {
+      const full = await this.getOne(id);
+      const r = scoreForCase(full as unknown as ScorableCase);
+      const rows = r.factors.map((f) => ({
+        factorNo: f.no, name: f.label, points: f.points, maxPoints: f.max,
+      }));
+      const data = {
+        totalScore: r.total,
+        maxScore: r.max,
+        verdict: r.verdict as ScoringVerdict,
+        age: r.ratios.age,
+        monthlyTranches: r.ratios.tranche,
+        monthlyIncome: r.ratios.income,
+        monthlyExpenses: r.ratios.expenses,
+        surplus: r.ratios.surplus,
+        netAfterDebt: r.ratios.incomeMinusTranche,
+        computedAt: new Date(),
+      };
+      await this.prisma.$transaction(async (tx) => {
+        // Replace the factor rows wholesale — they are a snapshot, not a log, and a partial
+        // update would leave rows from a previous shape of the case behind.
+        const prev = await tx.scoringResult.findUnique({ where: { caseId: id }, select: { id: true } });
+        if (prev) await tx.scoringFactor.deleteMany({ where: { resultId: prev.id } });
+        await tx.scoringResult.upsert({
+          where: { caseId: id },
+          create: { caseId: id, ...data, factors: { create: rows } },
+          update: { ...data, factors: { create: rows } },
+        });
+      });
+    } catch (err) {
+      this.log.error(`scoring not stored for case ${id}: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   /** Everyone with access to this case's chat, ordered operator -> moderator -> director -> admin. */
