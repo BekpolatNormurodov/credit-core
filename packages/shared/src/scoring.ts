@@ -136,8 +136,21 @@ const num = (v: unknown): number | null => {
 export function scoreCase(i: ScoreInput): ScoreResult {
   const f: ScoreFactor[] = [];
   const blank = (v: unknown): boolean => v === null || v === undefined || (typeof v === 'string' && !v.trim());
+
+  /*
+    A factor with no input scores 0 — the one place this deliberately departs from the workbook.
+
+    Excel's IF chains fall through to their else-branch on an empty cell, so a blank «Оила аъзолари
+    сони» scores the full 3 there, and an empty sheet totals 31 out of nothing. On paper that never
+    shows: the operator fills the sheet before reading the number. Here a case is scored while it is
+    still half-entered, and awarding marks for absent data made an unfinished application look
+    creditworthy — «kiritilmagan  3 / 3» side by side.
+
+    Parity with the reference is untouched: it only differs where the workbook has no answer either,
+    and the worked example fills every field.
+  */
   const add = (no: number, key: string, label: string, points: number, max: number, missing = false) =>
-    f.push({ no, key, label, points, max, missing });
+    f.push({ no, key, label, points: missing ? 0 : points, max, missing });
 
   // 1. Пол — IF(Д1!C10="женщина",2,1)
   add(1, 'gender', 'Пол', i.gender === 'FEMALE' ? 2 : 1, 2, blank(i.gender));

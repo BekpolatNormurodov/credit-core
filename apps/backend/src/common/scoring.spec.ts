@@ -186,6 +186,24 @@ describe('an empty case', () => {
     expect(r.factors.every((x) => x.missing)).toBe(true);
   });
 
+  /*
+    The workbook's IF chains fall to their else-branch on an empty cell, so a blank sheet would
+    score 31 there — «Оила аъзолари сони» alone paying its full 3 for no data at all. We refuse to,
+    because a case here is read while still half-entered.
+  */
+  it('pays nothing at all for data that was never entered', () => {
+    const r = scoreCase({});
+    expect(r.total).toBe(0);
+    expect(r.factors.filter((x) => x.points !== 0)).toEqual([]);
+  });
+
+  it('pays a factor only once its own input arrives', () => {
+    const famOnly = scoreCase({ familySize: 1 }).factors.find((x) => x.key === 'familySize')!;
+    expect(famOnly).toMatchObject({ missing: false, points: 2 });
+    const famBlank = scoreCase({}).factors.find((x) => x.key === 'familySize')!;
+    expect(famBlank).toMatchObject({ missing: true, points: 0 });
+  });
+
   it('stops flagging a factor once its input arrives', () => {
     expect(scoreCase({ gender: 'FEMALE' }).factors.find((x) => x.key === 'gender')!.missing).toBe(false);
     expect(scoreCase({ collateralCount: 1 }).factors.find((x) => x.key === 'collateral')!.missing).toBe(false);
