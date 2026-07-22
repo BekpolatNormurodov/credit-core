@@ -143,14 +143,19 @@ export function realtyValueTable(collaterals: Collateral[], withValue = true): C
 
   const totalLiving = collaterals.reduce((s, c) => s + Number(c.livingAreaM2 ?? 0), 0);
   const totalLand = collaterals.reduce((s, c) => s + Number(c.landAreaM2 ?? 0), 0);
-  const totalValue = collaterals.reduce((s, c) => s + Number(c.agreedValue ?? 0), 0);
   const totalRow: TableCell[] = [
     { text: 'ЖАМИ', bold: true },
     { text: `${totalLiving} кв.м.`, bold: true, alignment: 'center' },
     { text: `${totalLand} кв.м.`, bold: true, alignment: 'center' },
   ];
-  // The Excel's ЖАМИ row carries the summed agreed value in the value column.
-  if (withValue) totalRow.push({ text: moneyWithWordsCyr(totalValue), bold: true });
+  /*
+    The Excel leaves the value cell of the ЖАМИ row EMPTY — checked against the Приказ sheet, where
+    row 19 carries the sum and row 20 (ЖАМИ) has no E cell at all. Repeating it printed the agreed
+    value twice, one under the other, which read as two different valuations.
+
+    Still a cell, not a dropped column: the row has to keep the table's shape.
+  */
+  if (withValue) totalRow.push({ text: '' });
 
   const widths = withValue ? ['*', 60, 78, 92] : ['*', 78, 104];
   return {
