@@ -184,18 +184,29 @@ export function Step3({ f }: { f: OriginationForm }) {
     f.patch({ creditLine: { ...merged, amountTotal, insurance, loanType: loanTypeFor(amountTotal), penaltyRate: merged.penaltyRate ?? 1.05 } });
   };
   const amountTotal = l.amountTotal ?? null;
-  // Liniya sanasi defaults to today (optional, editable); maturity auto-derives = lineDate + termMonths.
+  /*
+    Liniya sanasi defaults to today (optional, editable); maturity is DERIVED = lineDate + termMonths.
+
+    Recomputed every time either input changes, not just when it is empty. Guarding on
+    `!l.lineMaturity` meant the first term the operator typed won the date forever: change 6 to 60
+    afterwards and the bosh kelishuv still printed "60 oy muddatga, ya'ni <date> dan <date+6oy>
+    gacha" — a contract stating a term and an end date that contradict each other.
+
+    Safe to overwrite because there is no input for it: it is computed here and nowhere else.
+  */
   useEffect(() => {
     const patch: Partial<Line> = {};
     if (!l.lineDate) patch.lineDate = new Date().toISOString().slice(0, 10);
-    if (!l.lineMaturity && (l.lineDate || patch.lineDate) && l.termMonths) {
-      const base = new Date(l.lineDate ?? patch.lineDate!);
+    const from = l.lineDate ?? patch.lineDate;
+    if (from && l.termMonths) {
+      const base = new Date(from);
       const day = base.getDate();
       base.setDate(1); // shift month on the 1st to avoid day-of-month overflow (e.g. Jan 31 + 1 oy)
       base.setMonth(base.getMonth() + l.termMonths);
       const lastDay = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
       base.setDate(Math.min(day, lastDay)); // clamp to the target month's length
-      patch.lineMaturity = base.toISOString().slice(0, 10);
+      const next = base.toISOString().slice(0, 10);
+      if (next !== l.lineMaturity) patch.lineMaturity = next;
     }
     if (Object.keys(patch).length) setLine(patch);
     // eslint-disable-next-line react-hooks/exhaustive-deps

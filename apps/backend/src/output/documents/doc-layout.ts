@@ -93,6 +93,8 @@ export function partyRequisites(c: CaseDocData): Content {
     { text: `р/с: №${org?.bankAccount ?? '—'}` },
     { text: `МФО: №${org?.bankMfo ?? '—'} в ${org?.bankName ?? '—'}` },
     { text: `ИНН: ${org?.inn ?? '—'}` },
+    // The firm's own contact line — the debtor side has always carried one, this side did not.
+    ...(org?.phone ? [{ text: `Тел: ${org.phone}` }] : []),
     { text: ' ' },
     { text: 'Ижрочи директор' },
     { text: org?.directorShort ?? '—', bold: true },
@@ -108,6 +110,8 @@ export function partyRequisites(c: CaseDocData): Content {
     { text: ' ' },
     { text: ' ' },
     { text: ' ' },
+    // Keeps the two signature lines level: the firm's side gains a row when it has a phone.
+    ...(org?.phone ? [{ text: ' ' }] : []),
     { text: '________________ (имзо)', margin: [0, 6, 0, 0] },
   ];
   return {

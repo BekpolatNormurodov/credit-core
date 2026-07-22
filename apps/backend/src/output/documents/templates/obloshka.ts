@@ -23,6 +23,23 @@ export function obloshkaTemplate(c: CaseDocData): TDocumentDefinitions {
   return {
     defaultStyle: DOC_DEFAULT_STYLE,
     pageMargins: DOC_PAGE_MARGINS,
+    /*
+      The cover's frame. Drawn as a page background rather than a bordered table so it cannot push
+      the content around or split — it is decoration, and the title page's spacing is set by the
+      margins above it.
+
+      Sized from the actual page rather than hard-coded A4 numbers, so it stays inset by the same
+      18pt whatever page size the document is rendered at.
+    */
+    background: (_page: number, size: { width: number; height: number }) => ({
+      canvas: [{
+        type: 'rect',
+        x: 18, y: 18,
+        w: size.width - 36, h: size.height - 36,
+        lineWidth: 1.2,
+        lineColor: '#111111',
+      }],
+    }),
     content: [
       { text: org?.nameUpper ?? 'ММТ', bold: true, alignment: 'center', fontSize: 14, decoration: 'underline' },
 

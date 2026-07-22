@@ -356,6 +356,7 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
       bankAccount: '20216000105068380006',
       bankMfo: '01183',
       bankName: 'АЖ «ANORBANK»',
+      phone: '78 113-31-33',
       inn: '306365847',
       licenseNo: '61',
       licenseDate: new Date('2019-06-22T00:00:00.000Z'),

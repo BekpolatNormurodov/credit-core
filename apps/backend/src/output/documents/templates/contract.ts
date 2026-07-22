@@ -85,6 +85,7 @@ function buildContract(c: CaseDocData): TDocumentDefinitions {
   const orgBankAccount = org?.bankAccount ?? '—';
   const orgBankMfo = [org?.bankMfo, org?.bankName].filter(Boolean).join(' ') || '—';
   const orgInn = org?.inn ?? '—';
+  const orgPhone = org?.phone ?? null;
   const directorFull = org?.directorFull ?? '—';
 
   return {
@@ -298,6 +299,8 @@ function buildContract(c: CaseDocData): TDocumentDefinitions {
               { text: `х/р: ${orgBankAccount}`, margin: [0, 1, 0, 1] },
               { text: `МФО: ${orgBankMfo}`, margin: [0, 1, 0, 1] },
               { text: `СТИР: ${orgInn}`, margin: [0, 1, 0, 1] },
+              // The firm's contact line — the debtor column has always carried one, this one did not.
+              ...(orgPhone ? [{ text: `Тел: ${orgPhone}`, margin: [0, 1, 0, 1] as [number, number, number, number] }] : []),
               { text: 'Ижрочи директор', margin: [0, 10, 0, 2] },
               { text: directorFull },
               { text: '\n_______________ (imzo)', margin: [0, 4, 0, 0] },

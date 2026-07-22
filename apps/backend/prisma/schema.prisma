@@ -482,6 +482,8 @@ model Organization {
   bankAccount   String
   bankMfo       String
   bankName      String
+  /// Printed in the firm's requisites block on the contract and the bosh kelishuv.
+  phone         String?
   inn           String
   licenseNo     String
   licenseDate   DateTime?

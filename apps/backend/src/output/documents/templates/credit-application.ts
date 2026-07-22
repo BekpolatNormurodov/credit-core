@@ -24,6 +24,7 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
   const b = c.borrower;
   const emp = c.employment;
   const af = c.affordability;
+  const monthlyIncome = af?.avgMonthlyIncome ?? af?.mainActivityIncome ?? null;
 
   const amount = line?.amountTotal ?? c.amount ?? null;
   const term = tr?.termMonths ?? line?.termMonths ?? c.termMonths ?? null;
@@ -67,7 +68,13 @@ export function creditApplicationTemplate(c: CaseDocData): TDocumentDefinitions 
     p(passportLine),
     p(`Асосий фаолият жойи: ${emp?.employer ?? b?.entrepreneurType ?? '—'}`),
     p(`Лавозими: ${emp?.position ?? '—'}`),
-    p(`Ўртача ойлик даромад: ${af?.avgMonthlyIncome != null ? `${plainMoney(af.avgMonthlyIncome)} сум.` : '—'}`),
+    /*
+      `avgMonthlyIncome` is a column the wizard never writes — the operator's "Asosiy daromad" field
+      saves to `mainActivityIncome`. Reading only the first one meant this line printed «—» on every
+      application no matter what was entered. Kept as the preferred source for older rows that do
+      carry it.
+    */
+    p(`Ўртача ойлик даромад: ${monthlyIncome != null ? `${plainMoney(monthlyIncome)} сум.` : '—'}`),
 
     p(`Сиздан қуйидаги шартлар асосида менга ${lw} ажратишингизни сўрайман:`, 10),
     p(`${lw} суммаси: ${moneyWithWordsCyr(amount)}.`),
