@@ -7,7 +7,7 @@ import {
 import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage } from '@credit-core/api-client';
 import {
   CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role, ROLE_LABEL,
-  TRANSITIONS, WorkflowDecision, resolveOwners, ownerIsImplied, type CreditCaseDto, type DocumentDto,
+  TRANSITIONS, WorkflowDecision, resolveOwners, ownerIsImplied, type ScorableCase, type CreditCaseDto, type DocumentDto,
 } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Field, Input, Skeleton, StatusBadge } from '../components/primitives';
@@ -16,6 +16,7 @@ import { DeadlineBadge } from '../components/DeadlineBadge';
 import { Select, MoneyInput } from '../components/forms';
 import { CaseTimeline } from '../components/CaseTimeline';
 import { SignDialog } from '../components/SignDialog';
+import { ScorePanel } from '../components/ScorePanel';
 import { useToast } from '../components/Toast';
 import { cn, formatMoney } from '../lib/cn';
 
@@ -1048,6 +1049,18 @@ function CapturePanel({ c, role, onChange }: { c: CreditCaseDto; role: Role; onC
       {row('Jami daromad', calc.totalIncome ? formatMoney(calc.totalIncome) : '—')}
       {row('Aktiv kreditlar', c.creditHistory?.activeLoansCount != null ? String(c.creditHistory.activeLoansCount) : '—')}
       {row('Jadval turi', line?.tranche?.scheduleType ? (line.tranche.scheduleType === 'ANNUITY' ? 'Annuitet' : 'Differensial') : '—')}
+
+      {/*
+        The score, on every case and for every role, whatever the status. It used to live only in
+        the operator's wizard, so a moderator or director deciding on the case could not see the
+        number they were deciding against — nor which of its twenty factors produced it.
+      */}
+      <ScorePanel
+        subject={c as unknown as ScorableCase}
+        coverageRatio={calc.coverageRatio}
+        collateralTotal={c.collaterals.reduce((sum, col) => sum + (col.agreedValue ?? 0), 0)}
+        collateralCount={c.collaterals.length}
+      />
 
       {canSetRate && (
         <div className="mt-3 space-y-2 border-t border-gray-200 pt-3 dark:border-white/10">

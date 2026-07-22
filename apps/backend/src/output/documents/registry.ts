@@ -14,6 +14,7 @@ import { accountantSplitTemplate } from './templates/accountant-split';
 import { monitoringTemplate } from './templates/monitoring';
 import { grafikTemplate } from './templates/grafik';
 import { clientProfileTemplate } from './templates/client-profile';
+import { borrowerChecklistTemplate } from './templates/borrower-checklist';
 import { disbursementTemplate } from './templates/disbursement';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
@@ -38,7 +39,11 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; ca
   rklGen: { title: 'Bosh kelishuv (РКЛ Ген)', lang: 'uz', category: 'main', stage: 'review', build: rklGenTemplate },
   act: { title: 'Kelishuv akti (Акт согласования)', lang: 'uz', category: 'main', stage: 'review', build: actTemplate },
   obloshka: { title: 'Ish obloshkasi (Обложка)', lang: 'uz', category: 'main', stage: 'review', build: obloshkaTemplate },
-  cheklist: { title: 'Hujjatlar ro\'yxati (Чек-лист)', lang: 'uz', category: 'main', stage: 'review', build: cheklistTemplate },
+  // Two different forms, long conflated under one name. `cheklist` is the перечень — the office's
+  // list of papers in the dossier. `borrowerChecklist` is the Чек-лист the CLIENT signs, confirming
+  // they understood what the loan costs and what happens if they fall behind.
+  cheklist: { title: 'Hujjatlar ro\'yxati', lang: 'uz', category: 'main', stage: 'review', build: cheklistTemplate },
+  borrowerChecklist: { title: 'Чек-лист (мижоз тасдиғи)', lang: 'uz', category: 'main', stage: 'review', build: borrowerChecklistTemplate },
   grafik: { title: 'Тўлов жадвали (график)', lang: 'uz', category: 'main', stage: 'review', build: grafikTemplate },
   // The client questionnaire (sheet b3) — where the scoring reads its inputs and where the
   // debt-burden ratio is printed. Available from review: it is the client's own declaration.

@@ -15,6 +15,7 @@ describe('DOC_REGISTRY', () => {
       'accountantSplit',
       'act',
       'actNotary',
+      'borrowerChecklist',
       'cheklist',
       'clientProfile',
       'contract',

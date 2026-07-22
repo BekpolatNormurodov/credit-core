@@ -134,7 +134,31 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
         ],
         row('ХУЛОСА', VERDICT_LABEL[String(s.verdict)] ?? String(s.verdict), '#ffff00'),
       ]),
-      { text: 'Кредит менежери имзоси', alignment: 'center', margin: [0, 40, 0, 0] },
+      /*
+        Somebody signs this. The sheet leaves the space blank for a handwritten name, so the form
+        needs a rule to write on and a caption saying what goes where — without them the manager
+        signs across the middle of the page, which is what the printed copies showed.
+      */
+      { text: 'Кредит менежери имзоси', alignment: 'center', margin: [0, 40, 0, 14] },
+      {
+        columns: [
+          { width: '*', text: '' },
+          { width: 190, text: '_______________________', alignment: 'center' },
+          { width: 120, text: '_______________', alignment: 'center' },
+          { width: '*', text: '' },
+        ],
+        columnGap: 10,
+      },
+      {
+        columns: [
+          { width: '*', text: '' },
+          { width: 190, text: 'Ф.И.Ш.', alignment: 'center', fontSize: 8, color: '#555' },
+          { width: 120, text: 'имзо', alignment: 'center', fontSize: 8, color: '#555' },
+          { width: '*', text: '' },
+        ],
+        columnGap: 10,
+        margin: [0, 2, 0, 0],
+      },
     ],
   };
 }

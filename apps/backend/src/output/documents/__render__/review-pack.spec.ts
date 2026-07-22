@@ -142,6 +142,7 @@ const ORDER: { key: string; name: string }[] = [
   { key: 'protokol', name: '09-Protokol' },
   { key: 'obloshka', name: '10-Obloshka' },
   { key: 'cheklist', name: '11-Hujjatlar-royxati' },
+  { key: 'borrowerChecklist', name: '11b-Chek-list-mijoz' },
   { key: 'disbursement', name: '12-Pul-otkazish-arizasi' },
   { key: 'accountantSplit', name: '13-Mablag-taqsimoti' },
   { key: 'monitoring1', name: '14-Monitoring-1-6oy' },

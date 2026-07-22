@@ -42,13 +42,27 @@ export function disbursementTemplate(c: CaseDocData): TDocumentDefinitions {
         margin: [0, 0, 0, 12],
       },
       /*
-        Address, name and «томонидан» on their own lines, as the paper form is laid out. Run
-        together they made one long paragraph that wrapped mid-address and buried the applicant's
-        name in the middle of it.
+        The applicant block sits under the addressee on the right half of the page, the way the
+        paper form is laid out — not across the full width on the left, where it read as body text
+        and collided with the heading below it.
+
+        Address, name and «томонидан» each get their own line: run together they made one long
+        paragraph that wrapped mid-address and buried the applicant's name in the middle of it.
       */
-      { text: `${b?.regAddress ?? b?.address ?? '—'}да яшовчи`, margin: [0, 0, 0, 1] },
-      { text: b?.fullName ?? '—', bold: true },
-      { text: 'томонидан', margin: [0, 0, 0, 2] },
+      {
+        columns: [
+          { width: '*', text: '' },
+          {
+            width: 300,
+            stack: [
+              { text: `${b?.regAddress ?? b?.address ?? '—'}да яшовчи`, margin: [0, 0, 0, 1] },
+              { text: b?.fullName ?? '—', bold: true },
+              { text: 'томонидан' },
+            ],
+          },
+        ],
+        margin: [0, 0, 0, 2],
+      },
       { text: 'АРИЗА', bold: true, alignment: 'center', fontSize: 13, margin: [0, 6, 0, 10] },
       p(
         `Ушбу ариза билан мен ${b?.fullName ?? '—'}, сиздан ${org?.nameUpper ?? 'ММТ'} билан имзоланган ` +

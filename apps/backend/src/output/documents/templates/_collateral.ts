@@ -8,12 +8,31 @@ type Collateral = CaseDocData['collaterals'][number];
 const dash = (v: unknown): string => (v == null || v === '' ? '—' : String(v));
 const owner = (c: Collateral): string => c.owners?.[0]?.fullName ?? '—';
 
+/**
+ * The initial of a name, as a letter rather than as a character.
+ *
+ * Uzbek Latin writes four letters with two characters — sh, ch, o‘ and g‘ — so taking the first
+ * character abbreviated SHUXRAT to «S.» and CHORI to «C.», which are different letters and a
+ * different person. Cyrillic has no such pair, and is unaffected.
+ *
+ * The apostrophe forms vary by keyboard (’ ‘ ' `), so all of them count.
+ */
+export function nameInitial(word: string): string {
+  const w = word.trim();
+  if (!w) return '';
+  const two = w.slice(0, 2).toUpperCase();
+  if (two === 'SH' || two === 'CH') return two;
+  // o‘ / g‘ — the letter is the vowel plus its tail.
+  if (/^[OG][’‘'`ʻʼ]/i.test(w)) return w.slice(0, 2).toUpperCase();
+  return w.charAt(0).toUpperCase();
+}
+
 /** Short "SURNAME N.P." form of a full name, as the forms abbreviate owners (e.g. "UBAYDULLAYEV Z.N."). */
 export function shortName(full: string | null | undefined): string {
   if (!full) return '—';
   const parts = full.trim().split(/\s+/);
   if (parts.length === 1) return parts[0];
-  const initials = parts.slice(1).map((p) => p.charAt(0).toUpperCase() + '.').join('');
+  const initials = parts.slice(1).map((p) => nameInitial(p) + '.').join('');
   return `${parts[0]} ${initials}`;
 }
 
