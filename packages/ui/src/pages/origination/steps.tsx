@@ -372,6 +372,7 @@ export function StepGarov({ f }: { f: OriginationForm }) {
             key={active}
             index={active}
             c={cols[active]}
+            borrowerName={f.form.borrower.fullName}
             errors={f.attempted ? collateralErrors(cols[active]) : undefined}
             onChange={(p) => f.setCol(active, p)}
             onRemove={() => setDelIdx(active)}

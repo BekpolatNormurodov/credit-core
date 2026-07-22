@@ -7,7 +7,7 @@ import {
 import { api, downloadBlob, viewDocument, documentInlineUrl, getErrorMessage } from '@credit-core/api-client';
 import {
   CaseStatus, computeLoan, DocumentType, DOCUMENT_LABEL, originationCalc, PRODUCT_LABEL, Role, ROLE_LABEL,
-  TRANSITIONS, WorkflowDecision, type CreditCaseDto, type DocumentDto,
+  TRANSITIONS, WorkflowDecision, resolveOwners, ownerIsImplied, type CreditCaseDto, type DocumentDto,
 } from '@credit-core/shared';
 import { useAuth } from '../lib/auth';
 import { Button, Card, Field, Input, Skeleton, StatusBadge } from '../components/primitives';
@@ -757,9 +757,28 @@ function Detail({ c, canUpload, canManage }: { c: CreditCaseDto; canUpload: bool
                   </div>
                 ))}
               </dl>
-              {col.owners?.length ? (
-                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Egalar: {col.owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}</p>
-              ) : null}
+              {/*
+                Always shown, because every document names an owner. With no owner entered the
+                borrower stands in at 100% — say so explicitly rather than leaving the line out,
+                which read as "nobody owns this" and sent people looking for a missing field.
+              */}
+              {(() => {
+                const owners = resolveOwners(col.owners, c.borrower);
+                if (!owners.length) {
+                  return (
+                    <p className="mt-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+                      Mulk egasi aniqlanmadi — egasini kiriting yoki qarz oluvchining F.I.Sh. sini to‘ldiring
+                    </p>
+                  );
+                }
+                const implied = ownerIsImplied(col.owners, c.borrower);
+                return (
+                  <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    Egalar: {owners.map((o) => `${o.fullName}${o.sharePercent != null ? ` (${o.sharePercent}%)` : ''}`).join(', ')}
+                    {implied && <span className="ml-1 italic">— qarz oluvchining o‘zi</span>}
+                  </p>
+                );
+              })()}
               {col.id && (
                 <>
                   <CollateralMedia

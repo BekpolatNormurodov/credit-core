@@ -1,5 +1,5 @@
 import type { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
-import type { CaseDocData } from '../case-document.loader';
+import { withResolvedOwners, type CaseDocData } from '../case-document.loader';
 
 /** Recursive "every field optional, nested objects too" helper for building fixture overrides. */
 export type DeepPartial<T> = T extends (infer U)[]
@@ -363,7 +363,9 @@ export function mockCaseDoc(overrides?: DeepPartial<CaseDocData>): CaseDocData {
     },
   };
 
-  return deepMerge(base, overrides) as unknown as CaseDocData;
+  // Through the same implied-owner rule the loader applies, so a test that leaves  empty
+  // sees exactly what production renders — the borrower standing in — rather than «—».
+  return withResolvedOwners(deepMerge(base, overrides) as unknown as CaseDocData);
 }
 
 /**

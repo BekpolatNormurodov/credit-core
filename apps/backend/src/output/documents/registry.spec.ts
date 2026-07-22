@@ -2,7 +2,9 @@ import { DOC_REGISTRY } from './registry';
 
 const NOTARY_KEYS = ['actNotary', 'prikazNotary', 'rklGenNotary'];
 const ACCOUNTANT_KEYS = ['accountantSplit', 'disbursement'];
-const APPROVED_STAGE_KEYS = ['monitoring1', 'monitoring2', 'monitoring3', ...NOTARY_KEYS];
+// Only the notary copies wait for the signature. The monitoring acts are blank inspection forms
+// whose visit dates come from the application date, so the office can prepare them beforehand.
+const APPROVED_STAGE_KEYS = [...NOTARY_KEYS];
 
 const expectedCategory = (key: string): 'main' | 'notary' | 'accountant' =>
   NOTARY_KEYS.includes(key) ? 'notary' : ACCOUNTANT_KEYS.includes(key) ? 'accountant' : 'main';
@@ -52,7 +54,7 @@ describe('DOC_REGISTRY', () => {
     expect(accountantKeys).toEqual([...ACCOUNTANT_KEYS].sort());
   });
 
-  it('gates notary copies + monitoring acts to the approved stage; everything else is available at review', () => {
+  it('gates only the notary copies to the approved stage; everything else is available at review', () => {
     const approvedKeys = Object.keys(DOC_REGISTRY).filter((k) => DOC_REGISTRY[k].stage === 'approved').sort();
     expect(approvedKeys).toEqual([...APPROVED_STAGE_KEYS].sort());
   });

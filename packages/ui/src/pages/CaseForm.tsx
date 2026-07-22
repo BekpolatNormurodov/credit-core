@@ -56,7 +56,7 @@ function KadastrCard({ cadastreNo }: { cadastreNo: string }) {
 // A per-collateral staged attachment (image/file + name + free text), bound by collateral index.
 export type StagedColDoc = { localId: string; colIndex: number; file: File; type: DocumentType; title: string; description: string };
 
-export function CollateralCard({ index, c, errors, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot, texSlot }: {
+export function CollateralCard({ index, c, errors, onChange, onRemove, canRemove, docs, onAddDocs, onRemoveDoc, onSetDocField, hideDocs = false, mediaSlot, texSlot, borrowerName }: {
   index: number; c: CollateralDto; errors?: Partial<Record<CollateralField, string>>; onChange: (p: Partial<CollateralDto>) => void; onRemove: () => void; canRemove: boolean;
   docs: StagedColDoc[]; onAddDocs: (files: FileList | File[] | null) => void; onRemoveDoc: (localId: string) => void;
   onSetDocField: (localId: string, patch: Partial<Pick<StagedColDoc, 'title' | 'description'>>) => void;
@@ -66,6 +66,8 @@ export function CollateralCard({ index, c, errors, onChange, onRemove, canRemove
   mediaSlot?: ReactNode;
   /** When provided (wizard, AUTO), the tex-passport scanner — so it can also save the scanned images. */
   texSlot?: ReactNode;
+  /** Borrower name, so the card can say who owns the property when no owner is entered. */
+  borrowerName?: string | null;
 }) {
   const isAuto = c.type === ProductType.AUTO;
   const setOwners = (owners: CollateralDto['owners']) => onChange({ owners });
@@ -156,6 +158,26 @@ export function CollateralCard({ index, c, errors, onChange, onRemove, canRemove
             <Plus className="h-4 w-4" /> Egasi
           </Button>
         </div>
+
+        {/*
+          Empty is the normal case — the borrower pledging their own property — and it used to look
+          like an unfilled field. Name who the documents will print, so leaving it empty is a
+          decision rather than an oversight. Red only when there is no borrower name to fall back
+          on, which is the one case that really does block signing.
+        */}
+        {!c.owners.some((o) => o.fullName.trim()) && (
+          borrowerName?.trim() ? (
+            <p className="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-white/5 dark:text-gray-300">
+              Egasi kiritilmagan — hujjatlarda <b className="text-gray-800 dark:text-white">{borrowerName}</b> (qarz
+              oluvchining o‘zi, 100%) mulk egasi sifatida chiqadi. Boshqa shaxs bo‘lsa «Egasi» tugmasi bilan qo‘shing.
+            </p>
+          ) : (
+            <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs font-medium text-rose-600 dark:text-rose-400">
+              Mulk egasi aniqlanmadi — egasini kiriting yoki qarz oluvchining F.I.Sh. sini to‘ldiring.
+              Hujjatlarda mulk egasi bo‘sh qoladi.
+            </p>
+          )
+        )}
         {c.owners.map((o, idx) => (
           <div key={idx} className="grid gap-2 rounded-lg border border-gray-200 p-2 dark:border-gray-800 sm:grid-cols-4">
             <Input placeholder="F.I.O" value={o.fullName} onChange={(e) => { const owners = [...c.owners]; owners[idx] = { ...o, fullName: e.target.value }; setOwners(owners); }} />

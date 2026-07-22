@@ -1,6 +1,7 @@
 import { LoanType, ProductType, RepaymentMethod } from './enums';
 import { pmt } from './loan';
 import type { CollateralDto, CreditCaseDto } from './dto';
+import { collateralOwnerErrors } from './collateral-owner';
 
 /** Insurance partners currently on-boarded (the "Kompaniya" dropdown). */
 export const INSURANCE_COMPANIES = ['TRUST INSURANCE', 'APEX INSURANCE'] as const;
@@ -276,6 +277,10 @@ export function caseSubmitErrors(c: CreditCaseDto): string[] {
   } else {
     const i = cs.findIndex((col) => !collateralComplete(col));
     if (i >= 0) out.push(`Garov ${i + 1}: ${collateralMissing(cs[i]).map((m) => m.label).join(', ')} majburiy`);
+    // Every document names an owner. With none entered the borrower stands in, so this only fires
+    // when the borrower has no name either — a case that could reach the director with «—» printed
+    // where the pledgor belongs.
+    out.push(...collateralOwnerErrors(cs, b));
   }
 
   const tr = line?.tranche;

@@ -7,3 +7,4 @@ export * from './origination';
 export * from './contract-number';
 export * from './dto';
 export * from './nationality';
+export * from './collateral-owner';
