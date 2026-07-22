@@ -3,8 +3,9 @@ import {
   originationCalc, loanTypeFor, scoreForCase, SCORE_VERDICT_LABEL,
   type ScorableCase, type UpsertCasePayload,
 } from '@credit-core/shared';
-import { Card } from '../../components/primitives';
-import { ChevronDown } from '../../lib/icons';
+import { Button, Card } from '../../components/primitives';
+import { Modal } from '../../components/Modal';
+import { Chart } from '../../lib/icons';
 import { cn, formatMoney } from '../../lib/cn';
 
 /** Tone for the score total — matches the verdict bands (<60 refuse, 70+ approve). */
@@ -15,66 +16,109 @@ function scoreTone(verdict: string): string {
 }
 
 /**
- * The score, factor by factor, folded away until asked for.
+ * The score in the summary card: the total, a one-line verdict, and a way to see the working.
  *
- * The total on its own invites "why 82?" and there is no way to answer it from the screen — the
- * weights live in a workbook. Each row here is one line of the «балл» sheet, numbered as it is
- * there, so a disputed score can be traced to the exact band that produced it.
+ * The breakdown lives in a dialog rather than an accordion inside the card. The card is a sticky
+ * column beside the wizard and twenty more rows do not fit in it — expanding pushed the whole
+ * summary off screen. A dialog also gives the table room to be read rather than squinted at.
+ *
+ * On a half-entered case most factors have no data yet, and a bare "0 / 5" reads as a refusal.
+ * Those rows say «kiritilmagan» instead, and the card counts them, so a low score on an unfinished
+ * application is legible as unfinished.
  */
-function ScoreBreakdown({ form }: { form: UpsertCasePayload }) {
+function ScorePanel({ form }: { form: UpsertCasePayload }) {
   const [open, setOpen] = useState(false);
   const r = scoreForCase(form as unknown as ScorableCase);
+  const tone = scoreTone(r.verdict);
 
   return (
     <div className="mt-2 border-t border-gray-200 pt-2 dark:border-white/10">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="flex w-full cursor-pointer items-center justify-between gap-3 py-1.5 text-left"
-      >
-        <span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-          Skoring balli
-          <ChevronDown className={cn('h-4 w-4 transition', open && 'rotate-180')} />
-        </span>
-        <span className={cn('nums font-bold', scoreTone(r.verdict))}>
-          {r.total} / {r.max}
-        </span>
-      </button>
+      <div className="flex items-center justify-between gap-3 py-1.5 text-sm">
+        <span className="text-gray-500 dark:text-gray-400">Skoring balli</span>
+        <span className={cn('nums font-bold', tone)}>{r.total} / {r.max}</span>
+      </div>
 
-      <p className={cn('pb-1 text-right text-xs font-medium', scoreTone(r.verdict))}>
+      <p className={cn('text-right text-xs font-medium leading-snug', tone)}>
         {SCORE_VERDICT_LABEL[r.verdict]}
       </p>
 
-      {open && (
-        <div className="mt-1 space-y-px rounded-lg bg-gray-50 p-2 dark:bg-white/5">
-          {r.factors.map((f) => (
-            <div key={f.key} className="flex items-baseline justify-between gap-2 py-0.5 text-xs">
-              <span className="min-w-0 text-gray-500 dark:text-gray-400">
-                <span className="mr-1 tabular-nums text-gray-400 dark:text-gray-500">{f.no}.</span>
-                {f.label}
-              </span>
-              <span
-                className={cn(
-                  'nums shrink-0 font-semibold',
-                  // A penalty and a zero mean different things: one lost you points, the other
-                  // never had any to give.
-                  f.points < 0 ? 'text-error-600 dark:text-error-500'
-                    : f.points === 0 ? 'text-gray-400 dark:text-gray-500'
-                      : f.points === f.max ? 'text-success-700 dark:text-success-400'
-                        : 'text-gray-700 dark:text-gray-200',
-                )}
-              >
-                {f.points} / {f.max}
-              </span>
-            </div>
-          ))}
-          <p className="mt-1.5 border-t border-gray-200 pt-1.5 text-[11px] leading-relaxed text-gray-400 dark:border-white/10 dark:text-gray-500">
-            0 ball — ma’lumot kiritilmagan yoki shart bajarilmagan. Oxirgi ikkitasi (transh/daromad)
-            43 ballni tashkil qiladi.
-          </p>
-        </div>
+      {r.missingCount > 0 && (
+        <p className="mt-1 text-right text-[11px] leading-snug text-gray-400 dark:text-gray-500">
+          {r.missingCount} ta ko‘rsatkich to‘ldirilmagan — ball to‘liq emas
+        </p>
       )}
+
+      <Button variant="secondary" className="mt-2 w-full" onClick={() => setOpen(true)}>
+        <Chart className="h-4 w-4" /> Ballarni to‘liq ko‘rish
+      </Button>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        size="lg"
+        title="Skoring tahlili"
+        description="Har bir ko‘rsatkich va undan olingan ball"
+      >
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-white/10">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Jami ball</p>
+            <p className={cn('text-sm font-medium', tone)}>{SCORE_VERDICT_LABEL[r.verdict]}</p>
+          </div>
+          <span className={cn('nums text-2xl font-bold', tone)}>{r.total} / {r.max}</span>
+        </div>
+
+        {r.missingCount > 0 && (
+          <p className="mb-3 rounded-lg bg-warning-50 px-3 py-2 text-xs leading-relaxed text-warning-800 dark:bg-warning-500/10 dark:text-warning-300">
+            <b>{r.missingCount} ta ko‘rsatkich</b> hali to‘ldirilmagan. Ular hozircha 0 ball beryapti —
+            maydonlar to‘lgach ball o‘zgaradi.
+          </p>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500 dark:border-white/10 dark:text-gray-400">
+                <th className="w-8 py-2 text-left font-medium">№</th>
+                <th className="py-2 text-left font-medium">Ko‘rsatkich</th>
+                <th className="w-24 py-2 text-right font-medium">Ball</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.factors.map((f) => (
+                <tr key={f.key} className="border-b border-gray-100 last:border-0 dark:border-white/5">
+                  <td className="py-1.5 tabular-nums text-gray-400 dark:text-gray-500">{f.no}</td>
+                  <td className="py-1.5 text-gray-700 dark:text-gray-200">
+                    {f.label}
+                    {f.missing && (
+                      <span className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-white/10 dark:text-gray-400">
+                        kiritilmagan
+                      </span>
+                    )}
+                  </td>
+                  <td
+                    className={cn(
+                      'nums py-1.5 text-right font-semibold',
+                      // A penalty, an unfilled field and an earned zero must not look alike.
+                      f.points < 0 ? 'text-error-600 dark:text-error-500'
+                        : f.missing ? 'text-gray-300 dark:text-gray-600'
+                          : f.points === 0 ? 'text-gray-400 dark:text-gray-500'
+                            : f.points === f.max ? 'text-success-700 dark:text-success-400'
+                              : 'text-gray-700 dark:text-gray-200',
+                    )}
+                  >
+                    {f.points} / {f.max}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+          Oxirgi ikki ko‘rsatkich (transh/daromad va daromad-xarajat/transh) birgalikda <b>43 ball</b> —
+          ballning eng katta qismi. 60 balldan past — rad etiladi, 70 va undan yuqori — ma’qullanadi.
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -135,7 +179,7 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
         </p>
       )}
 
-      <ScoreBreakdown form={form} />
+      <ScorePanel form={form} />
     </Card>
   );
 }

@@ -57,6 +57,8 @@ export interface ScoreInput {
   loansOver5MFlag?: string | null;
   /** b4!C7 — «Мавжуд» when the client borrowed from an MFI/pawnshop before. */
   priorMfiPawnshopFlag?: string | null;
+  /** How many collaterals are attached — 0 means the pledge factors have nothing to read. */
+  collateralCount?: number | null;
 
   /** балл!C27 — monthly tranche payments: existing avg payment + this loan's payment. */
   monthlyTranchePayment?: number | null;
@@ -74,6 +76,14 @@ export interface ScoreFactor {
   label: string;
   points: number;
   max: number;
+  /**
+   * The input this factor needs was not entered.
+   *
+   * Worth distinguishing from a scored zero: one means the client genuinely earns nothing here,
+   * the other means nobody has filled the field yet. Shown differently, and counted, so a low
+   * score on a half-entered case reads as "unfinished" rather than "rejected".
+   */
+  missing: boolean;
 }
 
 export interface ScoreResult {
@@ -81,6 +91,8 @@ export interface ScoreResult {
   total: number;
   max: number;
   verdict: ScoreVerdict;
+  /** How many of the twenty factors are waiting on data. */
+  missingCount: number;
   /** Intermediate values the report prints (балл!C23, C24, C27..C31). */
   ratios: {
     age: number | null;
@@ -123,21 +135,22 @@ const num = (v: unknown): number | null => {
  */
 export function scoreCase(i: ScoreInput): ScoreResult {
   const f: ScoreFactor[] = [];
-  const add = (no: number, key: string, label: string, points: number, max: number) =>
-    f.push({ no, key, label, points, max });
+  const blank = (v: unknown): boolean => v === null || v === undefined || (typeof v === 'string' && !v.trim());
+  const add = (no: number, key: string, label: string, points: number, max: number, missing = false) =>
+    f.push({ no, key, label, points, max, missing });
 
   // 1. Пол — IF(Д1!C10="женщина",2,1)
-  add(1, 'gender', 'Пол', i.gender === 'FEMALE' ? 2 : 1, 2);
+  add(1, 'gender', 'Пол', i.gender === 'FEMALE' ? 2 : 1, 2, blank(i.gender));
 
   // 2. Возраст — IF(>68,0,IF(>=50,5,IF(>=30,4,IF(>=20,2,0))))
   const age = ageYears(i.birthDate);
   const agePts = age == null ? 0 : age > 68 ? 0 : age >= 50 ? 5 : age >= 30 ? 4 : age >= 20 ? 2 : 0;
-  add(2, 'age', 'Возраст', agePts, 5);
+  add(2, 'age', 'Возраст', agePts, 5, age == null);
 
   // 3. Образование — «бир нечта олий»→3, «Олий»→2, «урта махсус»→1, else 0.
   //    Note "олий" is a substring of "бир нечта олий", so the multi-degree option is tested first.
   const edu = has(i.education, 'бир нечта') ? 3 : eq(i.education, 'олий') ? 2 : has(i.education, 'урта махсус') ? 1 : 0;
-  add(3, 'education', 'Образование', edu, 3);
+  add(3, 'education', 'Образование', edu, 3, blank(i.education));
 
   // 4. Семейное положение — the sheet's three options, anything else 2.
   const ms = i.maritalStatus;
@@ -145,10 +158,10 @@ export function scoreCase(i: ScoreInput): ScoreResult {
     : has(ms, 'ажрашган') ? 2
       : has(ms, 'бўйдоқ') || has(ms, 'ёлғиз') ? 0
         : 2;
-  add(4, 'maritalStatus', 'Семейное положение', msPts, 3);
+  add(4, 'maritalStatus', 'Семейное положение', msPts, 3, blank(ms));
 
   // 5. Залог — IF(Д2!B42="авто",2,4)
-  add(5, 'collateral', 'Залог', i.hasAutoCollateral ? 2 : 4, 4);
+  add(5, 'collateral', 'Залог', i.hasAutoCollateral ? 2 : 4, 4, (i.collateralCount ?? 0) === 0);
 
   /*
     6. FAMILY_SIZE — the «балл» row is labelled «Количество детей», but its formula reads b3!D22,
@@ -157,25 +170,25 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   */
   const fam = num(i.familySize);
   const famPts = fam == null ? 3 : fam >= 3 ? 1 : fam >= 1 ? 2 : 3;
-  add(6, 'familySize', 'Количество детей (оила аъзолари сони)', famPts, 3);
+  add(6, 'familySize', 'Количество детей (оила аъзолари сони)', famPts, 3, fam == null);
 
   // 7. Залогодатель — IF(Д2!B28="да",3,1)
-  add(7, 'pledgor', 'Залогодатель', i.pledgorIsBorrower ? 3 : 1, 3);
+  add(7, 'pledgor', 'Залогодатель', i.pledgorIsBorrower ? 3 : 1, 3, (i.collateralCount ?? 0) === 0);
 
   // 8. Срок проживания — «иное»→3, «1-5 лет»→2, else 1.
   const resPts = has(i.residenceBand, 'иное') || has(i.residenceBand, 'бошқа') ? 3
     : has(i.residenceBand, '1-5') ? 2 : 1;
-  add(8, 'residence', 'Срок проживания', resPts, 3);
+  add(8, 'residence', 'Срок проживания', resPts, 3, blank(i.residenceBand));
 
   // 9. Сфера деятельности — IF(risk>18,4,IF(risk>9,5,6)). Codes run 1..17, so >18 never fires
   //    with a valid sector; kept literally.
   const risk = num(i.sectorRiskCode);
   const riskPts = risk == null ? 0 : risk > 18 ? 4 : risk > 9 ? 5 : 6;
-  add(9, 'sector', 'Сфера деятельности', riskPts, 6);
+  add(9, 'sector', 'Сфера деятельности', riskPts, 6, risk == null);
 
   // 10. Должность — «Рахбарият»→5, «ўрта менежер»→4, else 2.
   const posPts = has(i.position, 'рахбар') ? 5 : has(i.position, 'менежер') ? 4 : i.position ? 2 : 0;
-  add(10, 'position', 'Должность', posPts, 5);
+  add(10, 'position', 'Должность', posPts, 5, blank(i.position));
 
   /*
     11. EXPERIENCE — IF(D27=H27,5,IF(D27=G27,3,1)) where H27="3-5 лет" and G27="5-9 лет". So the
@@ -183,11 +196,11 @@ export function scoreCase(i: ScoreInput): ScoreResult {
     which scores lowest. That is almost certainly not intended, and is reproduced anyway.
   */
   const expPts = has(i.experienceBand, '3-5') ? 5 : has(i.experienceBand, '5-9') ? 3 : i.experienceBand ? 1 : 0;
-  add(11, 'experience', 'Общий стаж', expPts, 5);
+  add(11, 'experience', 'Общий стаж', expPts, 5, blank(i.experienceBand));
 
   // 12. Наличие дома — «Иш берувчи томонидан»→1, «мулкий хукук»→2, else 0.
   const houPts = has(i.housingType, 'иш берувчи') ? 1 : has(i.housingType, 'мулкий') ? 2 : 0;
-  add(12, 'housing', 'Наличие дома', houPts, 2);
+  add(12, 'housing', 'Наличие дома', houPts, 2, blank(i.housingType));
 
   /*
     13. Наличие депозитов — banded by the LOWER bound of the range, which is the only reading that
@@ -202,28 +215,28 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   const low = bounds.length ? Math.min(...bounds) : null;
   const belowLowest = has(dep, 'кам') || has(dep, 'менее');
   const depPts = !low || belowLowest ? 0 : low >= 3000 ? 3 : low >= 1000 ? 2 : low >= 500 ? 1 : 0;
-  add(13, 'deposits', 'Наличие депозитов', depPts, 3);
+  add(13, 'deposits', 'Наличие депозитов', depPts, 3, blank(i.depositBand));
 
   // 14. Колич. кредитов — IF(C3>=3,3,IF(C3=2,2,1)). Row is labelled «погаш.» but reads the
   //     existing-loans cell; the formula is followed.
   const act = num(i.activeLoansCount);
   const actPts = act == null ? 1 : act >= 3 ? 3 : act === 2 ? 2 : 1;
-  add(14, 'loanCount', 'Колич. кредитов', actPts, 3);
+  add(14, 'loanCount', 'Колич. кредитов', actPts, 3, act == null);
 
   // 15. Прочие обязательства — IF(C5=0,2,0)
   const oth = num(i.otherObligations);
-  add(15, 'otherObligations', 'Прочие обязательства', oth === 0 ? 2 : 0, 2);
+  add(15, 'otherObligations', 'Прочие обязательства', oth === 0 ? 2 : 0, 2, oth == null);
 
   // 16. Текущие обязательства — overdue kills it; otherwise fewer existing loans scores higher.
   const ovd = num(i.overdueSubstandardFlag);
   const curPts = ovd === 1 ? 0 : act === 0 ? 5 : act === 1 ? 4 : act === 2 ? 2 : 0;
-  add(16, 'currentObligations', 'Текущие обязательства', curPts, 5);
+  add(16, 'currentObligations', 'Текущие обязательства', curPts, 5, ovd == null || act == null);
 
   // 17-18. Penalties: −5 each, max 0. «Мавжуд эмас» (none) is the clean answer.
   const over5 = has(i.loansOver5MFlag, 'мавжуд') && !has(i.loansOver5MFlag, 'эмас') ? -5 : 0;
-  add(17, 'loansOver5M', 'Наличие кредитов свыше 5 млн. сум', over5, 0);
+  add(17, 'loansOver5M', 'Наличие кредитов свыше 5 млн. сум', over5, 0, blank(i.loansOver5MFlag));
   const mfi = has(i.priorMfiPawnshopFlag, 'мавжуд') && !has(i.priorMfiPawnshopFlag, 'эмас') ? -5 : 0;
-  add(18, 'priorMfi', 'Получал ли кредит в МКО/ломбардах ранее', mfi, 0);
+  add(18, 'priorMfi', 'Получал ли кредит в МКО/ломбардах ранее', mfi, 0, blank(i.priorMfiPawnshopFlag));
 
   // 19-20. The affordability pair — 43 of the 100 points.
   const income = num(i.monthlyIncome) ?? 0;
@@ -233,11 +246,11 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   const surplus = income - expenses;
 
   const tranchePerIncome = income > 0 ? tranche / income : null;
-  add(19, 'trancheToIncome', 'Транш/доход', tranchePerIncome != null && tranchePerIncome <= 0.5 ? 22 : 0, 22);
+  add(19, 'trancheToIncome', 'Транш/доход', tranchePerIncome != null && tranchePerIncome <= 0.5 ? 22 : 0, 22, income <= 0 || tranche <= 0);
 
   // IF(C24>=1,21,IF(C24<=1,16,0)) — the second branch is unreachable except at exactly 1.
   const surplusPerTranche = tranche > 0 ? surplus / tranche : null;
-  add(20, 'surplusToTranche', '(Доход - расход)/транш', surplusPerTranche != null && surplusPerTranche >= 1 ? 21 : 16, 21);
+  add(20, 'surplusToTranche', '(Доход - расход)/транш', surplusPerTranche != null && surplusPerTranche >= 1 ? 21 : 16, 21, income <= 0 || tranche <= 0);
 
   const total = f.reduce((s, x) => s + x.points, 0);
 
@@ -246,6 +259,7 @@ export function scoreCase(i: ScoreInput): ScoreResult {
     total,
     max: SCORE_MAX,
     verdict: verdictFor(total, ovd),
+    missingCount: f.filter((x) => x.missing).length,
     ratios: { age, tranchePerIncome, surplusPerTranche, income, expenses, surplus, incomeMinusTranche: income - tranche },
   };
 }
@@ -322,6 +336,7 @@ export function scoringInputFromCase(c: ScorableCase): ScoreInput {
     education: b?.education ?? null,
     maritalStatus: b?.maritalStatus ?? null,
     hasAutoCollateral: (c.collaterals ?? []).some((col) => col.type === 'AUTO'),
+    collateralCount: (c.collaterals ?? []).length,
     familySize: b?.familySize ?? null,
     /*
       Д2!B28 — «да» when the borrower pledges their own property. An empty owner list means exactly

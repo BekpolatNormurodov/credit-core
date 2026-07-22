@@ -15,6 +15,8 @@ const REFERENCE: ScoreInput = {
   education: 'урта',
   maritalStatus: 'Уйланган',
   hasAutoCollateral: false,
+  // The reference case pledges one property.
+  collateralCount: 1,
   familySize: 3,
   pledgorIsBorrower: true,
   residenceBand: '1-5 лет (йил)',
@@ -70,6 +72,11 @@ describe('scoreCase — parity with the reference workbook', () => {
   it('reaches the same verdict — Маъқулланди', () => {
     expect(r.verdict).toBe('APPROVED');
     expect(SCORE_VERDICT_LABEL[r.verdict]).toBe('Маъқулланди');
+  });
+
+  it('reports nothing missing — every input the sheet needs is present', () => {
+    expect(r.missingCount).toBe(0);
+    expect(r.factors.filter((x) => x.missing)).toEqual([]);
   });
 
   it('sums to exactly the total it reports', () => {
@@ -171,6 +178,17 @@ describe('an empty case', () => {
     expect(Number.isFinite(r.total)).toBe(true);
     expect(r.factors).toHaveLength(20);
     expect(r.verdict).toBe('BELOW_MIN');
+  });
+
+  it('flags every factor as missing so a low score reads as unfinished, not refused', () => {
+    const r = scoreCase({});
+    expect(r.missingCount).toBe(20);
+    expect(r.factors.every((x) => x.missing)).toBe(true);
+  });
+
+  it('stops flagging a factor once its input arrives', () => {
+    expect(scoreCase({ gender: 'FEMALE' }).factors.find((x) => x.key === 'gender')!.missing).toBe(false);
+    expect(scoreCase({ collateralCount: 1 }).factors.find((x) => x.key === 'collateral')!.missing).toBe(false);
   });
 
   it('returns no age when there is no birth date', () => {
