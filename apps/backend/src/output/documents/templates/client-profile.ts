@@ -99,7 +99,8 @@ export function clientProfileTemplate(c: CaseDocData): TDocumentDefinitions {
     ...group('Адрес', [
       ['прописка буйича', dash(b?.regAddress)],
       ['фактический', dash(b?.actualAddress ?? b?.address)],
-      ['яшаш давомийлиги', dash(b?.regTenure)],
+      // Both columns hold this answer; older rows may carry only the second.
+      ['яшаш давомийлиги', dash(b?.regTenure ?? (b as { residenceDuration?: string })?.residenceDuration)],
       ['ориентир', dash(b?.regLandmark ?? b?.actualLandmark)],
     ]),
     ...group('Телефон', [

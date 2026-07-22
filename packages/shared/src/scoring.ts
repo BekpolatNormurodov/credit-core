@@ -357,12 +357,14 @@ export const SCORE_VERDICT_LABEL: Record<ScoreVerdict, string> = {
 export interface ScorableCase {
   borrower?: {
     gender?: unknown; birthDate?: unknown; education?: string | null; maritalStatus?: string | null;
-    familySize?: number | null; regTenure?: string | null; fullName?: string | null;
+    familySize?: number | null; regTenure?: string | null; residenceDuration?: string | null;
+    fullName?: string | null;
     ownsHome?: string | null; depositsBand?: string | null;
   } | null;
   employment?: { sectorRiskCode?: number | null; position?: string | null; experienceBand?: string | null } | null;
   affordability?: {
-    mainActivityIncome?: unknown; secondaryIncome?: unknown; utilitiesExpense?: unknown;
+    mainActivityIncome?: unknown; secondaryIncome?: unknown; familyIncome?: unknown; otherIncome?: unknown;
+    utilitiesExpense?: unknown;
     familyExpense?: unknown; otherExpense?: unknown; newLoanPayment?: unknown; existingCreditBurden?: unknown;
   } | null;
   creditHistory?: {
@@ -409,7 +411,12 @@ export function scoringInputFromCase(c: ScorableCase): ScoreInput {
     // borrower stands in (see resolveOwners) — so it counts as yes.
     pledgorIsBorrower: !primary?.owners?.length
       || primary.owners.some((o) => o.fullName === b?.fullName),
-    residenceBand: b?.regTenure ?? null,
+    /*
+      Two columns hold the same answer: the wizard writes `residenceDuration`, while the anketa and
+      this factor read `regTenure`. Reading only the latter meant «Срок проживания» scored 0 on
+      every case the wizard produced. Both are read until the duplicate is retired.
+    */
+    residenceBand: b?.regTenure ?? b?.residenceDuration ?? null,
     sectorRiskCode: emp?.sectorRiskCode ?? null,
     position: emp?.position ?? null,
     experienceBand: emp?.experienceBand ?? null,
@@ -421,10 +428,27 @@ export function scoringInputFromCase(c: ScorableCase): ScoreInput {
     loansOver5MFlag: h?.loansOver5MFlag ?? null,
     priorMfiPawnshopFlag: h?.priorMfiPawnshopFlag ?? null,
     monthlyTranchePayment: newPayment + existing,
-    // балл!C28 adds exactly two income lines.
-    monthlyIncome: (toNum(af?.mainActivityIncome) ?? 0) + (toNum(af?.secondaryIncome) ?? 0),
+    /*
+      балл!C28 reads Д1!C44+C45, and b3 splits those same two into its four income lines — D28←C44,
+      D31←C45, the other two unlinked. Summing all four instead is both the sheet's own total
+      (b3!D38 = SUM(D28:D31), what its debt-burden ratio divides by) and identical to C44+C45 on the
+      reference, where the unlinked pair is empty. Reading only two of the four would have silently
+      dropped a client's secondary or family income from the affordability factors — 43 of the 100.
+    */
+    monthlyIncome:
+      (toNum(af?.mainActivityIncome) ?? 0) + (toNum(af?.secondaryIncome) ?? 0)
+      + (toNum(af?.familyIncome) ?? 0) + (toNum(af?.otherIncome) ?? 0),
+    /*
+      балл!C29 = C28×0.5 + SUM(Д1!C46:C49), and that range is utilities, family, EXISTING CREDIT
+      PAYMENTS (C48 ← b4!C9) and other. The credit line was missing here, so anyone already
+      servicing debt showed a larger surplus than the sheet gives them.
+
+      It is deliberately counted twice — once as an expense, once inside the tranche load — because
+      that is what C27 and C29 do.
+    */
     declaredExpenses:
-      (toNum(af?.utilitiesExpense) ?? 0) + (toNum(af?.familyExpense) ?? 0) + (toNum(af?.otherExpense) ?? 0),
+      (toNum(af?.utilitiesExpense) ?? 0) + (toNum(af?.familyExpense) ?? 0)
+      + (toNum(af?.otherExpense) ?? 0) + existing,
   };
 }
 
