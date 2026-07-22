@@ -84,7 +84,7 @@ export interface ScoreFactor {
   /** Row number on the «балл» sheet, so a disputed score can be traced back to it. */
   no: number;
   key: string;
-  /** The sheet's own row label. */
+  /** The sheet's own row label, verbatim — including its lower-case «залог» and its «Залогадетель». */
   label: string;
   points: number;
   max: number;
@@ -186,7 +186,7 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   add(4, 'maritalStatus', 'Семейное положение', msPts, 3, blank(ms));
 
   // 5. Залог — IF(Д2!B42="авто",2,4)
-  add(5, 'collateral', 'Залог', i.hasAutoCollateral ? 2 : 4, 4, (i.collateralCount ?? 0) === 0);
+  add(5, 'collateral', 'залог', i.hasAutoCollateral ? 2 : 4, 4, (i.collateralCount ?? 0) === 0);
 
   /*
     6. FAMILY_SIZE — the «балл» row is labelled «Количество детей», but its formula reads b3!D22,
@@ -198,7 +198,7 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   add(6, 'familySize', 'Количество детей (оила аъзолари сони)', famPts, 3, fam == null);
 
   // 7. Залогодатель — IF(Д2!B28="да",3,1)
-  add(7, 'pledgor', 'Залогодатель', i.pledgorIsBorrower ? 3 : 1, 3, (i.collateralCount ?? 0) === 0);
+  add(7, 'pledgor', 'Залогадетель', i.pledgorIsBorrower ? 3 : 1, 3, (i.collateralCount ?? 0) === 0);
 
   // 8. Срок проживания — «иное»→3, «1-5 лет»→2, else 1.
   const resPts = has(i.residenceBand, 'иное') || has(i.residenceBand, 'бошқа') ? 3
@@ -242,11 +242,15 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   const depPts = !low || belowLowest ? 0 : low >= 3000 ? 3 : low >= 1000 ? 2 : low >= 500 ? 1 : 0;
   add(13, 'deposits', 'Наличие депозитов', depPts, 3, blank(i.depositBand));
 
-  // 14. Колич. кредитов — IF(C3>=3,3,IF(C3=2,2,1)). Row is labelled «погаш.» but reads the
-  //     existing-loans cell; the formula is followed.
+  /*
+    14. IF(C3>=3,3,IF(C3=2,2,1)). The row is labelled «погаш.» (repaid) but reads b4!C3, which that
+    sheet labels «Количество имеющихся кредитов» (existing). The formula is followed, and the label
+    is left as the sheet writes it — the operator matches these rows against the paper form, so
+    renaming one to be clearer would make it harder to find, not easier.
+  */
   const act = num(i.activeLoansCount);
   const actPts = act == null ? 1 : act >= 3 ? 3 : act === 2 ? 2 : 1;
-  add(14, 'loanCount', 'Колич. кредитов', actPts, 3, act == null);
+  add(14, 'loanCount', 'Колич.погаш.кредитов', actPts, 3, act == null);
 
   // 15. Прочие обязательства — IF(C5=0,2,0)
   const oth = num(i.otherObligations);
