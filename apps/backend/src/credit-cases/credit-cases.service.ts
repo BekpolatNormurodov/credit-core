@@ -283,11 +283,19 @@ export class CreditCasesService {
           ...(dto.collaterals !== undefined ? { productType: dto.collaterals[0]?.type ?? existing.productType } : {}),
         },
       }),
-      this.prisma.borrower.upsert({
-        where: { caseId: id },
-        create: { caseId: id, ...this.borrowerData(dto.borrower) },
-        update: this.borrowerData(dto.borrower),
-      }),
+      /*
+        Guarded: a section save that does not carry the borrower used to crash here with a 500
+        instead of leaving the borrower alone. The type says it is always present, which is true of
+        the wizard but not of every caller — and a missing optional section must be a no-op, never
+        an internal error.
+      */
+      ...(dto.borrower
+        ? [this.prisma.borrower.upsert({
+            where: { caseId: id },
+            create: { caseId: id, ...this.borrowerData(dto.borrower) },
+            update: this.borrowerData(dto.borrower),
+          })]
+        : []),
       // Only churn guarantors/collaterals when that section is actually being saved
       // (so a later-step autosave can't wipe rows or reset collateral IDs — review #3).
       ...(dto.guarantors !== undefined ? [

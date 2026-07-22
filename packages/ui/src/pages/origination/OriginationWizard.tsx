@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import type { CaseSectionKey } from '@credit-core/shared';
+import { getErrorMessage } from '@credit-core/api-client';
 import { Button } from '../../components/primitives';
 import { useToast } from '../../components/Toast';
 import { Check } from '../../lib/icons';
@@ -30,8 +31,13 @@ export function OriginationWizard() {
     try {
       await f.saveSection(STEPS[f.step].section);
       if (f.step < STEPS.length - 1) f.setStep(f.step + 1);
-    } catch {
-      toast.error('Saqlanmadi', 'Qayta urinib ko‘ring');
+    } catch (err) {
+      /*
+        Show what the server actually said. It answers with the offending field — «insuredSum raqam
+        bo'lishi kerak» — and this used to replace that with "try again", leaving the operator to
+        hunt for a field the response had already named.
+      */
+      toast.error('Saqlanmadi', getErrorMessage(err));
     }
   };
   // Jumping between steps autosaves the current one (best-effort) so progress persists per step —
@@ -42,7 +48,13 @@ export function OriginationWizard() {
     f.setStep(i);
   };
   const finish = async () => {
-    const s = await f.save();
+    let s;
+    try {
+      s = await f.save();
+    } catch (err) {
+      toast.error('Saqlanmadi', getErrorMessage(err));
+      return;
+    }
     if (!s) { toast.error('Tekshiring', 'Majburiy maydonlar to‘ldirilmagan'); return; }
     toast.success('Saqlandi', s.number);
     nav(`/cases/${s.id}`);
