@@ -4,7 +4,7 @@ import { CaseDocData } from '../case-document.loader';
 import { sectionTitle } from '../doc-layout';
 import { mapDocStrings } from '../sanitize';
 import { p, loanWord } from './_shared';
-import { collateralBlock } from './_collateral';
+import { contractCollateralProse } from './_collateral';
 
 /** Bold section heading, e.g. "4. Микромолия ташкилотининг ҳуқуқ ва мажбуриятлари". */
 const h = (text: string): Content => sectionTitle(text);
@@ -138,17 +138,21 @@ function buildContract(c: CaseDocData): TDocumentDefinitions {
 
       h('3. Микроқарз бўйича гаров таъминоти'),
       p('3.1. Ушбу Шартнома бўйича тақдим этилган Микроқарз қуйидаги гаров билан таъминланади:'),
-      sub('3.1.1. Гаров предмети'),
-      ...collateralBlock(c),
+      // 3.1.1 is prose on the reference sheet, not a table — see contractCollateralProse.
+      ...contractCollateralProse(c, { actDateStr: lineDateStr }),
       p(`Гаровга қўювчи: ${pledgorName}.`),
       p(
-        `Келишилган гаров қиймати: ${amountWithWords(totalCollateral)}. Гаровнинг аниқ шартлари тегишли тарзда нотариал тасдиқланган гаров шартномаси билан белгиланади. Гаров объекти суғурталанмайди.`,
+        `Гаров предметлари умумий қиймати келишиш далолатномасига мувофиқ ${amountWithWords(totalCollateral)}ни ташкил қилади.`,
       ),
-      sub('3.1.2. Кредит бўйича суғурта'),
+      /*
+        3.1.2 printed a bare «—» whenever the case had no insurance flag set, which is most of them.
+        The clause exists on every reference contract, so it now always states something: the policy
+        when there is one, and the sheet's own «сугурталанмайди» when there is not.
+      */
       p(
         insurance?.insured
-          ? `${insurance.company ?? '—'} суғурта компаниясининг кредит қайтмаслилиги хавфи полиси. Суғурта полисининг қиймати ${amountWithWords(insuredSum)}. Тўлиқ шартлари Суғурта компанияси ва Микромолия ташкилоти ўртасида имзоланган келишувда кўрсатилиб ўтилган.`
-          : '—',
+          ? `3.1.2  ${insurance.company ?? '—'} суғурта компаниясининг кредит қайтмаслилиги хавфи полиси. Сугурта полисининг киймати ${amountWithWords(insuredSum)}. Тулик шартлари Сугурта компания ва Микромолия ташкилоти уртасида имзоланган келишувда курсатилиб утилган.`
+          : '3.1.2  Кредит бўйича суғурта расмийлаштирилмаган. Гаров объекти сугурталанмайди.',
       ),
       p(
         '3.2. Қонун ҳужжатларига мувофиқ расмийлаштирилган, «Гаров предмети» ҳисобланган нотариал тасдиқланган гаров шартномаси Қарз олувчи томонидан ушбу шартнома тузилгандан сўнг 10 банк куни мобайнида Микромолия ташкилотига тақдим этилиши лозим. Гаров шартномаси белгиланган муддатда тақдим этилмаган ҳолларда, Микромолия ташкилоти Қарз олувчининг манзилига ёзма билдиришнома юбориш орқали микроқарз беришни рад этиш ва / ёки ушбу шартномани бир томонлама бекор қилиш ҳуқуқига эгадир. Бунда ушбу шартнома Қарз олувчи томонидан талабнома олинган вақтда ёки талабнома почта хизмати орқали юборилгандан кейин учинчи куни бекор қилинган ҳисобланади.',

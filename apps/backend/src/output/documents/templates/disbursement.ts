@@ -41,7 +41,14 @@ export function disbursementTemplate(c: CaseDocData): TDocumentDefinitions {
         alignment: 'right',
         margin: [0, 0, 0, 12],
       },
-      p(`${b?.regAddress ?? b?.address ?? '—'}да яшовчи ${b?.fullName ?? '—'}дан`),
+      /*
+        Address, name and «томонидан» on their own lines, as the paper form is laid out. Run
+        together they made one long paragraph that wrapped mid-address and buried the applicant's
+        name in the middle of it.
+      */
+      { text: `${b?.regAddress ?? b?.address ?? '—'}да яшовчи`, margin: [0, 0, 0, 1] },
+      { text: b?.fullName ?? '—', bold: true },
+      { text: 'томонидан', margin: [0, 0, 0, 2] },
       { text: 'АРИЗА', bold: true, alignment: 'center', fontSize: 13, margin: [0, 6, 0, 10] },
       p(
         `Ушбу ариза билан мен ${b?.fullName ?? '—'}, сиздан ${org?.nameUpper ?? 'ММТ'} билан имзоланган ` +
@@ -55,16 +62,27 @@ export function disbursementTemplate(c: CaseDocData): TDocumentDefinitions {
       line('МФО', d?.bankMfo ?? '—'),
       line('ИНН', d?.holderInn ?? '—'),
       line('Банк', d?.bankName ?? '—'),
+      /*
+        The signature row is three real columns, matching the caption row below it. It used to be a
+        single string padded with spaces — so the rules drifted away from «Имзо» and «Сана» as soon
+        as the name was any longer than the sample, which is most names.
+      */
       {
-        columns: [{ width: '*', text: `${b?.fullName ?? '—'}   ______________   ____________` }],
+        columns: [
+          { width: '*', text: b?.fullName ?? '—' },
+          { width: 120, text: '______________', alignment: 'center' },
+          { width: 100, text: '____________', alignment: 'right' },
+        ],
+        columnGap: 12,
         margin: [0, 26, 0, 0],
       },
       {
         columns: [
-          { width: '*', text: 'Ф.И.Ш.', alignment: 'left', fontSize: 8, color: '#555' },
-          { width: '*', text: 'Имзо', alignment: 'center', fontSize: 8, color: '#555' },
-          { width: '*', text: 'Сана', alignment: 'right', fontSize: 8, color: '#555' },
+          { width: '*', text: 'Ф.И.Ш.', fontSize: 8, color: '#555' },
+          { width: 120, text: 'Имзо', alignment: 'center', fontSize: 8, color: '#555' },
+          { width: 100, text: 'Сана', alignment: 'right', fontSize: 8, color: '#555' },
         ],
+        columnGap: 12,
         margin: [0, 2, 0, 0],
       },
     ],

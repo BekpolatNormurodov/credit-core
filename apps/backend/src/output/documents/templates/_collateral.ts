@@ -236,3 +236,58 @@ export function collateralBlock(c: CaseDocData, opts: { realtyWithValue?: boolea
   }
   return out;
 }
+
+/**
+ * The contract's 3.1.1 «Гаров предмети» — one PROSE paragraph per pledge, not a table.
+ *
+ * The Excel contract writes this out in sentences (sheet «договор узб», A24/A25); only the Приказ,
+ * the Акт and the Бош келишув use the table. We printed the table here too, which is why the
+ * contract read like a spreadsheet next to the reference.
+ *
+ * The wording is that sheet's, including its unevenness — «сум»/«сўмни», and the ипотека vs гаров
+ * шартномаси split between property and vehicle.
+ */
+export function contractCollateralProse(
+  c: CaseDocData,
+  opts: { actNo?: string; actDateStr?: string } = {},
+): Content[] {
+  const cols = c.collaterals ?? [];
+  if (!cols.length) return [{ text: 'Гаров киритилмаган', italics: true }];
+
+  const actNo = opts.actNo ?? '1';
+  const actDate = opts.actDateStr ?? '—';
+  const borrower = c.borrower?.fullName ?? '—';
+
+  return cols.map((col) => {
+    const pledgor = col.owners?.[0]?.fullName ?? borrower;
+    const opening =
+      `3.1.1. Микромолия ташкилоти, ${pledgor} томонидан микромолия ташкилоти ва Қарздор томонидан ` +
+      `${actDate}да имзоланган №${actNo} сонли Гаров предмети қийматини тасдиқлаш далолатномасига мувофиқ `;
+
+    const subject = col.type === 'AUTO'
+      ? `${pledgor}га тегишли ${dash(col.year)} йил ишлаб чиқарилган, ранги - ${dash(col.color)}, ` +
+        `двигатели рақами ${dash(col.engineNo)}, шасси - ${dash(col.chassis)}, кузов тури - ${dash(col.bodyType)}, ` +
+        `кузов №${dash(col.bodyNo)}, давлат рақам белгиси ${dash(col.stateNumber)} бўлган ${dash(col.model)} ` +
+        `русумли автомашинаси (бундан кейин “Гаров предмети”) ${pledgor}, `
+      : `${dash(col.address)} манзилда жойлашган, ` +
+        `Давлат руйхатидан утказилган ер майдони - ${dash(col.landAreaM2)} кв.м., ` +
+        `умумий майдони (ташки) - ${dash(col.totalAreaM2)} кв.м., ` +
+        `умумий фойдали майдони - ${dash(col.usableAreaM2)} кв.м., ` +
+        `яшаш майдони - ${dash(col.livingAreaM2)} кв.м., бўлган ${realtyWord(col)}, ` +
+        `(бундан кейин – «Гаров Предмети») ${pledgor} га тегишли `;
+
+    // The property paragraph names an ипотека шартномаси; the vehicle one a гаров шартномаси.
+    const deed = col.type === 'AUTO' ? 'гаров шартномаси' : 'ипотека шартномаси';
+
+    return {
+      text:
+        opening + subject +
+        `ва келишилган гаров қиймати ${actDate}даги №${actNo} гаров предмети қийматини тасдиқлаш ` +
+        `далолатномасига мувофиқ ${moneyWithWordsCyr(col.agreedValue)}ни ташкил қилади. ` +
+        `Гаровнинг аниқ шартлари тегишли тарзда нотариал тасдиқланган ${deed} билан белгиланади. ` +
+        `Гаров объекти сугурталанмайди.`,
+      alignment: 'justify',
+      margin: [0, 2, 0, 4],
+    } as Content;
+  });
+}
