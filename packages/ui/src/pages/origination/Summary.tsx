@@ -1,6 +1,83 @@
-import { originationCalc, loanTypeFor, type UpsertCasePayload } from '@credit-core/shared';
+import { useState } from 'react';
+import {
+  originationCalc, loanTypeFor, scoreForCase, SCORE_VERDICT_LABEL,
+  type ScorableCase, type UpsertCasePayload,
+} from '@credit-core/shared';
 import { Card } from '../../components/primitives';
-import { formatMoney } from '../../lib/cn';
+import { ChevronDown } from '../../lib/icons';
+import { cn, formatMoney } from '../../lib/cn';
+
+/** Tone for the score total — matches the verdict bands (<60 refuse, 70+ approve). */
+function scoreTone(verdict: string): string {
+  if (verdict === 'APPROVED') return 'text-success-700 dark:text-success-400';
+  if (verdict === 'BELOW_MIN' || verdict === 'FAILED_PROBLEM_LOANS') return 'text-error-600 dark:text-error-500';
+  return 'text-warning-700 dark:text-warning-400';
+}
+
+/**
+ * The score, factor by factor, folded away until asked for.
+ *
+ * The total on its own invites "why 82?" and there is no way to answer it from the screen — the
+ * weights live in a workbook. Each row here is one line of the «балл» sheet, numbered as it is
+ * there, so a disputed score can be traced to the exact band that produced it.
+ */
+function ScoreBreakdown({ form }: { form: UpsertCasePayload }) {
+  const [open, setOpen] = useState(false);
+  const r = scoreForCase(form as unknown as ScorableCase);
+
+  return (
+    <div className="mt-2 border-t border-gray-200 pt-2 dark:border-white/10">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex w-full cursor-pointer items-center justify-between gap-3 py-1.5 text-left"
+      >
+        <span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
+          Skoring balli
+          <ChevronDown className={cn('h-4 w-4 transition', open && 'rotate-180')} />
+        </span>
+        <span className={cn('nums font-bold', scoreTone(r.verdict))}>
+          {r.total} / {r.max}
+        </span>
+      </button>
+
+      <p className={cn('pb-1 text-right text-xs font-medium', scoreTone(r.verdict))}>
+        {SCORE_VERDICT_LABEL[r.verdict]}
+      </p>
+
+      {open && (
+        <div className="mt-1 space-y-px rounded-lg bg-gray-50 p-2 dark:bg-white/5">
+          {r.factors.map((f) => (
+            <div key={f.key} className="flex items-baseline justify-between gap-2 py-0.5 text-xs">
+              <span className="min-w-0 text-gray-500 dark:text-gray-400">
+                <span className="mr-1 tabular-nums text-gray-400 dark:text-gray-500">{f.no}.</span>
+                {f.label}
+              </span>
+              <span
+                className={cn(
+                  'nums shrink-0 font-semibold',
+                  // A penalty and a zero mean different things: one lost you points, the other
+                  // never had any to give.
+                  f.points < 0 ? 'text-error-600 dark:text-error-500'
+                    : f.points === 0 ? 'text-gray-400 dark:text-gray-500'
+                      : f.points === f.max ? 'text-success-700 dark:text-success-400'
+                        : 'text-gray-700 dark:text-gray-200',
+                )}
+              >
+                {f.points} / {f.max}
+              </span>
+            </div>
+          ))}
+          <p className="mt-1.5 border-t border-gray-200 pt-1.5 text-[11px] leading-relaxed text-gray-400 dark:border-white/10 dark:text-gray-500">
+            0 ball — ma’lumot kiritilmagan yoki shart bajarilmagan. Oxirgi ikkitasi (transh/daromad)
+            43 ballni tashkil qiladi.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /** Live, sticky affordability + economics summary shown beside the wizard. */
 export function Summary({ form }: { form: UpsertCasePayload }) {
@@ -57,6 +134,8 @@ export function Summary({ form }: { form: UpsertCasePayload }) {
           Daromad yetarli emas (surplus manfiy yoki 2.2× dan past) — ko‘rib chiqing.
         </p>
       )}
+
+      <ScoreBreakdown form={form} />
     </Card>
   );
 }

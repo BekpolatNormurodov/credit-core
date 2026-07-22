@@ -189,11 +189,19 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   const houPts = has(i.housingType, 'иш берувчи') ? 1 : has(i.housingType, 'мулкий') ? 2 : 0;
   add(12, 'housing', 'Наличие дома', houPts, 2);
 
-  // 13. Наличие депозитов — 500-1000$→1, 1000-3000$→2, 3000$+→3, else 0.
-  const dep = i.depositBand;
-  const depPts = has(dep, '3000') && !has(dep, '1000 дан 3000') ? 3
-    : has(dep, '1000 дан 3000') ? 2
-      : has(dep, '500 дан 1000') ? 1 : 0;
+  /*
+    13. Наличие депозитов — banded by the LOWER bound of the range, which is the only reading that
+    handles both wordings in use: the sheet's «500 дан 1000$ гача экв.» and the wizard's «500-1000$».
+    Matching on substrings alone cannot ("500-1000$" contains both 500 and 1000).
+
+    «500$ кам» — under 500 — scores 0 like «мавжуд эмас»: the sheet gives points only from the
+    500-1000 band up.
+  */
+  const dep = (i.depositBand ?? '').toLowerCase();
+  const bounds = (dep.match(/\d+/g) ?? []).map(Number);
+  const low = bounds.length ? Math.min(...bounds) : null;
+  const belowLowest = has(dep, 'кам') || has(dep, 'менее');
+  const depPts = !low || belowLowest ? 0 : low >= 3000 ? 3 : low >= 1000 ? 2 : low >= 500 ? 1 : 0;
   add(13, 'deposits', 'Наличие депозитов', depPts, 3);
 
   // 14. Колич. кредитов — IF(C3>=3,3,IF(C3=2,2,1)). Row is labelled «погаш.» but reads the
@@ -262,3 +270,86 @@ export const SCORE_VERDICT_LABEL: Record<ScoreVerdict, string> = {
   BELOW_MIN: 'Скоринг балл минимал талабдан паст',
   FAILED_PROBLEM_LOANS: 'Муаммоли кредитлар мавжудлиги босқичидан ўтмади',
 };
+
+/* ── Mapping a case onto the score ─────────────────────────────────────────── */
+
+/**
+ * The shape both the API DTO and the loaded Prisma row satisfy.
+ *
+ * Deliberately loose: the two differ (Decimal vs number, Date vs ISO string) and neither is worth
+ * converting just to score it. One mapper means the wizard's live preview and the printed report
+ * can never disagree about the number — which they would within a week if written twice.
+ */
+export interface ScorableCase {
+  borrower?: {
+    gender?: unknown; birthDate?: unknown; education?: string | null; maritalStatus?: string | null;
+    familySize?: number | null; regTenure?: string | null; fullName?: string | null;
+    ownsHome?: string | null; depositsBand?: string | null;
+  } | null;
+  employment?: { sectorRiskCode?: number | null; position?: string | null; experienceBand?: string | null } | null;
+  affordability?: {
+    mainActivityIncome?: unknown; secondaryIncome?: unknown; utilitiesExpense?: unknown;
+    familyExpense?: unknown; otherExpense?: unknown; newLoanPayment?: unknown; existingCreditBurden?: unknown;
+  } | null;
+  creditHistory?: {
+    activeLoansCount?: number | null; overdueSubstandardFlag?: number | null; otherObligations?: number | null;
+    loansOver5MFlag?: string | null; priorMfiPawnshopFlag?: string | null; avgMonthlyPaymentExisting?: unknown;
+  } | null;
+  collaterals?: { type?: unknown; owners?: { fullName?: string | null }[] | null }[] | null;
+  creditLine?: { tranche?: { monthlyPayment?: unknown } | null; tranches?: { monthlyPayment?: unknown }[] | null } | null;
+}
+
+const toNum = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+};
+
+export function scoringInputFromCase(c: ScorableCase): ScoreInput {
+  const b = c.borrower;
+  const emp = c.employment;
+  const af = c.affordability;
+  const h = c.creditHistory;
+  // The DTO exposes a single `tranche`; the Prisma row a `tranches` array.
+  const tr = c.creditLine?.tranche ?? c.creditLine?.tranches?.[0] ?? null;
+
+  const newPayment = toNum(af?.newLoanPayment) ?? toNum(tr?.monthlyPayment) ?? 0;
+  const existing = toNum(af?.existingCreditBurden) ?? toNum(h?.avgMonthlyPaymentExisting) ?? 0;
+
+  return {
+    gender: (b?.gender as 'MALE' | 'FEMALE' | null) ?? null,
+    birthDate: (b?.birthDate as Date | string | null) ?? null,
+    education: b?.education ?? null,
+    maritalStatus: b?.maritalStatus ?? null,
+    hasAutoCollateral: (c.collaterals ?? []).some((col) => col.type === 'AUTO'),
+    familySize: b?.familySize ?? null,
+    /*
+      Д2!B28 — «да» when the borrower pledges their own property. An empty owner list means exactly
+      that (the borrower stands in; see resolveOwners), so it counts as yes.
+    */
+    pledgorIsBorrower: (c.collaterals ?? []).every(
+      (col) => !col.owners?.length || col.owners.some((o) => o.fullName === b?.fullName),
+    ),
+    residenceBand: b?.regTenure ?? null,
+    sectorRiskCode: emp?.sectorRiskCode ?? null,
+    position: emp?.position ?? null,
+    experienceBand: emp?.experienceBand ?? null,
+    housingType: b?.ownsHome ?? null,
+    depositBand: b?.depositsBand ?? null,
+    activeLoansCount: h?.activeLoansCount ?? null,
+    overdueSubstandardFlag: h?.overdueSubstandardFlag ?? null,
+    otherObligations: h?.otherObligations ?? null,
+    loansOver5MFlag: h?.loansOver5MFlag ?? null,
+    priorMfiPawnshopFlag: h?.priorMfiPawnshopFlag ?? null,
+    monthlyTranchePayment: newPayment + existing,
+    // балл!C28 adds exactly two income lines.
+    monthlyIncome: (toNum(af?.mainActivityIncome) ?? 0) + (toNum(af?.secondaryIncome) ?? 0),
+    declaredExpenses:
+      (toNum(af?.utilitiesExpense) ?? 0) + (toNum(af?.familyExpense) ?? 0) + (toNum(af?.otherExpense) ?? 0),
+  };
+}
+
+/** Score a case straight from either shape. */
+export function scoreForCase(c: ScorableCase): ScoreResult {
+  return scoreCase(scoringInputFromCase(c));
+}

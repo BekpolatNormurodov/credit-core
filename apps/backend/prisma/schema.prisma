@@ -302,10 +302,6 @@ model Borrower {
   entrepreneurType   String?   // >100M: yakka tartibdagi tadbirkor / o'zini o'zi band qilgan
   entrepreneurCertNo String?   // guvohnoma raqami
   maritalStatus     String?
-  /// b3!D42 «Яшаш жойи тури» — scoring input (мулкий хукук / ижара-ётоқхона / иш берувчи).
-  housingType       String?
-  /// b3!D43 «Банкларда омонат хисобракамлари» — scoring input (deposit size band).
-  depositBand       String?
   familySize        Int?
   childrenCount     Int?
   education         String?

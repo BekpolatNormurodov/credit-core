@@ -125,11 +125,28 @@ describe('individual bands', () => {
     expect(at({ monthlyTranchePayment: 9_833_001 }, 'trancheToIncome')).toBe(0);
   });
 
-  it('ranks deposit bands without confusing 1000-3000 with 3000+', () => {
+  // Two wordings are in use — the workbook's and the wizard's dropdown — and both must band the
+  // same way. "500-1000$" contains both 500 and 1000, so substring matching alone cannot do it.
+  it("ranks deposit bands in the workbook's wording", () => {
     expect(at({ depositBand: '3000$ ва ундан юқори, в экв.' }, 'deposits')).toBe(3);
     expect(at({ depositBand: '1000 дан 3000$ в экв.' }, 'deposits')).toBe(2);
     expect(at({ depositBand: '500 дан 1000$ гача экв.' }, 'deposits')).toBe(1);
+    expect(at({ depositBand: '500$ кам эквивалентда' }, 'deposits')).toBe(0);
     expect(at({ depositBand: 'мавжуд эмас' }, 'deposits')).toBe(0);
+  });
+
+  it("ranks deposit bands in the wizard's wording identically", () => {
+    expect(at({ depositBand: '3000$+' }, 'deposits')).toBe(3);
+    expect(at({ depositBand: '1000-3000$' }, 'deposits')).toBe(2);
+    expect(at({ depositBand: '500-1000$' }, 'deposits')).toBe(1);
+    expect(at({ depositBand: '500$ кам' }, 'deposits')).toBe(0);
+    expect(at({ depositBand: 'мавжуд эмас' }, 'deposits')).toBe(0);
+  });
+
+  it("ranks housing types from the wizard's wording", () => {
+    expect(at({ housingType: 'мулкий хукук' }, 'housing')).toBe(2);
+    expect(at({ housingType: 'иш берувчи берган' }, 'housing')).toBe(1);
+    expect(at({ housingType: 'ижара/ётокхона' }, 'housing')).toBe(0);
   });
 });
 
