@@ -11,7 +11,7 @@ const yearsAgo = (n: number) => new Date(Date.now() - n * 365.25 * 24 * 3600 * 1
 const strong = () => ({
   borrower: {
     fullName: 'A A', gender: 'FEMALE', birthDate: yearsAgo(45), education: 'Олий',
-    maritalStatus: 'Уйланган', familySize: 2, regTenure: 'иное (бошқа)',
+    maritalStatus: 'турмуш курган', familySize: 2, regTenure: 'иное (бошқа)',
     ownsHome: 'мулкий хукук', depositsBand: '3000$+',
   },
   employment: { sectorRiskCode: 5, position: 'Рахбарият', experienceBand: '3-5 лет' },

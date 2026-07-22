@@ -78,7 +78,7 @@ export function Step1({ f }: { f: OriginationForm }) {
         <Field label="Oilaviy holat"><Select value={(b.maritalStatus ?? '') as string} onChange={(v) => set({ maritalStatus: v })} options={opt(['турмуш курган', 'ажрашган', 'бўйдоқ', 'бева'])} /></Field>
         <Field label="Oila a'zolari soni"><Input type="number" value={b.familySize ?? ''} onChange={(e) => set({ familySize: numv(e.target.value) })} /></Field>
         <Field label="Bolalar soni"><Input type="number" value={b.childrenCount ?? ''} onChange={(e) => set({ childrenCount: numv(e.target.value) })} /></Field>
-        <Field label="Ma'lumoti"><Select value={(b.education ?? '') as string} onChange={(v) => set({ education: v })} options={opt(['олий', 'урта махсус', 'урта'])} /></Field>
+        <Field label="Ma'lumoti"><Select value={(b.education ?? '') as string} onChange={(v) => set({ education: v })} options={opt(['бир нечта олий', 'олий', 'урта махсус', 'урта'])} /></Field>
         <Field label="Yashash davomiyligi"><Select value={(b.residenceDuration ?? '') as string} onChange={(v) => set({ residenceDuration: v })} options={opt(['до 3 лет', '1-5 лет', '5-10 лет', 'иное'])} /></Field>
         <Field label="Uy egaligi"><Select value={(b.ownsHome ?? '') as string} onChange={(v) => set({ ownsHome: v })} options={opt(['мулкий хукук', 'ижара/ётокхона', 'иш берувчи берган'])} /></Field>
         <Field label="Depozit darajasi"><Select value={(b.depositsBand ?? '') as string} onChange={(v) => set({ depositsBand: v })} options={opt(['мавжуд эмас', '500$ кам', '500-1000$', '1000-3000$', '3000$+'])} /></Field>
@@ -147,7 +147,7 @@ export function Step2({ f }: { f: OriginationForm }) {
             <Select searchable value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })}
               options={[...SECTOR_RISK.map((s) => ({ value: s.label, label: s.label })), { value: SECTOR_OTHER, label: SECTOR_OTHER }]} />
           </Field>
-          <Field label="Lavozim"><Input value={e.position ?? ''} onChange={(ev) => setEmp({ position: ev.target.value })} /></Field>
+          <Field label="Lavozim"><Select value={(e.position ?? '') as string} onChange={(v) => setEmp({ position: v })} options={opt(['Рахбарият', 'ўрта менежер', 'мутахассис', 'хизмат кўрсатувчи'])} /></Field>
           <Field label="Ish staji (sana)"><Input value={e.employedSince ?? ''} onChange={(ev) => setEmp({ employedSince: ev.target.value })} placeholder="2024 й." /></Field>
           <Field label="Umumiy staj"><Select value={(e.experienceBand ?? '') as string} onChange={(v) => setEmp({ experienceBand: v })} options={opt(['до 3 лет', '3-5 лет', '5-9 лет', '10 и более'])} /></Field>
         </div>

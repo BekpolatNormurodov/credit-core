@@ -179,11 +179,17 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   const edu = has(i.education, 'бир нечта') ? 3 : eq(i.education, 'олий') ? 2 : has(i.education, 'урта махсус') ? 1 : 0;
   add(3, 'education', 'Образование', edu, 3, blank(i.education));
 
-  // 4. Семейное положение — the sheet's three options, anything else 2.
+  /*
+    4. Семейное положение — Д1!C32 against E32/F32/G32, which read «турмуш курган», «ажрашган»
+    and «бўйдоқ»; anything else (a widow, say) scores 2.
+
+    This matched «уйланган» and a half-Latin «турмуш qurgan» — neither of which the picker offers.
+    A married applicant therefore fell through to the else branch and lost a point, on every case.
+  */
   const ms = i.maritalStatus;
-  const msPts = has(ms, 'уйланган') || has(ms, 'турмуш qurgan') || has(ms, 'оилали') ? 3
+  const msPts = has(ms, 'турмуш курган') ? 3
     : has(ms, 'ажрашган') ? 2
-      : has(ms, 'бўйдоқ') || has(ms, 'ёлғиз') ? 0
+      : has(ms, 'бўйдоқ') ? 0
         : 2;
   add(4, 'maritalStatus', 'Семейное положение', msPts, 3, blank(ms));
 
@@ -213,7 +219,8 @@ export function scoreCase(i: ScoreInput): ScoreResult {
   const riskPts = risk == null ? 0 : risk > 18 ? 4 : risk > 9 ? 5 : 6;
   add(9, 'sector', 'Сфера деятельности', riskPts, 6, risk == null);
 
-  // 10. Должность — «Рахбарият»→5, «ўрта менежер»→4, else 2.
+  // 10. Должность — b3!D26 against F26/G26: «Рахбарият»→5, «ўрта менежер»→4; «мутахассис» and
+  //     «хизмат кўрсатувчи» fall to the else branch at 2.
   const posPts = has(i.position, 'рахбар') ? 5 : has(i.position, 'менежер') ? 4 : i.position ? 2 : 0;
   add(10, 'position', 'Должность', posPts, 5, blank(i.position));
 

@@ -13,7 +13,8 @@ const REFERENCE: ScoreInput = {
   // 37.4 years at the time the sheet was computed — fixed here so the test does not age.
   birthDate: new Date(Date.now() - 37.4 * 365 * 24 * 3600 * 1000),
   education: 'урта',
-  maritalStatus: 'Уйланган',
+  // Д1!C32 in the reference workbook — the picker's own wording, not a paraphrase.
+  maritalStatus: 'турмуш курган',
   hasAutoCollateral: false,
   // The reference case pledges one property.
   collateralCount: 1,
@@ -148,6 +149,21 @@ describe('individual bands', () => {
     expect(at({ depositBand: '500-1000$' }, 'deposits')).toBe(1);
     expect(at({ depositBand: '500$ кам' }, 'deposits')).toBe(0);
     expect(at({ depositBand: 'мавжуд эмас' }, 'deposits')).toBe(0);
+  });
+
+  it("ranks marital status by the sheet's own options", () => {
+    expect(at({ maritalStatus: 'турмуш курган' }, 'maritalStatus')).toBe(3);
+    expect(at({ maritalStatus: 'ажрашган' }, 'maritalStatus')).toBe(2);
+    expect(at({ maritalStatus: 'бўйдоқ' }, 'maritalStatus')).toBe(0);
+    // A widow is none of the three and takes the else branch, as in the sheet.
+    expect(at({ maritalStatus: 'бева' }, 'maritalStatus')).toBe(2);
+  });
+
+  it("ranks positions by the sheet's own options", () => {
+    expect(at({ position: 'Рахбарият' }, 'position')).toBe(5);
+    expect(at({ position: 'ўрта менежер' }, 'position')).toBe(4);
+    expect(at({ position: 'мутахассис' }, 'position')).toBe(2);
+    expect(at({ position: 'хизмат кўрсатувчи' }, 'position')).toBe(2);
   });
 
   it("ranks housing types from the wizard's wording", () => {
