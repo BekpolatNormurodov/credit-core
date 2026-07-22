@@ -8,7 +8,16 @@ export async function loadCaseForDocs(prisma: PrismaService, id: string) {
     include: {
       branch: true,
       borrower: true,
-      collaterals: { include: { owners: true } },
+      /*
+        Ordered, and ordered the same way the API mapper orders it.
+
+        «The primary collateral» decides real things — the score's pledge factors, the case's
+        productType, whose name appears as the pledgor, and the order 3.1.1 lists them in. Without
+        an ORDER BY that was whatever MySQL returned, so the wizard's live score and the printed
+        report could disagree about which pledge came first. `id` breaks the tie: collaterals are
+        created inside one transaction and can share a timestamp to the millisecond.
+      */
+      collaterals: { include: { owners: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       creditLine: {
         include: {
           tranches: {

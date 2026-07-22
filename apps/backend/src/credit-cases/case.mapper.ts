@@ -6,7 +6,8 @@ export const caseInclude = {
   createdBy: true,
   borrower: true,
   guarantors: { orderBy: { id: 'asc' } },
-  collaterals: { include: { owners: true }, orderBy: { createdAt: 'asc' } },
+  // `id` breaks the tie — collaterals are created in one transaction and can share a timestamp.
+  collaterals: { include: { owners: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
   employment: true,
   affordability: true,
   creditHistory: true,
