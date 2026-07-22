@@ -96,7 +96,15 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
     };
   }
 
-  // Gate verdicts derived from the stored result — never a blanket "all OK".
+  /*
+    B17 and B18 are the two gates the sheet does NOT compute — it types «Талабларга мос келади»
+    into both and leaves them there, so on paper they say the same thing about every case.
+
+    A deliberate departure, confirmed with the office: a line that always passes tells the reader
+    nothing, and these two are checkable. Terms pass when the loan actually has an amount, a term
+    and a rate; collateral passes when the pledges cover the property-backed portion by the 140%
+    the business requires. The remaining four follow their formulas exactly.
+  */
   const termsOk = Number(amount ?? 0) > 0 && Number(term ?? 0) > 0 && ratePct != null;
 
   const collateralTotal = c.collaterals.reduce((sum, col) => sum + Number(col.agreedValue ?? 0), 0);

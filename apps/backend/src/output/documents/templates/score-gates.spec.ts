@@ -77,3 +77,49 @@ describe('«Даромадларнинг етарлилиги» — B19 = IF(б�
     expect(gate(t, 'Даромадларнинг етарлилиги')).not.toContain('қўмитаси');
   });
 });
+
+/*
+  The two gates the sheet leaves static. It types «Талабларга мос келади» into both and never
+  computes them, so on paper they pass for every case. We check them instead — confirmed with the
+  office — because a line that always passes tells the reader nothing. These tests exist so that
+  choice cannot be reverted by accident.
+*/
+describe('«Умумий шартларга» — ours, not the sheet\'s', () => {
+  it('passes when the loan has an amount, a term and a rate', () => {
+    const t = report({ creditLine: { amountTotal: 50_000_000 as never, termMonths: 24 as never, interestRate: 0.55 as never } });
+    expect(gate(t, 'фоиз ставка)')).toContain('Талабларга мос келади');
+  });
+
+  it('fails when the rate is missing', () => {
+    const t = report({ creditLine: { interestRate: null as never } });
+    expect(gate(t, 'фоиз ставка)')).toContain('Талабларга мос келмайди');
+  });
+
+  it('fails when the term is missing', () => {
+    const t = report({ creditLine: { termMonths: null as never } });
+    expect(gate(t, 'фоиз ставка)')).toContain('Талабларга мос келмайди');
+  });
+});
+
+describe('«Гаровга кўйилган талаблар» — ours, at the 140% the business requires', () => {
+  it('passes when the pledges cover the property-backed portion', () => {
+    const t = report({
+      creditLine: { amountAuto: 100_000_000 as never },
+      collaterals: [{ type: 'REAL_ESTATE', agreedValue: 140_000_000, owners: [] }] as never,
+    });
+    expect(gate(t, 'Гаровга кўйилган талаблар')).toContain('Талабларга мос келади');
+  });
+
+  it('fails a hair below it', () => {
+    const t = report({
+      creditLine: { amountAuto: 100_000_000 as never },
+      collaterals: [{ type: 'REAL_ESTATE', agreedValue: 139_000_000, owners: [] }] as never,
+    });
+    expect(gate(t, 'Гаровга кўйилган талаблар')).toContain('Талабларга мос келмайди');
+  });
+
+  it('fails with no collateral at all', () => {
+    expect(gate(report({ collaterals: [] as never }), 'Гаровга кўйилган талаблар'))
+      .toContain('Талабларга мос келмайди');
+  });
+});
