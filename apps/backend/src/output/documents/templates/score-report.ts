@@ -10,8 +10,6 @@ import { scoringForCase } from '../scoring-for-case';
 const OK = 'Талабларга мос келади';
 const NOT_OK = 'Талабларга мос келмайди';
 const REFER = 'Кредит қўмитаси қарорига хавола';
-const NO_PROBLEM_LOANS = 'Муаммоли кредитлар мавжуд эмас';
-const HAS_PROBLEM_LOANS = 'Муаммоли кредитлар мавжуд';
 const NO_HISTORY = 'Кредит тарихи маълумотлари тўлдирилмаган';
 
 /** ХУЛОСА wording — maps the stored ScoringVerdict onto the sheet's own options. */
@@ -109,8 +107,28 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
   const netAfterDebt = netAfterDebtRaw != null ? Number(netAfterDebtRaw) : null;
   const incomeVerdict = netAfterDebt == null ? REFER : netAfterDebt >= 0 ? OK : REFER;
 
-  const problemVerdict = history == null ? NO_HISTORY : history.overdueSubstandardFlag ? HAS_PROBLEM_LOANS : NO_PROBLEM_LOANS;
-  const obligationsVerdict = history == null ? NO_HISTORY : OK;
+  /*
+    B20 = IF(b4!C4="", I21, IF(b4!C4=0, H21, G21)) — «Муаммоли кредитлар».
+
+    The wording comes from row 21, not from the «Муаммоли кредитлар мавжуд/мавжуд эмас» pair in
+    row 20, which that formula never reads. We were printing the row-20 strings, so this line said
+    something the sheet never says.
+  */
+  const overdue = history?.overdueSubstandardFlag;
+  const problemVerdict = history == null || overdue == null ? NO_HISTORY : overdue === 0 ? OK : REFER;
+
+  /*
+    B21 = IF(b4!C3="", I22, IF(b4!C3>=3, G22, H22)) — «Жорий мажбуриятлари».
+
+    Three or more existing loans fails this gate. Ours passed it unconditionally whenever any
+    credit history existed, so the one condition it tests never fired. (I22 is an empty cell; the
+    «not filled» wording is used for that case, as B20 does with I21 — a blank line on a printed
+    report reads as a fault in the form.)
+  */
+  const activeLoans = history?.activeLoansCount;
+  const obligationsVerdict = history == null || activeLoans == null
+    ? NO_HISTORY
+    : activeLoans >= 3 ? NOT_OK : OK;
 
   const age = s.age;
   const ageOk = age != null && age >= 18 && age <= 68;
