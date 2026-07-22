@@ -40,7 +40,8 @@ describe('scoreReportTemplate (СКОРИНГ ТАХЛИЛ НАТИЖАДАЛА�
     });
     const text = flattenDocText(scoreReportTemplate(c));
 
-    expect(text).toContain('Кредит қўмитаси қарорига хавола'); // income gate
+    // B19 answers a shortfall with «мос келмайди», not the softer committee referral.
+    expect(text).toContain('Талабларга мос келмайди'); // income gate
     expect(text).toContain('Кредит тарихи маълумотлари тўлдирилмаган'); // history gates
     expect(text).toContain('Талабларга мос келмайди'); // age gate
   });

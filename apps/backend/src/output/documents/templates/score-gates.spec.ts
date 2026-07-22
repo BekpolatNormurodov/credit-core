@@ -60,3 +60,20 @@ describe('«Ёшга мувофиқлиги» — B22, the gate that is live in 
       .toContain('Талабларга мос келади');
   });
 });
+
+describe('«Даромадларнинг етарлилиги» — B19 = IF(балл!C31<0, G22, H22)', () => {
+  it('fails when the tranche load exceeds income', () => {
+    const t = report({ affordability: { mainActivityIncome: 1_000_000 as never, newLoanPayment: 5_000_000 as never } });
+    expect(gate(t, 'Даромадларнинг етарлилиги')).toContain('Талабларга мос келмайди');
+  });
+
+  it('passes when income covers it', () => {
+    const t = report({ affordability: { mainActivityIncome: 20_000_000 as never, newLoanPayment: 2_000_000 as never } });
+    expect(gate(t, 'Даромадларнинг етарлилиги')).toContain('Талабларга мос келади');
+  });
+
+  it("never answers this one with a committee referral — that wording is another row's", () => {
+    const t = report({ affordability: { mainActivityIncome: 1_000_000 as never, newLoanPayment: 5_000_000 as never } });
+    expect(gate(t, 'Даромадларнинг етарлилиги')).not.toContain('қўмитаси');
+  });
+});

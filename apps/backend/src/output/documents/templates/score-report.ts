@@ -103,9 +103,14 @@ export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
   const collateralBase = Number(line?.amountAuto ?? line?.amountTotal ?? amount ?? 0);
   const collateralOk = collateralBase > 0 && collateralTotal / collateralBase >= COLLATERAL_COVERAGE_TARGET;
 
+  /*
+    B19 = IF(балл!C31<0, G22, H22) — «Даромадларнинг етарлилиги», where C31 is income minus the
+    monthly tranche load. A shortfall is «Талабларга мос келмайди»; we printed «Кредит қўмитаси
+    қарорига хавола», which belongs to a different row and is a softer answer than the sheet gives.
+  */
   const netAfterDebtRaw = s.netAfterDebt ?? c.affordability?.netAfterDebt;
   const netAfterDebt = netAfterDebtRaw != null ? Number(netAfterDebtRaw) : null;
-  const incomeVerdict = netAfterDebt == null ? REFER : netAfterDebt >= 0 ? OK : REFER;
+  const incomeVerdict = netAfterDebt == null ? NO_HISTORY : netAfterDebt >= 0 ? OK : NOT_OK;
 
   /*
     B20 = IF(b4!C4="", I21, IF(b4!C4=0, H21, G21)) — «Муаммоли кредитлар».
