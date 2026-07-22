@@ -1,0 +1,264 @@
+/**
+ * Скоринг балл — the 20-factor credit score, transcribed from the reference workbook's «балл»
+ * sheet (ХОВЛИ/КВАРТИРА/АВТО мфл TRUST) and its «Score отчет» verdict rule.
+ *
+ * Nothing computed a score before this: the ScoringResult table and the report template existed,
+ * but no code ever filled them, so every case printed «Скоринг ҳисобланмаган».
+ *
+ * The bands below are the sheet's own IF-chains, kept literally rather than tidied. Two of them
+ * look wrong and are reproduced anyway, because the point is to agree with the workbook the office
+ * checks against — see FAMILY_SIZE and EXPERIENCE.
+ */
+
+/** Maximum attainable — the sheet's E5:E24 column sums to this. */
+export const SCORE_MAX = 100;
+/** Below this the case is refused outright; at or above APPROVE it is «Маъқулланди». */
+export const SCORE_MIN = 60;
+export const SCORE_APPROVE = 70;
+
+export type ScoreVerdict =
+  | 'APPROVED'            // Маъқулланди
+  | 'REFER_COMMITTEE'     // Андеррайтер/Кредит қўмитаси қарорига хавола
+  | 'BELOW_MIN'           // Скоринг балл минимал талабдан паст
+  | 'FAILED_PROBLEM_LOANS'; // Муаммоли кредитлар мавжудлиги босқичидан ўтмади
+
+export interface ScoreInput {
+  gender?: 'MALE' | 'FEMALE' | null;
+  birthDate?: Date | string | null;
+  /** b3!D41 — «бир нечта олий» | «Олий» | «урта махсус» | anything else. */
+  education?: string | null;
+  /** Д1!C32 — matched against the sheet's three options; anything else scores 2. */
+  maritalStatus?: string | null;
+  /** True when any pledged collateral is a vehicle (Д2!B42 = "авто"). */
+  hasAutoCollateral?: boolean;
+  /** b3!D22 — «Оила аъзолари сони», the family size (see FAMILY_SIZE note). */
+  familySize?: number | null;
+  /** Д2!B28 — the borrower is also the pledgor. */
+  pledgorIsBorrower?: boolean;
+  /** b3!D15 — «яшаш давомийлиги». */
+  residenceBand?: string | null;
+  /** b3!F25 — the activity sector's risk code, 1..17. */
+  sectorRiskCode?: number | null;
+  /** b3!D26 — «Лавозими». */
+  position?: string | null;
+  /** b3!D27 — «мехнат давомийлиги». */
+  experienceBand?: string | null;
+  /** b3!D42 — «Яшаш жойи тури». */
+  housingType?: string | null;
+  /** b3!D43 — «Банкларда омонат хисобракамлари». */
+  depositBand?: string | null;
+  /** b4!C3 — «Количество имеющихся кредитов». */
+  activeLoansCount?: number | null;
+  /** b4!C4 — «Наличие просроченных кредитов» (0 = none). */
+  overdueSubstandardFlag?: number | null;
+  /** b4!C5 — «Прочие обязательства» (0 = none). */
+  otherObligations?: number | null;
+  /** b4!C6 — «Мавжуд» when the client has loans over 5M. */
+  loansOver5MFlag?: string | null;
+  /** b4!C7 — «Мавжуд» when the client borrowed from an MFI/pawnshop before. */
+  priorMfiPawnshopFlag?: string | null;
+
+  /** балл!C27 — monthly tranche payments: existing avg payment + this loan's payment. */
+  monthlyTranchePayment?: number | null;
+  /** балл!C28 — Д1!C44 + C45, the two income lines. */
+  monthlyIncome?: number | null;
+  /** балл!C29's tail — SUM(Д1!C46:C49), the declared expenses added to the 50% base. */
+  declaredExpenses?: number | null;
+}
+
+export interface ScoreFactor {
+  /** Row number on the «балл» sheet, so a disputed score can be traced back to it. */
+  no: number;
+  key: string;
+  /** The sheet's own row label. */
+  label: string;
+  points: number;
+  max: number;
+}
+
+export interface ScoreResult {
+  factors: ScoreFactor[];
+  total: number;
+  max: number;
+  verdict: ScoreVerdict;
+  /** Intermediate values the report prints (балл!C23, C24, C27..C31). */
+  ratios: {
+    age: number | null;
+    tranchePerIncome: number | null;
+    surplusPerTranche: number | null;
+    income: number;
+    expenses: number;
+    surplus: number;
+    /** балл!C31 — income minus the monthly tranche load; the sheet's income-sufficiency gate. */
+    incomeMinusTranche: number;
+  };
+}
+
+/** Case-insensitive, whitespace-tolerant match — the option strings are typed by hand. */
+const eq = (a: string | null | undefined, b: string): boolean =>
+  (a ?? '').trim().toLowerCase() === b.trim().toLowerCase();
+
+const has = (a: string | null | undefined, needle: string): boolean =>
+  (a ?? '').trim().toLowerCase().includes(needle.toLowerCase());
+
+/** Whole years between `from` and now, as the sheet's (TODAY()-birth)/365. */
+export function ageYears(birth: Date | string | null | undefined, now = new Date()): number | null {
+  if (!birth) return null;
+  const d = birth instanceof Date ? birth : new Date(birth);
+  if (Number.isNaN(d.getTime())) return null;
+  return (now.getTime() - d.getTime()) / (365 * 24 * 3600 * 1000);
+}
+
+const num = (v: unknown): number | null => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+};
+
+/**
+ * The score, factor by factor.
+ *
+ * Missing inputs score 0 rather than throwing — an unfinished case still produces a report, and
+ * the zeroes show exactly which sections are unfilled.
+ */
+export function scoreCase(i: ScoreInput): ScoreResult {
+  const f: ScoreFactor[] = [];
+  const add = (no: number, key: string, label: string, points: number, max: number) =>
+    f.push({ no, key, label, points, max });
+
+  // 1. Пол — IF(Д1!C10="женщина",2,1)
+  add(1, 'gender', 'Пол', i.gender === 'FEMALE' ? 2 : 1, 2);
+
+  // 2. Возраст — IF(>68,0,IF(>=50,5,IF(>=30,4,IF(>=20,2,0))))
+  const age = ageYears(i.birthDate);
+  const agePts = age == null ? 0 : age > 68 ? 0 : age >= 50 ? 5 : age >= 30 ? 4 : age >= 20 ? 2 : 0;
+  add(2, 'age', 'Возраст', agePts, 5);
+
+  // 3. Образование — «бир нечта олий»→3, «Олий»→2, «урта махсус»→1, else 0.
+  //    Note "олий" is a substring of "бир нечта олий", so the multi-degree option is tested first.
+  const edu = has(i.education, 'бир нечта') ? 3 : eq(i.education, 'олий') ? 2 : has(i.education, 'урта махсус') ? 1 : 0;
+  add(3, 'education', 'Образование', edu, 3);
+
+  // 4. Семейное положение — the sheet's three options, anything else 2.
+  const ms = i.maritalStatus;
+  const msPts = has(ms, 'уйланган') || has(ms, 'турмуш qurgan') || has(ms, 'оилали') ? 3
+    : has(ms, 'ажрашган') ? 2
+      : has(ms, 'бўйдоқ') || has(ms, 'ёлғиз') ? 0
+        : 2;
+  add(4, 'maritalStatus', 'Семейное положение', msPts, 3);
+
+  // 5. Залог — IF(Д2!B42="авто",2,4)
+  add(5, 'collateral', 'Залог', i.hasAutoCollateral ? 2 : 4, 4);
+
+  /*
+    6. FAMILY_SIZE — the «балл» row is labelled «Количество детей», but its formula reads b3!D22,
+    which that sheet labels «Оила аъзолари сони» (family size). The formula wins: matching the
+    workbook's number matters more than its own mislabelled row.
+  */
+  const fam = num(i.familySize);
+  const famPts = fam == null ? 3 : fam >= 3 ? 1 : fam >= 1 ? 2 : 3;
+  add(6, 'familySize', 'Количество детей (оила аъзолари сони)', famPts, 3);
+
+  // 7. Залогодатель — IF(Д2!B28="да",3,1)
+  add(7, 'pledgor', 'Залогодатель', i.pledgorIsBorrower ? 3 : 1, 3);
+
+  // 8. Срок проживания — «иное»→3, «1-5 лет»→2, else 1.
+  const resPts = has(i.residenceBand, 'иное') || has(i.residenceBand, 'бошқа') ? 3
+    : has(i.residenceBand, '1-5') ? 2 : 1;
+  add(8, 'residence', 'Срок проживания', resPts, 3);
+
+  // 9. Сфера деятельности — IF(risk>18,4,IF(risk>9,5,6)). Codes run 1..17, so >18 never fires
+  //    with a valid sector; kept literally.
+  const risk = num(i.sectorRiskCode);
+  const riskPts = risk == null ? 0 : risk > 18 ? 4 : risk > 9 ? 5 : 6;
+  add(9, 'sector', 'Сфера деятельности', riskPts, 6);
+
+  // 10. Должность — «Рахбарият»→5, «ўрта менежер»→4, else 2.
+  const posPts = has(i.position, 'рахбар') ? 5 : has(i.position, 'менежер') ? 4 : i.position ? 2 : 0;
+  add(10, 'position', 'Должность', posPts, 5);
+
+  /*
+    11. EXPERIENCE — IF(D27=H27,5,IF(D27=G27,3,1)) where H27="3-5 лет" and G27="5-9 лет". So the
+    sheet awards 5 for 3-5 years, 3 for 5-9, and 1 for everything else — including "10 и более",
+    which scores lowest. That is almost certainly not intended, and is reproduced anyway.
+  */
+  const expPts = has(i.experienceBand, '3-5') ? 5 : has(i.experienceBand, '5-9') ? 3 : i.experienceBand ? 1 : 0;
+  add(11, 'experience', 'Общий стаж', expPts, 5);
+
+  // 12. Наличие дома — «Иш берувчи томонидан»→1, «мулкий хукук»→2, else 0.
+  const houPts = has(i.housingType, 'иш берувчи') ? 1 : has(i.housingType, 'мулкий') ? 2 : 0;
+  add(12, 'housing', 'Наличие дома', houPts, 2);
+
+  // 13. Наличие депозитов — 500-1000$→1, 1000-3000$→2, 3000$+→3, else 0.
+  const dep = i.depositBand;
+  const depPts = has(dep, '3000') && !has(dep, '1000 дан 3000') ? 3
+    : has(dep, '1000 дан 3000') ? 2
+      : has(dep, '500 дан 1000') ? 1 : 0;
+  add(13, 'deposits', 'Наличие депозитов', depPts, 3);
+
+  // 14. Колич. кредитов — IF(C3>=3,3,IF(C3=2,2,1)). Row is labelled «погаш.» but reads the
+  //     existing-loans cell; the formula is followed.
+  const act = num(i.activeLoansCount);
+  const actPts = act == null ? 1 : act >= 3 ? 3 : act === 2 ? 2 : 1;
+  add(14, 'loanCount', 'Колич. кредитов', actPts, 3);
+
+  // 15. Прочие обязательства — IF(C5=0,2,0)
+  const oth = num(i.otherObligations);
+  add(15, 'otherObligations', 'Прочие обязательства', oth === 0 ? 2 : 0, 2);
+
+  // 16. Текущие обязательства — overdue kills it; otherwise fewer existing loans scores higher.
+  const ovd = num(i.overdueSubstandardFlag);
+  const curPts = ovd === 1 ? 0 : act === 0 ? 5 : act === 1 ? 4 : act === 2 ? 2 : 0;
+  add(16, 'currentObligations', 'Текущие обязательства', curPts, 5);
+
+  // 17-18. Penalties: −5 each, max 0. «Мавжуд эмас» (none) is the clean answer.
+  const over5 = has(i.loansOver5MFlag, 'мавжуд') && !has(i.loansOver5MFlag, 'эмас') ? -5 : 0;
+  add(17, 'loansOver5M', 'Наличие кредитов свыше 5 млн. сум', over5, 0);
+  const mfi = has(i.priorMfiPawnshopFlag, 'мавжуд') && !has(i.priorMfiPawnshopFlag, 'эмас') ? -5 : 0;
+  add(18, 'priorMfi', 'Получал ли кредит в МКО/ломбардах ранее', mfi, 0);
+
+  // 19-20. The affordability pair — 43 of the 100 points.
+  const income = num(i.monthlyIncome) ?? 0;
+  const tranche = num(i.monthlyTranchePayment) ?? 0;
+  // балл!C29 — half the income is assumed as living cost, plus the declared expense lines.
+  const expenses = income * 0.5 + (num(i.declaredExpenses) ?? 0);
+  const surplus = income - expenses;
+
+  const tranchePerIncome = income > 0 ? tranche / income : null;
+  add(19, 'trancheToIncome', 'Транш/доход', tranchePerIncome != null && tranchePerIncome <= 0.5 ? 22 : 0, 22);
+
+  // IF(C24>=1,21,IF(C24<=1,16,0)) — the second branch is unreachable except at exactly 1.
+  const surplusPerTranche = tranche > 0 ? surplus / tranche : null;
+  add(20, 'surplusToTranche', '(Доход - расход)/транш', surplusPerTranche != null && surplusPerTranche >= 1 ? 21 : 16, 21);
+
+  const total = f.reduce((s, x) => s + x.points, 0);
+
+  return {
+    factors: f,
+    total,
+    max: SCORE_MAX,
+    verdict: verdictFor(total, ovd),
+    ratios: { age, tranchePerIncome, surplusPerTranche, income, expenses, surplus, incomeMinusTranche: income - tranche },
+  };
+}
+
+/**
+ * «Score отчет»!B24 — the verdict.
+ *
+ * Order matters and is the sheet's: below the minimum refuses first, then problem loans, then the
+ * approval threshold; anything between goes to the committee.
+ */
+export function verdictFor(total: number, overdueFlag: number | null | undefined): ScoreVerdict {
+  if (total < SCORE_MIN) return 'BELOW_MIN';
+  if (overdueFlag === 1) return 'FAILED_PROBLEM_LOANS';
+  if (total >= SCORE_APPROVE) return 'APPROVED';
+  return 'REFER_COMMITTEE';
+}
+
+/** The sheet's own wording for each verdict. */
+export const SCORE_VERDICT_LABEL: Record<ScoreVerdict, string> = {
+  APPROVED: 'Маъқулланди',
+  REFER_COMMITTEE: 'Андеррайтер/Кредит қўмитаси қарорига хавола',
+  BELOW_MIN: 'Скоринг балл минимал талабдан паст',
+  FAILED_PROBLEM_LOANS: 'Муаммоли кредитлар мавжудлиги босқичидан ўтмади',
+};

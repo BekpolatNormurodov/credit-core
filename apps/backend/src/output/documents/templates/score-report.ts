@@ -4,6 +4,7 @@ import { moneyWithWordsCyr, dateToRuCyrillic } from '../../../common/sum-to-word
 import { CaseDocData } from '../case-document.loader';
 import { gridTable, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
 import { wordsCyr } from './_shared';
+import { scoringForCase } from '../scoring-for-case';
 
 // The exact phrases the reference sheet offers for each gate — never invent wording.
 const OK = 'Талабларга мос келади';
@@ -48,7 +49,20 @@ const table = (body: TableCell[][]): Content => ({
 export function scoreReportTemplate(c: CaseDocData): TDocumentDefinitions {
   const line = c.creditLine;
   const b = c.borrower;
-  const s = c.scoring;
+  /*
+    A stored result wins if one was ever persisted; otherwise the score is computed from the case
+    the same way the payment schedule is. Nothing has ever written ScoringResult, so before this
+    every report printed «Скоринг ҳисобланмаган» no matter how complete the application was.
+  */
+  const computed = scoringForCase(c);
+  const s = c.scoring ?? {
+    computedAt: null,
+    totalScore: computed.total,
+    verdict: computed.verdict,
+    age: computed.ratios.age,
+    // The sheet's income gate reads балл!C31 — income minus the monthly tranche load.
+    netAfterDebt: computed.ratios.incomeMinusTranche,
+  };
   const history = c.creditHistory;
 
   const amount = line?.amountTotal ?? c.amount ?? null;

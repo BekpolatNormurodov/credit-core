@@ -66,11 +66,18 @@ describe('scoreReportTemplate (СКОРИНГ ТАХЛИЛ НАТИЖАДАЛА�
     expect(text).toContain('—');
   });
 
-  it('renders "Скоринг ҳисобланмаган" and skips the verdict when scoring has not been computed', () => {
+  /*
+    Was: "renders «Скоринг ҳисобланмаган» when scoring has not been computed". Nothing ever wrote
+    ScoringResult, so that was every case — the report was permanently blank. The score is now
+    derived from the case, the way the payment schedule is, and there is no un-scored state.
+  */
+  it('computes the score from the case when no result was stored', () => {
     const c = mockCaseDoc({ scoring: null as unknown as never });
     const text = flattenDocText(scoreReportTemplate(c));
 
-    expect(text).toContain('Скоринг ҳисобланмаган');
-    expect(text).not.toContain('Маъқулланди');
+    expect(text).not.toContain('Скоринг ҳисобланмаган');
+    expect(text).toContain('Скоринг балл');
+    // A real number, not a dash, in the score row.
+    expect(text).toMatch(/Скоринг балл\s*-?\d+/);
   });
 });
