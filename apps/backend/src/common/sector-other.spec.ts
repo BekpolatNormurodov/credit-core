@@ -7,6 +7,22 @@ describe('«Boshqa» sector', () => {
     expect(SECTOR_RISK).toHaveLength(17);
   });
 
+  it('every sector carries a translation and search words', () => {
+    // The picker shows `uz` or `label` by interface language and searches all three, so a missing
+    // one would leave an option invisible in Uzbek or unfindable by typing.
+    for (const s of SECTOR_RISK) {
+      expect({ code: s.code, hasUz: !!s.uz.trim(), hasSearch: !!s.search.trim() })
+        .toEqual({ code: s.code, hasUz: true, hasSearch: true });
+    }
+  });
+
+  it('keeps the Russian label as the stored value the risk code is looked up by', () => {
+    // Translating the stored string would orphan every saved row and zero the factor.
+    for (const s of SECTOR_RISK) expect(sectorRiskCode(s.label)).toBe(s.code);
+    // The Uzbek display text is not a lookup key, and must not accidentally become one.
+    expect(sectorRiskCode('Qishloq xo‘jaligi')).toBeNull();
+  });
+
   it('has no risk code — we cannot rate an activity we were not told', () => {
     expect(sectorRiskCode(SECTOR_OTHER)).toBeNull();
     expect(sectorRiskCode('Юриспруденция')).toBe(12);

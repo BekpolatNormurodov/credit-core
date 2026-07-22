@@ -193,7 +193,20 @@ export function KadastrInput({
   );
 }
 
-export interface Option<T extends string> { value: T; label: string; icon?: React.ComponentType<{ className?: string }>; swatch?: string }
+export interface Option<T extends string> {
+  value: T;
+  label: string;
+  /**
+   * Extra words the search should match, beyond the visible label.
+   *
+   * Lets a list be shown in one language and still be found by typing another — the sectors are
+   * stored and printed in Russian, shown in the interface language, and searchable in either plus
+   * English.
+   */
+  keywords?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  swatch?: string;
+}
 
 /** A small colour dot (for the car-colour dropdown) — always ringed so white/light stays visible. */
 function Swatch({ hex }: { hex: string }) {
@@ -220,7 +233,10 @@ export function Select<T extends string>({
   const sel = options.find((o) => o.value === value);
   // Preserve arbitrary values (e.g. imported/edited free text) that aren't in the list.
   const display = sel ? sel.label : value ? String(value) : '';
-  const filtered = q ? options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())) : options;
+  const needle = q.trim().toLowerCase();
+  const filtered = needle
+    ? options.filter((o) => `${o.label} ${o.value} ${o.keywords ?? ''}`.toLowerCase().includes(needle))
+    : options;
   const close = () => { setOpen(false); setQ(''); };
   return (
     <>

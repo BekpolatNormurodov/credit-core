@@ -108,34 +108,55 @@ export function isCaseInScope(branchIds: string[], caseBranchId: string | null |
   return !!caseBranchId && branchIds.includes(caseBranchId);
 }
 
-/** b3!M:N — activity sphere → industry-risk code (1–17). Lower code = lower risk. */
-export const SECTOR_RISK: { label: string; code: number }[] = [
-  { label: 'Безопасность / Военная служба / Служба спасения / Органы внутренних дел', code: 1 },
-  { label: 'Недвижимость / Эксплуатация / ЖКХ', code: 2 },
-  { label: 'Проектирование / Строительство', code: 3 },
-  { label: 'Промышленность / Производство', code: 4 },
-  { label: 'Сельское хозяйство', code: 5 },
-  { label: 'Транспорт, Перевозка и хранение', code: 6 },
-  { label: 'Фармацевтика / Медицина / Ветеринария', code: 7 },
-  { label: 'Фитнес / Физкультура / Спорт', code: 8 },
-  { label: 'Бухгалтерия / Банки / Страхование / Финансы / Инвестиции', code: 9 },
-  { label: 'Бытовые услуги / Сервисные центры / Автосервис', code: 10 },
-  { label: 'Телекоммуникации / Связь / Информационные технологии', code: 11 },
-  { label: 'Юриспруденция', code: 12 },
-  { label: 'Торговля / Продажи', code: 13 },
-  { label: 'Государственная служба', code: 14 },
-  { label: 'Маркетинг / Реклама / PR / GR', code: 15 },
-  { label: 'Наука / Культура / Искусство', code: 16 },
-  { label: 'Образование / Бизнес-образование / Консалтинг', code: 17 },
-];
 /**
- * «Boshqa» — an activity the seventeen do not cover.
+ * b3!M:N — activity sphere → industry-risk code (1–17). Lower code = lower risk.
  *
- * A real choice, not a blank: the operator has answered, we simply have no risk code for it. The
- * sector is optional anyway (only the employer and main income are required, and only above the
- * 100M threshold), but without this the picker forced a wrong sector on anyone who did not fit.
+ * `label` is the STORED value and the one the documents print, so it stays Russian exactly as the
+ * workbook writes it — the risk code is looked up by that string, and translating it would orphan
+ * every row already saved. `uz` is for display only; `search` carries English words so the picker
+ * can be typed into in whichever language comes to hand.
  */
+export const SECTOR_RISK: { label: string; uz: string; search: string; code: number }[] = [
+  { code: 1, label: 'Безопасность / Военная служба / Служба спасения / Органы внутренних дел',
+    uz: 'Xavfsizlik / Harbiy xizmat / Qutqaruv xizmati / Ichki ishlar organlari',
+    search: 'security military rescue police' },
+  { code: 2, label: 'Недвижимость / Эксплуатация / ЖКХ',
+    uz: 'Ko‘chmas mulk / Ekspluatatsiya / Kommunal xo‘jalik',
+    search: 'real estate property utilities' },
+  { code: 3, label: 'Проектирование / Строительство',
+    uz: 'Loyihalash / Qurilish', search: 'design construction building' },
+  { code: 4, label: 'Промышленность / Производство',
+    uz: 'Sanoat / Ishlab chiqarish', search: 'industry manufacturing production' },
+  { code: 5, label: 'Сельское хозяйство', uz: 'Qishloq xo‘jaligi', search: 'agriculture farming' },
+  { code: 6, label: 'Транспорт, Перевозка и хранение',
+    uz: 'Transport, tashish va saqlash', search: 'transport logistics storage' },
+  { code: 7, label: 'Фармацевтика / Медицина / Ветеринария',
+    uz: 'Farmatsevtika / Tibbiyot / Veterinariya', search: 'pharmacy medicine health veterinary' },
+  { code: 8, label: 'Фитнес / Физкультура / Спорт',
+    uz: 'Fitnes / Jismoniy tarbiya / Sport', search: 'fitness sport' },
+  { code: 9, label: 'Бухгалтерия / Банки / Страхование / Финансы / Инвестиции',
+    uz: 'Buxgalteriya / Banklar / Sug‘urta / Moliya / Investitsiyalar',
+    search: 'accounting bank insurance finance investment' },
+  { code: 10, label: 'Бытовые услуги / Сервисные центры / Автосервис',
+    uz: 'Maishiy xizmatlar / Servis markazlari / Avtoservis',
+    search: 'household services car service repair' },
+  { code: 11, label: 'Телекоммуникации / Связь / Информационные технологии',
+    uz: 'Telekommunikatsiya / Aloqa / Axborot texnologiyalari',
+    search: 'telecom communication it information technology' },
+  { code: 12, label: 'Юриспруденция', uz: 'Yuridik soha', search: 'law legal juridical' },
+  { code: 13, label: 'Торговля / Продажи', uz: 'Savdo / Sotuv', search: 'trade sales retail' },
+  { code: 14, label: 'Государственная служба', uz: 'Davlat xizmati', search: 'government public service' },
+  { code: 15, label: 'Маркетинг / Реклама / PR / GR',
+    uz: 'Marketing / Reklama / PR / GR', search: 'marketing advertising pr gr' },
+  { code: 16, label: 'Наука / Культура / Искусство',
+    uz: 'Fan / Madaniyat / San‘at', search: 'science culture art' },
+  { code: 17, label: 'Образование / Бизнес-образование / Консалтинг',
+    uz: 'Ta‘lim / Biznes-ta‘lim / Konsalting', search: 'education training consulting' },
+];
+
 export const SECTOR_OTHER = 'Boshqa';
+/** Shown instead of the stored «Boshqa» when the interface is in Russian. */
+export const SECTOR_OTHER_RU = 'Другое';
 
 /** Risk code 1..17, or null for «Boshqa» and anything unrecognised — those score nothing. */
 export function sectorRiskCode(label: string | null | undefined): number | null {

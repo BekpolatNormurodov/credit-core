@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@credit-core/api-client';
 import {
-  SECTOR_RISK, SECTOR_OTHER, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
+  SECTOR_RISK, SECTOR_OTHER, SECTOR_OTHER_RU, sectorRiskCode, loanTypeFor, originationCalc, ProductType,
   NATIONALITY_OPTIONS, MICRO_THRESHOLD, INSURANCE_COMPANIES, RELATIVE_RELATIONS, ENTREPRENEUR_TYPES,
   INSURANCE_MAX_MONTHS, INSURANCE_GEN_PREFIX, COLLATERAL_COVERAGE_TARGET, LINE_TERM_CAP, insurancePremiumRate,
   collateralComplete, collateralErrors,
@@ -14,6 +14,7 @@ import { MoneyInput, DatePicker, PhoneInput, Select } from '../../components/for
 import { Toggle } from '../../components/Switches';
 import { ConfirmDialog } from '../../components/Modal';
 import { useToast } from '../../components/Toast';
+import { useI18n } from '../../lib/i18n';
 import { House, Car, Plus, Trash, Check } from '../../lib/icons';
 import { cn, formatMoney } from '../../lib/cn';
 import { CollateralCard } from '../CaseForm';
@@ -118,6 +119,7 @@ export function Step1({ f }: { f: OriginationForm }) {
 
 /** Step 2 — Ish & daromad: employment + actual income/expense. */
 export function Step2({ f }: { f: OriginationForm }) {
+  const { lang } = useI18n();
   const e = f.form.employment ?? ({} as Emp);
   const a = f.form.affordability ?? ({} as Aff);
   const setEmp = (p: Partial<Emp>) => f.patch({ employment: { ...e, ...p } as Emp });
@@ -153,8 +155,16 @@ export function Step2({ f }: { f: OriginationForm }) {
             and the menu wraps it.
           */}
           <Field label="Soha" hint="Ixtiyoriy — ro‘yxatda bo‘lmasa «Boshqa» ni tanlang">
+            {/*
+              Shown in the interface language, stored in Russian: `value` stays the workbook's
+              string, which is what the risk code is looked up by and what the documents print.
+              `keywords` keeps every option findable by typing Russian, Uzbek or English.
+            */}
             <Select searchable menuWidth={380} value={(e.sector ?? '') as string} onChange={(v) => setEmp({ sector: v, sectorRiskCode: sectorRiskCode(v) })}
-              options={[...SECTOR_RISK.map((s) => ({ value: s.label, label: s.label })), { value: SECTOR_OTHER, label: SECTOR_OTHER }]} />
+              options={[
+                ...SECTOR_RISK.map((s) => ({ value: s.label, label: lang === 'ru' ? s.label : s.uz, keywords: `${s.label} ${s.uz} ${s.search}` })),
+                { value: SECTOR_OTHER, label: lang === 'ru' ? SECTOR_OTHER_RU : SECTOR_OTHER, keywords: `${SECTOR_OTHER} ${SECTOR_OTHER_RU} other` },
+              ]} />
           </Field>
           <Field label="Lavozim"><Select value={(e.position ?? '') as string} onChange={(v) => setEmp({ position: v })} options={opt(['Рахбарият', 'ўрта менежер', 'мутахассис', 'хизмат кўрсатувчи'])} /></Field>
           <Field label="Ish staji (sana)"><Input value={e.employedSince ?? ''} onChange={(ev) => setEmp({ employedSince: ev.target.value })} placeholder="2024 й." /></Field>
