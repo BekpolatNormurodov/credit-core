@@ -814,8 +814,31 @@ export class CreditCasesService {
    * workflow decision, so no status gate or extra role check beyond the controller's guard.
    */
   async saveDisbursement(id: string, user: RequestUser, dto: DisbursementInput) {
-    const c = await this.prisma.creditCase.findUnique({ where: { id }, select: { id: true } });
+    const c = await this.prisma.creditCase.findUnique({
+      where: { id },
+      select: { id: true, status: true, signature: { select: { id: true } } },
+    });
     if (!c) throw new NotFoundException('Ariza topilmadi');
+
+    /*
+      Locked once the director has signed.
+
+      Signing freezes «Пул ўтказиш аризаси» and «Мablag' taqsimoti» to disk, and the director's key
+      covers those exact bytes. Letting the requisites change afterwards would leave the issued
+      document naming one account and the database another — with nothing on either to say which
+      the money should go to. The account holder may legitimately be someone other than the
+      borrower, which is precisely why the frozen document has to stay the record.
+    */
+    const locked = c.signature
+      || c.status === CaseStatus.FINALIZED
+      || c.status === CaseStatus.REJECTED
+      || c.status === CaseStatus.CANCELLED;
+    if (locked) {
+      throw new ForbiddenException(
+        'Ariza yakunlangan — pul o‘tkazish rekvizitlarini o‘zgartirib bo‘lmaydi',
+      );
+    }
+
     const data = {
       holderName: dto.holderName ?? null,
       cardNumber: dto.cardNumber ?? null,

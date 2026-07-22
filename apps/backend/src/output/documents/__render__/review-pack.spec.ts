@@ -131,7 +131,8 @@ const HOVLI = mockCaseDoc({
 /** Filing order from the «перечень» sheet, so the folder reads like the paper dossier. */
 const ORDER: { key: string; name: string }[] = [
   { key: 'petition', name: '01-Murojaatnoma' },
-  { key: 'scoreReport', name: '02-Skoring-tahlil' },
+  { key: 'clientProfile', name: '02-Mijoz-anketasi' },
+  { key: 'scoreReport', name: '03-Skoring-tahlil' },
   { key: 'rklGen', name: '03-Bosh-kelishuv' },
   { key: 'act', name: '04-Baholash-dalolatnomasi' },
   { key: 'creditApplication', name: '05-Kredit-arizasi' },

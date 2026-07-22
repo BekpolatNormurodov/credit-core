@@ -16,6 +16,7 @@ describe('DOC_REGISTRY', () => {
       'act',
       'actNotary',
       'cheklist',
+      'clientProfile',
       'contract',
       'creditApplication',
       'disbursement',

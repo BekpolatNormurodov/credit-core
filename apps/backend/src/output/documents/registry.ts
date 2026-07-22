@@ -13,6 +13,7 @@ import { cheklistTemplate } from './templates/cheklist';
 import { accountantSplitTemplate } from './templates/accountant-split';
 import { monitoringTemplate } from './templates/monitoring';
 import { grafikTemplate } from './templates/grafik';
+import { clientProfileTemplate } from './templates/client-profile';
 import { disbursementTemplate } from './templates/disbursement';
 
 export type DocTemplate = (c: CaseDocData) => TDocumentDefinitions;
@@ -39,6 +40,9 @@ export const DOC_REGISTRY: Record<string, { title: string; lang: 'uz' | 'ru'; ca
   obloshka: { title: 'Ish obloshkasi (Обложка)', lang: 'uz', category: 'main', stage: 'review', build: obloshkaTemplate },
   cheklist: { title: 'Hujjatlar ro\'yxati (Чек-лист)', lang: 'uz', category: 'main', stage: 'review', build: cheklistTemplate },
   grafik: { title: 'Тўлов жадвали (график)', lang: 'uz', category: 'main', stage: 'review', build: grafikTemplate },
+  // The client questionnaire (sheet b3) — where the scoring reads its inputs and where the
+  // debt-burden ratio is printed. Available from review: it is the client's own declaration.
+  clientProfile: { title: 'Мижоз анкетаси', lang: 'uz', category: 'main', stage: 'review', build: clientProfileTemplate },
   // Buxgalteriya uchun — the money-movement documents, grouped into their own section (like notary).
   accountantSplit: { title: 'Mablag\' taqsimoti (Бухгалтерия учун)', lang: 'uz', category: 'accountant', stage: 'review', build: accountantSplitTemplate },
   disbursement: { title: 'Пул ўтказиш аризаси (карта реквизитлари)', lang: 'uz', category: 'accountant', stage: 'review', build: disbursementTemplate },
