@@ -1,5 +1,5 @@
 import type { Content, TableCell, TDocumentDefinitions } from 'pdfmake/interfaces';
-import { scoreForCase, type ScorableCase } from '@credit-core/shared';
+import { scoreForCase, MICRO_THRESHOLD, type ScorableCase } from '@credit-core/shared';
 import { dateToRuCyrillic } from '../../../common/sum-to-words.util';
 import { CaseDocData } from '../case-document.loader';
 import { gridTable, plainMoney, DOC_DEFAULT_STYLE, DOC_PAGE_MARGINS } from '../doc-layout';
@@ -35,11 +35,31 @@ export function clientProfileTemplate(c: CaseDocData): TDocumentDefinitions {
   const h = c.creditHistory;
   const org = c.organization?.nameUpper ?? 'ММТ';
 
-  const phones = Array.isArray((b as { phones?: unknown })?.phones)
-    ? ((b as { phones?: Array<{ number?: string }> }).phones ?? []).map((p) => p?.number).filter(Boolean)
+  /*
+    The «қўшимча» rows always printed a dash: they read `phones`, which the wizard never fills. The
+    numbers the operator actually enters are the close contacts — the father, the mother, whoever
+    else — collected on step 1 and required in pairs.
+
+    `phones` is still read first for any row that carries it, then the contacts fill the rest. The
+    borrower's own мобил is excluded so it cannot appear twice.
+  */
+  const listed = Array.isArray((b as { phones?: unknown })?.phones)
+    ? ((b as { phones?: Array<{ number?: string }> }).phones ?? []).map((p) => p?.number)
     : [];
+  const contacts = Array.isArray((b as { closeContacts?: unknown })?.closeContacts)
+    ? ((b as { closeContacts?: Array<{ phone?: string }> }).closeContacts ?? []).map((x) => x?.phone)
+    : [];
+  const norm = (v: unknown): string => String(v ?? '').replace(/\D/g, '');
+  const extras = [...listed, ...contacts]
+    .map((x) => (x ?? '').trim())
+    .filter((x) => x && norm(x) !== norm(b?.phone))
+    .filter((x, i, a) => a.findIndex((y) => norm(y) === norm(x)) === i);
+
   /** The sheet prints one мобил line plus three «қўшимча»; empty ones show a dash. */
-  const extra = (i: number): string => dash(phones[i + 1]);
+  const extra = (i: number): string => dash(extras[i]);
+
+  const amountTotal = c.creditLine?.amountTotal ?? c.amount ?? null;
+  const isMicrocredit = Number(amountTotal ?? 0) > MICRO_THRESHOLD;
 
   const n = (v: unknown): number => (v == null ? 0 : Number(v));
   const income = n(af?.mainActivityIncome) + n(af?.secondaryIncome) + n(af?.familyIncome) + n(af?.otherIncome);
@@ -93,7 +113,12 @@ export function clientProfileTemplate(c: CaseDocData): TDocumentDefinitions {
     ...group('Даромад манбаи', [
       ['Фаолият жойи', dash(emp?.employer)],
       ['Фаолият манзили', dash(emp?.employerAddress)],
-      ['Соха', dash(emp?.sector)],
+      /*
+        Over 100 million the client is registered as a sole trader or self-employed, and the office
+        writes that status here rather than an activity sector — it is what the larger loan turns
+        on. Below the threshold the sector stands.
+      */
+      ['Соха', dash(isMicrocredit ? (b?.entrepreneurType ?? emp?.sector) : emp?.sector)],
       ['Лавозими', dash(emp?.position)],
       ['мехнат давомийлиги', dash(emp?.experienceBand)],
     ]),

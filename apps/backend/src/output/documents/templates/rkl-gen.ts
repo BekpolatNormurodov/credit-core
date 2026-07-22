@@ -130,7 +130,11 @@ export function rklGenTemplate(c: CaseDocData, notary = false): TDocumentDefinit
           { text: `х/р: ${org?.bankAccount ?? '—'}` },
           { text: `МФО: ${org?.bankMfo ?? '—'}` },
           { text: `СТИР: ${org?.inn ?? '—'}` },
-          { text: 'Ижрочи директор', margin: [0, 10, 0, 2] as [number, number, number, number] },
+          // The firm's contact line, as on the contract and the schedule.
+          ...(org?.phone ? [{ text: `Тел: ${org.phone}` }] : []),
+          // Extra air above the signature: with the phone line added the director's name sat
+          // right under the requisites with nowhere to sign.
+          { text: 'Ижрочи директор', margin: [0, 16, 0, 2] as [number, number, number, number] },
           { text: org?.directorFull ?? '—' },
           { text: '\n___________________ (imzo)', margin: [0, 4, 0, 0] as [number, number, number, number] },
         ] },

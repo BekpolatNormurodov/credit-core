@@ -305,7 +305,8 @@ function buildContract(c: CaseDocData): TDocumentDefinitions {
               { text: `СТИР: ${orgInn}`, margin: [0, 1, 0, 1] },
               // The firm's contact line — the debtor column has always carried one, this one did not.
               ...(orgPhone ? [{ text: `Тел: ${orgPhone}`, margin: [0, 1, 0, 1] as [number, number, number, number] }] : []),
-              { text: 'Ижрочи директор', margin: [0, 10, 0, 2] },
+              // Extra air above the signature — the phone line left the director crowding the requisites.
+              { text: 'Ижрочи директор', margin: [0, 16, 0, 2] },
               { text: directorFull },
               { text: '\n_______________ (imzo)', margin: [0, 4, 0, 0] },
             ],
